@@ -1670,14 +1670,27 @@
     async function captureInspectionCardImage() {
       const card = document.getElementById('inspectionCaptureCard');
       const themeBtn = document.getElementById('themeSelectorBtn');
+      const statusEl = document.getElementById('status');
+      const formActions = checkinBtn?.closest('.form-actions');
       if (!card) {
         return { success: false, error: 'Capture container not found' };
       }
 
-      const prevThemeDisplay = themeBtn ? themeBtn.style.display : '';
-      if (themeBtn) themeBtn.style.display = 'none';
+      const hidden = [];
+      function hideEl(el) {
+        if (!el || el.style.display === 'none') return;
+        hidden.push({ el, display: el.style.display });
+        el.style.display = 'none';
+      }
+
+      hideEl(themeBtn);
+      hideEl(statusEl);
+      hideEl(formActions);
 
       try {
+        // Allow hidden elements to repaint before capture
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
         const { toPng } = await import('https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/+esm');
         const dataUrl = await toPng(card, {
           cacheBust: true,
@@ -1690,7 +1703,9 @@
         console.error('[INSPECTION] Form capture failed:', err);
         return { success: false, error: String(err) };
       } finally {
-        if (themeBtn) themeBtn.style.display = prevThemeDisplay;
+        hidden.forEach(({ el, display }) => {
+          el.style.display = display;
+        });
       }
     }
 
