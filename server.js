@@ -28,9 +28,25 @@ app.post('/api/:action', async (req, res) => {
 
 // Handle image files explicitly (for Vercel serverless)
 app.get(/\.(png|jpg|jpeg|gif|svg|ico|webp)$/i, (req, res, next) => {
-  const filePath = path.join(__dirname, req.path);
-  // Try to serve the file
-  res.sendFile(filePath, (err) => {
+  // Skip favicon.ico - let it 404 gracefully
+  if (req.path === '/favicon.ico') {
+    return res.status(404).send('Not found');
+  }
+
+  // Try public directory first (Vercel serves this automatically)
+  const publicPath = path.join(__dirname, 'public', req.path);
+  if (fs.existsSync(publicPath)) {
+    return res.sendFile(publicPath, (err) => {
+      if (err) {
+        console.error('Error serving file from public:', err);
+        res.status(404).send('File not found');
+      }
+    });
+  }
+
+  // Fallback to root directory
+  const rootPath = path.join(__dirname, req.path);
+  res.sendFile(rootPath, (err) => {
     if (err) {
       console.error('Error serving static file:', err);
       res.status(404).send('File not found');
@@ -39,7 +55,8 @@ app.get(/\.(png|jpg|jpeg|gif|svg|ico|webp)$/i, (req, res, next) => {
 });
 
 // Catch-all for SPA routing (must be last)
-app.get('*', (req, res) => {
+// Use regex pattern instead of '*' to avoid path-to-regexp errors on Vercel/Express 5
+app.get(/^(?!\/api).*$/, (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
