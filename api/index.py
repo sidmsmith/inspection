@@ -476,6 +476,8 @@ def upload_signature():
     filename = data.get('filename')
     file_data = data.get('fileData')  # Base64 encoded PNG
     notes = data.get('notes', '')
+    document_name = data.get('documentName', 'Inspector')
+    document_description = data.get('documentDescription', 'Inspection document uploaded via Inspection app')
 
     if not all([org, token, object_type_id, object_id, filename, file_data]):
         return jsonify({"success": False, "error": "Missing required fields"})
@@ -495,18 +497,18 @@ def upload_signature():
         "Description": "Uploaded via Inspection",
         "DocumentManagerFiles": [{
             "FileName": filename,
-            "DocumentName": "Driver Signature",
-            "Description": "Driver signature captured during check-in",
+            "DocumentName": document_name,
+            "Description": document_description,
             "Notes": notes,
             "FileData": file_data
         }]
     }
 
     try:
-        print(f"[SIGNATURE UPLOAD] {object_type_id}: {object_id}, File: {filename}")
+        print(f"[DOCUMENT UPLOAD] {document_name} → {object_type_id}: {object_id}, File: {filename}")
         r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
-        print(f"[SIGNATURE UPLOAD] Status: {r.status_code}")
-        print(f"[SIGNATURE UPLOAD] Response: {r.text[:2000]}")
+        print(f"[DOCUMENT UPLOAD] Status: {r.status_code}")
+        print(f"[DOCUMENT UPLOAD] Response: {r.text[:2000]}")
 
         if r.ok:
             try:
@@ -517,11 +519,11 @@ def upload_signature():
                     return jsonify({"success": False, "error": err_msg})
             except:
                 pass
-            return jsonify({"success": True, "message": f"Signature uploaded for {object_type_id} {object_id}"})
+            return jsonify({"success": True, "message": f"{document_name} uploaded for {object_type_id} {object_id}"})
         else:
             return jsonify({"success": False, "error": f"Upload failed (HTTP {r.status_code})"})
     except Exception as e:
-        print(f"[SIGNATURE UPLOAD] Exception: {str(e)}")
+        print(f"[DOCUMENT UPLOAD] Exception: {str(e)}")
         return jsonify({"success": False, "error": str(e)})
 
 

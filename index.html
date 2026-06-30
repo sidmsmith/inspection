@@ -278,7 +278,7 @@
   </style>
 </head>
 <body>
-  <div class="main-card">
+  <div class="main-card" id="inspectionCaptureCard">
     <button class="theme-selector-btn" id="themeSelectorBtn" title="Select Theme">
       <i class="fas fa-cog"></i>
     </button>
@@ -1505,19 +1505,37 @@
         trailer_id: appt.TrailerId || null
       });
 
-      status('Completing inspection...');
+      status('Capturing inspection form...');
       checkinBtn.disabled = true;
 
+      const captureResult = await captureInspectionCardImage();
+      if (!captureResult.success) {
+        trackEvent('inspection_failed', {
+          org: org,
+          appointment_id: appt.AppointmentId || null,
+          asn_ids: asnIds,
+          uploads_succeeded: 0,
+          uploads_failed: 0,
+          error: captureResult.error || 'Failed to capture inspection form image',
+          inspection_duration_ms: Date.now() - inspectionStartTime
+        });
+        status('Inspection failed. Could not capture inspection form image.', 'error');
+        validateCompleteInspection();
+        return;
+      }
+
+      status('Uploading inspection documents...');
       const uploadStartTime = Date.now();
-      const uploadResults = await uploadInspectionDocuments(appt, org, asnIds);
+      const uploadResults = await uploadInspectionDocuments(appt, org, asnIds, captureResult.base64Data);
       const uploadDuration = Date.now() - uploadStartTime;
       const inspectionDuration = Date.now() - inspectionStartTime;
 
       const uploadsSucceeded = uploadResults.filter(r => r.success).length;
       const uploadsFailed = uploadResults.filter(r => !r.success).length;
+      const expectedUploads = asnIds.length * 2;
 
-      if (uploadsFailed === 0 && uploadsSucceeded > 0) {
-        checkinMessage.textContent = `Inspection complete. ${uploadsSucceeded} document(s) uploaded for ASN${uploadsSucceeded === 1 ? '' : 's'}: ${asnIds.join(', ')}.`;
+      if (uploadsFailed === 0 && uploadsSucceeded === expectedUploads) {
+        checkinMessage.textContent = `Inspection complete. ${uploadsSucceeded} document(s) uploaded (${asnIds.length} Inspector + ${asnIds.length} Inspection Form) for ASN${asnIds.length === 1 ? '' : 's'}: ${asnIds.join(', ')}.`;
         checkinModal.show();
 
         trackEvent('inspection_completed', {
@@ -1618,45 +1636,99 @@
       });
     }
 
-    // Upload inspection document for each linked ASN
-    async function uploadInspectionDocuments(appt, org, asnIds) {
+    // Capture full inspection card (header, form, signature pad) as PNG
+    async function captureInspectionCardImage() {
+      const card = document.getElementById('inspectionCaptureCard');
+      const themeBtn = document.getElementById('themeSelectorBtn');
+      if (!card) {
+        return { success: false, error: 'Capture container not found' };
+      }
+
+      const prevThemeDisplay = themeBtn ? themeBtn.style.display : '';
+      if (themeBtn) themeBtn.style.display = 'none';
+
+      try {
+        const { toPng } = await import('https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/+esm');
+        const dataUrl = await toPng(card, {
+          cacheBust: true,
+          pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+          backgroundColor: getComputedStyle(card).backgroundColor || '#1e1e1e'
+        });
+        const base64Data = dataUrl.replace(/^data:image\/png;base64,/, '');
+        return { success: true, base64Data };
+      } catch (err) {
+        console.error('[INSPECTION] Form capture failed:', err);
+        return { success: false, error: String(err) };
+      } finally {
+        if (themeBtn) themeBtn.style.display = prevThemeDisplay;
+      }
+    }
+
+    // Upload Inspector signature + Inspection Form screenshot for each linked ASN
+    async function uploadInspectionDocuments(appt, org, asnIds, formImageBase64) {
       const referenceId = appt.AppointmentId || appt.AsnId || 'Unknown';
       const driverName = fld.driverName.value.trim() || 'Unknown';
       const timestamp = new Date().toLocaleString('en-US');
       const notes = `${timestamp}, ${driverName}`;
       const results = [];
 
-      console.log(`[INSPECTION] Uploading document for ${asnIds.length} ASN(s)`);
+      console.log(`[INSPECTION] Uploading Inspector + Inspection Form for ${asnIds.length} ASN(s)`);
 
       for (const asnId of asnIds) {
-        try {
-          const label = `ASN: ${asnId}`;
-          const { base64Data } = await enhanceSignatureImage(referenceId, label);
-          const filename = `Inspection_${referenceId}_${asnId}.png`;
+        const label = `ASN: ${asnId}`;
 
-          const res = await api('upload_signature', {
+        try {
+          const { base64Data: inspectorBase64 } = await enhanceSignatureImage(referenceId, label);
+          const inspectorRes = await api('upload_signature', {
             org,
             token,
             objectTypeId: 'ASN',
             objectId: asnId,
-            filename,
-            fileData: base64Data,
-            notes
+            filename: `Inspection_${referenceId}_${asnId}_inspector.png`,
+            fileData: inspectorBase64,
+            notes,
+            documentName: 'Inspector',
+            documentDescription: 'Inspector signature captured during inspection'
           });
 
           results.push({
             asnId,
-            success: !!res.success,
-            error: res.error || null
+            type: 'inspector',
+            success: !!inspectorRes.success,
+            error: inspectorRes.error || null
           });
 
-          if (res.success) {
-            console.log(`[INSPECTION] Uploaded for ASN: ${asnId}`);
+          if (!inspectorRes.success) {
+            console.warn(`[INSPECTION] Inspector upload failed for ASN: ${asnId}:`, inspectorRes.error);
+            continue;
+          }
+
+          const formRes = await api('upload_signature', {
+            org,
+            token,
+            objectTypeId: 'ASN',
+            objectId: asnId,
+            filename: `Inspection_${referenceId}_${asnId}_form.png`,
+            fileData: formImageBase64,
+            notes,
+            documentName: 'Inspection Form',
+            documentDescription: 'Inspection form screenshot captured during inspection'
+          });
+
+          results.push({
+            asnId,
+            type: 'inspection_form',
+            success: !!formRes.success,
+            error: formRes.error || null
+          });
+
+          if (formRes.success) {
+            console.log(`[INSPECTION] Uploaded Inspector + Inspection Form for ASN: ${asnId}`);
           } else {
-            console.warn(`[INSPECTION] Failed for ASN: ${asnId}:`, res.error);
+            console.warn(`[INSPECTION] Inspection Form upload failed for ASN: ${asnId}:`, formRes.error);
           }
         } catch (err) {
-          results.push({ asnId, success: false, error: String(err) });
+          results.push({ asnId, type: 'inspector', success: false, error: String(err) });
           console.warn(`[INSPECTION] Error uploading for ASN: ${asnId}:`, err);
         }
       }
