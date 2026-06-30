@@ -490,7 +490,7 @@ def upload_signature():
     payload = {
         "ObjectTypeId": object_type_id,
         "ObjectId": object_id,
-        "DocumentCategoryId": "DriverSignature",
+        "DocumentCategoryId": "inspection",
         "Action": "overWrite",
         "Description": "Uploaded via Inspection",
         "DocumentManagerFiles": [{

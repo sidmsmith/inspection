@@ -400,9 +400,9 @@
           </div>
         </div>
 
-        <!-- Check In Button -->
+        <!-- Complete Inspection Button -->
         <div class="form-actions">
-          <button id="checkinBtn" class="btn btn-success btn-lg w-100" disabled>Check In</button>
+          <button id="checkinBtn" class="btn btn-success btn-lg w-100" disabled>Complete Inspection</button>
         </div>
       </div>
     </div>
@@ -413,7 +413,7 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title text-success">Check In Complete</h5>
+          <h5 class="modal-title text-success">Inspection Complete</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body" id="checkinMessage"></div>
@@ -1204,10 +1204,10 @@
       if (e.key === 'Enter' && !findBtn.disabled) findBtn.click();
     });
 
-    // Validate Check In when required fields change
-    fld.carrier.addEventListener('input', validateCheckIn);
-    fld.trailer.addEventListener('input', validateCheckIn);
-    fld.driverName.addEventListener('input', validateCheckIn);
+    // Validate Complete Inspection when required fields change
+    fld.carrier.addEventListener('input', validateCompleteInspection);
+    fld.trailer.addEventListener('input', validateCompleteInspection);
+    fld.driverName.addEventListener('input', validateCompleteInspection);
 
     // Toggle checkboxes
     document.querySelectorAll('.toggle-check').forEach(el => {
@@ -1314,7 +1314,35 @@
         clearSignaturePad();
       });
 
-      validateCheckIn();
+      validateCompleteInspection();
+    }
+
+    // Collect ASN IDs from a direct ASN search or appointment-linked contents
+    function collectAsnIds(appt) {
+      if (!appt) return [];
+
+      const asnIds = new Set();
+
+      if (appt._searchType === 'asn' && appt.AsnId) {
+        asnIds.add(String(appt.AsnId));
+        return [...asnIds];
+      }
+
+      const contents = appt.AppointmentContents;
+      if (!contents || !Array.isArray(contents)) return [];
+
+      contents.forEach(item => {
+        const asnObj = item.AsnId;
+        if (!asnObj) return;
+        const asnId = typeof asnObj === 'string' ? asnObj : (asnObj.AsnId || null);
+        if (asnId) asnIds.add(String(asnId));
+      });
+
+      return [...asnIds];
+    }
+
+    function hasLinkedAsn(appt) {
+      return collectAsnIds(appt).length > 0;
     }
 
     // Minimal form state for ASN search (detail fields TBD)
@@ -1345,7 +1373,7 @@
         clearSignaturePad();
       });
 
-      validateCheckIn();
+      validateCompleteInspection();
     }
 
     // Reset form
@@ -1361,9 +1389,9 @@
       checkinBtn.disabled = true;
     }
 
-    // Validate required fields: Carrier, Trailer, and Signature
-    function validateCheckIn() {
-      if (!currentAppt || currentAppt.AppointmentStatusId !== '3000') {
+    // Validate required fields plus a linked ASN
+    function validateCompleteInspection() {
+      if (!currentAppt || !hasLinkedAsn(currentAppt)) {
         checkinBtn.disabled = true;
         return;
       }
@@ -1437,11 +1465,10 @@
       });
     };
 
-    // Check In — merge form values with original API data
+    // Complete Inspection — upload inspection documents for linked ASNs
     checkinBtn.onclick = async () => {
       if (!currentAppt) return;
 
-      // Build merged appointment from API data + form edits
       const conditionCode = document.getElementById('fld_conditionCode').value || null;
       const equipmentTypeId = document.getElementById('fld_trailerType').value || currentAppt.EquipmentTypeId;
       const appt = {
@@ -1454,118 +1481,73 @@
         ConditionCodeId: conditionCode
       };
 
-      await performCheckIn(appt);
+      await performCompleteInspection(appt);
     };
 
-    // Perform check-in
-    async function performCheckIn(appt) {
+    async function performCompleteInspection(appt) {
       const org = orgInput.value.trim() || 'unknown';
-      
-      // Extract BOL from AppointmentContents
-      let bol = null;
-      if (appt.AppointmentContents) {
-        if (Array.isArray(appt.AppointmentContents) && appt.AppointmentContents.length > 0) {
-          bol = appt.AppointmentContents[0].BillOfLadingNumber || null;
-        } else if (appt.AppointmentContents.BillOfLadingNumber) {
-          bol = appt.AppointmentContents.BillOfLadingNumber;
-        }
+      const asnIds = collectAsnIds(appt);
+
+      if (asnIds.length === 0) {
+        status('An ASN is required to complete inspection', 'error');
+        validateCompleteInspection();
+        return;
       }
-      
-      // Check for missing fields
-      const missingFields = [];
-      if (!appt.CarrierId) missingFields.push('CarrierId');
-      if (!appt.TrailerId) missingFields.push('TrailerId');
-      if (!appt.AppointmentTypeId) missingFields.push('AppointmentTypeId');
-      if (!appt.EquipmentTypeId) missingFields.push('EquipmentTypeId');
-      
-      const checkinStartTime = Date.now();
-      
-      // Track check-in attempt with appointment-specific metadata
-      trackEvent('checkin_attempt', {
+
+      const inspectionStartTime = Date.now();
+
+      trackEvent('inspection_attempt', {
         org: org,
-        appointment_id: appt.AppointmentId || 'unknown',
+        appointment_id: appt.AppointmentId || null,
+        asn_ids: asnIds,
+        search_type: appt._searchType || (appt.AppointmentId ? 'appointment' : 'asn'),
         carrier_id: appt.CarrierId || null,
-        trailer_id: appt.TrailerId || null,
-        equipment_type_id: appt.EquipmentTypeId || null,
-        appointment_type_id: appt.AppointmentTypeId || null,
-        bol: bol,
-        has_missing_fields: missingFields.length > 0,
-        missing_fields_list: missingFields.length > 0 ? missingFields : null
+        trailer_id: appt.TrailerId || null
       });
-      
-      status('Checking in trailer...');
+
+      status('Completing inspection...');
       checkinBtn.disabled = true;
 
-      const apiStartTime = Date.now();
-      const res = await api('checkin', { 
-        appt, 
-        org, 
-        token 
-      });
-      const apiResponseTime = Date.now() - apiStartTime;
-      const checkinDuration = Date.now() - checkinStartTime;
+      const uploadStartTime = Date.now();
+      const uploadResults = await uploadInspectionDocuments(appt, org, asnIds);
+      const uploadDuration = Date.now() - uploadStartTime;
+      const inspectionDuration = Date.now() - inspectionStartTime;
 
-      if (res.success) {
-        // Upload signature BEFORE resetting form (need canvas data)
-        status('Uploading signature...', 'success');
-        await uploadSignaturesForAppointment(appt, org);
+      const uploadsSucceeded = uploadResults.filter(r => r.success).length;
+      const uploadsFailed = uploadResults.filter(r => !r.success).length;
 
-        checkinMessage.textContent = `${res.message || 'Check-in successful'}`;
+      if (uploadsFailed === 0 && uploadsSucceeded > 0) {
+        checkinMessage.textContent = `Inspection complete. ${uploadsSucceeded} document(s) uploaded for ASN${uploadsSucceeded === 1 ? '' : 's'}: ${asnIds.join(', ')}.`;
         checkinModal.show();
-        
-        // Calculate payload size
-        const payloadSize = JSON.stringify({ appt, org, token }).length;
-        
-        // Track check-in success with appointment-specific metadata
-        trackEvent('checkin_completed', {
+
+        trackEvent('inspection_completed', {
           org: org,
-          appointment_id: appt.AppointmentId || 'unknown',
-          carrier_id: appt.CarrierId || null,
-          trailer_id: appt.TrailerId || null,
-          equipment_type_id: appt.EquipmentTypeId || null,
-          appointment_type_id: appt.AppointmentTypeId || null,
-          bol: bol,
-          checkin_message: res.message || 'Check-in successful',
-          checkin_duration_ms: checkinDuration,
-          api_response_time_ms: apiResponseTime,
-          api_status_code: 200, // Assuming success means 200
-          checkin_payload_size: payloadSize
+          appointment_id: appt.AppointmentId || null,
+          asn_ids: asnIds,
+          uploads_succeeded: uploadsSucceeded,
+          uploads_failed: uploadsFailed,
+          inspection_duration_ms: inspectionDuration,
+          upload_duration_ms: uploadDuration
         });
-        
-        // Remove checked-in appointment from valid set and reset form
-        validAppointmentIds.delete(appt.AppointmentId);
+
         criteriaInput.value = '';
         findBtn.disabled = true;
         resetForm();
-        status(`Check-in complete – ${validAppointmentIds.size} scheduled appointments remaining`, 'success');
-        
-        // Refresh the valid appointments list in background
-        const refreshOrg = orgInput.value.trim();
-        api('scheduled', { org: refreshOrg, token }).then(r => {
-          if (r.success && r.appointments) {
-            validAppointmentIds = new Set(r.appointments.map(a => String(a.AppointmentId)).filter(Boolean));
-          }
-        });
+        status('Inspection complete', 'success');
       } else {
-        // Track check-in failure with appointment-specific metadata
-        trackEvent('checkin_failed', {
+        trackEvent('inspection_failed', {
           org: org,
-          appointment_id: appt.AppointmentId || 'unknown',
-          carrier_id: appt.CarrierId || null,
-          trailer_id: appt.TrailerId || null,
-          equipment_type_id: appt.EquipmentTypeId || null,
-          appointment_type_id: appt.AppointmentTypeId || null,
-          bol: bol,
-          error: res.error || 'Check-in failed',
-          error_message: res.error || 'Check-in failed',
-          checkin_duration_ms: checkinDuration,
-          api_response_time_ms: apiResponseTime,
-          api_success: false
+          appointment_id: appt.AppointmentId || null,
+          asn_ids: asnIds,
+          uploads_succeeded: uploadsSucceeded,
+          uploads_failed: uploadsFailed,
+          error: uploadsFailed > 0 ? 'One or more document uploads failed' : 'No documents uploaded',
+          inspection_duration_ms: inspectionDuration,
+          upload_duration_ms: uploadDuration
         });
-        
-        // USER-FRIENDLY ERROR
-        status('Check In Failed. Please see Receiving Office.', 'error');
-        validateCheckIn();
+
+        status('Inspection failed. Could not upload inspection document(s).', 'error');
+        validateCompleteInspection();
       }
     }
     // ===== SIGNATURE ENHANCEMENT & UPLOAD =====
@@ -1636,74 +1618,50 @@
       });
     }
 
-    // Upload signature for all ASNs and POs from AppointmentContents
-    async function uploadSignaturesForAppointment(appt, org) {
-      const contents = appt.AppointmentContents;
-      if (!contents || !Array.isArray(contents) || contents.length === 0) {
-        console.log('[SIGNATURE] No AppointmentContents to upload against');
-        return;
-      }
-
-      const appointmentId = appt.AppointmentId || 'Unknown';
+    // Upload inspection document for each linked ASN
+    async function uploadInspectionDocuments(appt, org, asnIds) {
+      const referenceId = appt.AppointmentId || appt.AsnId || 'Unknown';
       const driverName = fld.driverName.value.trim() || 'Unknown';
       const timestamp = new Date().toLocaleString('en-US');
       const notes = `${timestamp}, ${driverName}`;
+      const results = [];
 
-      // Collect unique ASNs and POs
-      const uploads = [];
-      const seenIds = new Set();
+      console.log(`[INSPECTION] Uploading document for ${asnIds.length} ASN(s)`);
 
-      contents.forEach(item => {
-        const asnObj = item.AsnId;
-        if (asnObj) {
-          const asnId = typeof asnObj === 'string' ? asnObj : (asnObj.AsnId || null);
-          if (asnId && !seenIds.has('ASN:' + asnId)) {
-            seenIds.add('ASN:' + asnId);
-            uploads.push({ objectTypeId: 'ASN', objectId: asnId, label: `ASN: ${asnId}` });
-          }
-        }
-        const poObj = item.PurchaseOrderId;
-        if (poObj) {
-          const poId = typeof poObj === 'string' ? poObj : (poObj.PurchaseOrderId || null);
-          if (poId && !seenIds.has('PO:' + poId)) {
-            seenIds.add('PO:' + poId);
-            uploads.push({ objectTypeId: 'PurchaseOrder', objectId: poId, label: `PO: ${poId}` });
-          }
-        }
-      });
-
-      if (uploads.length === 0) {
-        console.log('[SIGNATURE] No ASNs or POs found in AppointmentContents');
-        return;
-      }
-
-      console.log(`[SIGNATURE] Uploading signature for ${uploads.length} object(s)`);
-
-      for (const upload of uploads) {
+      for (const asnId of asnIds) {
         try {
-          // Enhance signature with watermark specific to this object
-          const { base64Data } = await enhanceSignatureImage(appointmentId, upload.label);
-          const filename = `Signature_${appointmentId}_${upload.objectId}.png`;
+          const label = `ASN: ${asnId}`;
+          const { base64Data } = await enhanceSignatureImage(referenceId, label);
+          const filename = `Inspection_${referenceId}_${asnId}.png`;
 
           const res = await api('upload_signature', {
             org,
             token,
-            objectTypeId: upload.objectTypeId,
-            objectId: upload.objectId,
+            objectTypeId: 'ASN',
+            objectId: asnId,
             filename,
             fileData: base64Data,
             notes
           });
 
+          results.push({
+            asnId,
+            success: !!res.success,
+            error: res.error || null
+          });
+
           if (res.success) {
-            console.log(`[SIGNATURE] Uploaded for ${upload.objectTypeId}: ${upload.objectId}`);
+            console.log(`[INSPECTION] Uploaded for ASN: ${asnId}`);
           } else {
-            console.warn(`[SIGNATURE] Failed for ${upload.objectTypeId}: ${upload.objectId}:`, res.error);
+            console.warn(`[INSPECTION] Failed for ASN: ${asnId}:`, res.error);
           }
         } catch (err) {
-          console.warn(`[SIGNATURE] Error uploading for ${upload.objectTypeId}: ${upload.objectId}:`, err);
+          results.push({ asnId, success: false, error: String(err) });
+          console.warn(`[INSPECTION] Error uploading for ASN: ${asnId}:`, err);
         }
       }
+
+      return results;
     }
 
     // ===== SIGNATURE PAD =====
@@ -1750,7 +1708,7 @@
       sigCtx.stroke();
       if (!hasSigned) {
         hasSigned = true;
-        validateCheckIn();
+        validateCompleteInspection();
       }
     }
     function sigStop() { sigDrawing = false; }
@@ -1771,7 +1729,7 @@
     document.getElementById('clearSignature').onclick = () => {
       clearSignaturePad();
       hasSigned = false;
-      validateCheckIn();
+      validateCompleteInspection();
     };
 
     // Initialize canvas size
