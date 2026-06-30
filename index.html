@@ -298,14 +298,14 @@
     <div id="mainUI">
       <!-- APPOINTMENT ID INPUT -->
       <div class="mb-3">
-        <label class="form-label">Enter Appointment:</label>
-        <input type="text" id="criteria" class="form-control" placeholder="Enter Appointment ID" />
+        <label class="form-label">Enter Inspection:</label>
+        <input type="text" id="criteria" class="form-control" placeholder="Enter Appointment or ASN ID" />
       </div>
 
       <!-- STATUS + FIND BUTTON -->
       <div class="status-bar">
         <div class="status" id="status">Enter ORG and press Enter to authenticate</div>
-        <button id="findBtn" class="btn btn-primary px-4" disabled>Find Appointment</button>
+        <button id="findBtn" class="btn btn-primary px-4" disabled>Find Inspection</button>
       </div>
 
       <!-- APPOINTMENT DETAIL FORM -->
@@ -474,6 +474,7 @@
     let token = null;
     let currentAppt = null; // Full appointment data from API
     let validAppointmentIds = new Set(); // Cached from /api/scheduled after auth
+    let validAsnIds = new Set(); // Cached from /api/asns after auth
     let hasSigned = false; // Track whether signature pad has been drawn on
     let conditionCodes = []; // Cached trailer condition codes
     let equipmentTypes = []; // Cached trailer equipment types
@@ -1098,7 +1099,7 @@
       }
       
       token = res.token;
-      status('Authenticated – loading appointments...', 'success');
+      status('Authenticated – loading inspections...', 'success');
       
       // Track auth success
       trackEvent('auth_success', {
@@ -1117,9 +1118,10 @@
       
       mainUI.style.display = 'block';
       
-      // Fetch scheduled appointments, condition codes, and equipment types in parallel
-      const [scheduledRes, condRes, equipRes] = await Promise.all([
+      // Fetch scheduled appointments, ASNs, condition codes, and equipment types in parallel
+      const [scheduledRes, asnsRes, condRes, equipRes] = await Promise.all([
         api('scheduled', { org, token }),
+        api('asns', { org, token }),
         api('condition_codes', { org, token }),
         api('equipment_types', { org, token })
       ]);
@@ -1128,11 +1130,26 @@
         validAppointmentIds = new Set(
           scheduledRes.appointments.map(a => String(a.AppointmentId)).filter(Boolean)
         );
-        status(`Ready – ${validAppointmentIds.size} scheduled appointments available`, 'success');
       } else {
         validAppointmentIds = new Set();
         console.error('[Scheduled] Failed to load appointments:', scheduledRes.error || 'Unknown error');
-        status('Authenticated – could not load appointments', 'error');
+      }
+
+      if (asnsRes.success && asnsRes.asns) {
+        validAsnIds = new Set(
+          asnsRes.asns.map(a => String(a.AsnId)).filter(Boolean)
+        );
+      } else {
+        validAsnIds = new Set();
+        console.error('[ASNs] Failed to load ASNs:', asnsRes.error || 'Unknown error');
+      }
+
+      if (validAppointmentIds.size || validAsnIds.size) {
+        status(`Ready – ${validAppointmentIds.size} appointments and ${validAsnIds.size} ASNs available`, 'success');
+      } else if (scheduledRes.success || asnsRes.success) {
+        status('Authenticated – no appointments or ASNs found', 'error');
+      } else {
+        status('Authenticated – could not load appointments or ASNs', 'error');
       }
 
       // Populate condition code dropdown
@@ -1176,10 +1193,10 @@
       await authenticate(orgInput.value.trim());
     });
 
-    // Real-time validation: enable Find button only when input matches a valid AppointmentId
+    // Real-time validation: enable Find when input matches a valid AppointmentId or AsnId
     criteriaInput.addEventListener('input', () => {
       const value = criteriaInput.value.trim();
-      findBtn.disabled = !value || !validAppointmentIds.has(value);
+      findBtn.disabled = !value || (!validAppointmentIds.has(value) && !validAsnIds.has(value));
     });
 
     // Enter → Search (only if button is enabled)
@@ -1261,7 +1278,7 @@
       return parts.join(',   ');
     }
 
-    // Populate the appointment detail form
+    // Populate form from appointment search result
     function populateForm(appt) {
       currentAppt = appt;
       fld.appointmentId.value = appt.AppointmentId || '';
@@ -1300,6 +1317,37 @@
       validateCheckIn();
     }
 
+    // Minimal form state for ASN search (detail fields TBD)
+    function populateAsnForm(asn) {
+      currentAppt = { ...asn, _searchType: 'asn' };
+      fld.appointmentId.value = asn.AsnId || '';
+      fld.appointmentType.value = '';
+      fld.scheduledDate.value = '';
+      fld.checkInTime.value = formatCurrentTime();
+      fld.carrier.value = asn.CarrierId || '';
+      fld.trailer.value = '';
+      fld.truckNumber.value = '';
+      fld.driverName.value = '';
+      fld.driverPhone.value = '';
+      fld.driverLicense.value = '';
+      fld.tractorPlate.value = '';
+      fld.rfidTag.value = '';
+      fld.trailerContents.value = asn.AsnId ? `ASN: ${asn.AsnId}` : '';
+      document.getElementById('fld_trailerType').value = '53FT';
+      document.getElementById('fld_conditionCode').value = '';
+      document.querySelectorAll('.toggle-check').forEach(el => el.classList.remove('checked'));
+
+      hasSigned = false;
+      apptForm.style.display = 'block';
+
+      requestAnimationFrame(() => {
+        resizeSignatureCanvas();
+        clearSignaturePad();
+      });
+
+      validateCheckIn();
+    }
+
     // Reset form
     function resetForm() {
       Object.values(fld).forEach(input => { input.value = ''; });
@@ -1325,23 +1373,35 @@
       checkinBtn.disabled = !(carrierOk && trailerOk && driverOk && hasSigned);
     }
 
-    // Find
+    // Find inspection (appointment or ASN)
     findBtn.onclick = async () => {
-      const appointmentId = criteriaInput.value.trim();
-      if (!appointmentId) return status('Enter an Appointment ID', 'error');
+      const criteria = criteriaInput.value.trim();
+      if (!criteria) return status('Enter an Appointment or ASN ID', 'error');
+
+      const isAppointment = validAppointmentIds.has(criteria);
+      const isAsn = validAsnIds.has(criteria);
+      if (!isAppointment && !isAsn) return status('Enter a valid Appointment or ASN ID', 'error');
       
       const org = orgInput.value.trim() || 'unknown';
       const searchStartTime = Date.now();
       
-      // Track search attempt
       trackEvent('search_attempt', {
         org: org,
-        appointment_id: appointmentId
+        appointment_id: isAppointment ? criteria : undefined,
+        asn_id: isAsn ? criteria : undefined,
+        search_type: isAppointment ? 'appointment' : 'asn'
       });
       
-      status('Finding appointment...');
+      status('Finding inspection...');
       const apiStartTime = Date.now();
-      const res = await api('search', { org, appointment_id: appointmentId, token });
+
+      let res;
+      if (isAppointment) {
+        res = await api('search', { org, appointment_id: criteria, token });
+      } else {
+        res = await api('search_asn', { org, asn_id: criteria, token });
+      }
+
       const apiResponseTime = Date.now() - apiStartTime;
       const searchDuration = Date.now() - searchStartTime;
       
@@ -1349,21 +1409,28 @@
         resetForm();
         trackEvent('search_failed', {
           org: org,
-          appointment_id: appointmentId,
+          appointment_id: isAppointment ? criteria : undefined,
+          asn_id: isAsn ? criteria : undefined,
+          search_type: isAppointment ? 'appointment' : 'asn',
           error: res.error || 'No results',
           search_duration_ms: searchDuration,
           api_response_time_ms: apiResponseTime
         });
-        return status('Appointment not found', 'error');
+        return status(isAppointment ? 'Appointment not found' : 'ASN not found', 'error');
       }
       
-      populateForm(res.results[0]);
-      status('Appointment loaded', 'success');
+      if (isAppointment) {
+        populateForm(res.results[0]);
+      } else {
+        populateAsnForm(res.results[0]);
+      }
+      status(isAppointment ? 'Appointment loaded' : 'ASN loaded', 'success');
       
-      // Track search success
       trackEvent('search_completed', {
         org: org,
-        appointment_id: appointmentId,
+        appointment_id: isAppointment ? criteria : undefined,
+        asn_id: isAsn ? criteria : undefined,
+        search_type: isAppointment ? 'appointment' : 'asn',
         results_count: res.results.length,
         search_duration_ms: searchDuration,
         api_response_time_ms: apiResponseTime

@@ -249,6 +249,78 @@ def scheduled():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
+@app.route('/api/asns', methods=['POST'])
+def asns():
+    """Fetch all ASNs (AsnId != null)"""
+    org = request.json.get('org')
+    token = request.json.get('token')
+    if not all([org, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+
+    url = f"https://{API_HOST}/receiving/api/receiving/asn/search"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "selectedOrganization": org,
+        "selectedLocation": f"{org}-DM1"
+    }
+    all_asns = []
+    page = 0
+    page_size = 1000
+    try:
+        while True:
+            payload = {
+                "Query": "AsnId != null",
+                "Template": {
+                    "AsnId": None
+                },
+                "Size": page_size,
+                "Page": page
+            }
+            r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+            if not r.ok:
+                return jsonify({"success": False, "error": "Failed to fetch ASNs"})
+            data = r.json().get("data", [])
+            all_asns.extend(data)
+            if len(data) < page_size:
+                break
+            page += 1
+        return jsonify({"success": True, "asns": all_asns})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/search_asn', methods=['POST'])
+def search_asn():
+    """Search for a specific ASN by AsnId"""
+    org = request.json.get('org')
+    asn_id = request.json.get('asn_id', '').strip()
+    token = request.json.get('token')
+    if not all([org, asn_id, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+
+    url = f"https://{API_HOST}/receiving/api/receiving/asn/search"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "selectedOrganization": org,
+        "selectedLocation": f"{org}-DM1"
+    }
+    payload = {
+        "Query": f"AsnId='{asn_id}'",
+        "Size": 1,
+        "Page": 0
+    }
+    try:
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+        results = r.json().get("data", []) if r.ok else []
+    except:
+        results = []
+
+    return jsonify({
+        "success": True,
+        "results": results
+    })
+
 @app.route('/api/search', methods=['POST'])
 def search():
     """Search for a specific appointment by AppointmentId"""
