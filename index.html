@@ -1672,6 +1672,7 @@
       const themeBtn = document.getElementById('themeSelectorBtn');
       const statusBar = document.querySelector('.status-bar');
       const formActions = checkinBtn?.closest('.form-actions');
+      const clearSignatureBtn = document.getElementById('clearSignature');
       if (!card) {
         return { success: false, error: 'Capture container not found' };
       }
@@ -1686,6 +1687,7 @@
       hideEl(themeBtn);
       hideEl(statusBar);
       hideEl(formActions);
+      hideEl(clearSignatureBtn);
 
       try {
         // Allow hidden elements to repaint before capture
