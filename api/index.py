@@ -184,7 +184,7 @@ def usage_track():
         payload = {
             "event_name": event_name,
             "app_name": "inspection",
-            "app_version": "0.0.0",
+            "app_version": "0.0.1",
             **metadata,
             "timestamp": datetime.now().isoformat()
         }
