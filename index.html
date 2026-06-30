@@ -49,6 +49,7 @@
       margin: 0.5rem;
       display: flex;
       flex-direction: column;
+      position: relative;
     }
 
     @media (min-width: 769px) {
@@ -243,6 +244,107 @@
     .theme-selector-btn:hover {
       opacity: 0.7;
     }
+
+    /* CAMERA */
+    .camera-btn {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      background: none;
+      border: none;
+      color: var(--text);
+      padding: 0;
+      cursor: pointer;
+      font-size: 1.5rem;
+      z-index: 1000;
+      transition: opacity 0.2s;
+    }
+    .camera-btn:hover { opacity: 0.7; }
+    .camera-btn .photo-count {
+      position: absolute;
+      top: -6px;
+      right: -8px;
+      min-width: 1.1rem;
+      height: 1.1rem;
+      padding: 0 0.25rem;
+      border-radius: 999px;
+      background: var(--success);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      line-height: 1.1rem;
+      text-align: center;
+      display: none;
+    }
+    .camera-btn.has-photos .photo-count { display: block; }
+
+    .camera-preview-wrap {
+      position: relative;
+      width: 100%;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      aspect-ratio: 4 / 3;
+    }
+    #cameraVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .camera-actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-top: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .inspection-photo-strip {
+      display: none;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .inspection-photo-strip.has-photos { display: flex; }
+    .inspection-photo-thumb {
+      position: relative;
+      width: 72px;
+      height: 72px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .inspection-photo-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .inspection-photo-thumb button {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 1.25rem;
+      height: 1.25rem;
+      border: none;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.65);
+      color: #fff;
+      font-size: 0.75rem;
+      line-height: 1.25rem;
+      padding: 0;
+      cursor: pointer;
+    }
+    .camera-gallery {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      min-height: 0;
+    }
+    .camera-gallery-empty {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
     
     /* LOGO */
     .theme-logo {
@@ -279,6 +381,10 @@
 </head>
 <body>
   <div class="main-card" id="inspectionCaptureCard">
+    <button type="button" class="camera-btn" id="cameraBtn" title="Take inspection photos">
+      <i class="fas fa-camera"></i>
+      <span class="photo-count" id="cameraPhotoCount">0</span>
+    </button>
     <button class="theme-selector-btn" id="themeSelectorBtn" title="Select Theme">
       <i class="fas fa-cog"></i>
     </button>
@@ -398,6 +504,7 @@
           <div class="signature-pad-wrapper">
             <canvas id="signaturePad"></canvas>
           </div>
+          <div class="inspection-photo-strip" id="inspectionPhotoStrip"></div>
         </div>
 
         <!-- Complete Inspection Button -->
@@ -419,6 +526,34 @@
         <div class="modal-body" id="checkinMessage"></div>
         <div class="modal-footer">
           <button type="button" class="btn btn-success" data-bs-dismiss="modal">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CAMERA MODAL -->
+  <div class="modal fade" id="cameraModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Inspection Photos</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="camera-preview-wrap">
+            <video id="cameraVideo" autoplay playsinline muted></video>
+            <canvas id="cameraCanvas" style="display:none;"></canvas>
+          </div>
+          <div class="camera-actions">
+            <button type="button" class="btn btn-success" id="capturePhotoBtn">
+              <i class="fas fa-camera me-1"></i> Take Photo
+            </button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Done</button>
+          </div>
+          <div class="camera-gallery" id="cameraGallery">
+            <div class="camera-gallery-empty" id="cameraGalleryEmpty">No photos captured yet.</div>
+          </div>
+          <input type="file" id="cameraFileInput" accept="image/*" capture="environment" style="display:none;" />
         </div>
       </div>
     </div>
@@ -453,6 +588,16 @@
     const themeModal = new bootstrap.Modal(document.getElementById('themeModal'));
     const themeList = document.getElementById('themeList');
     const themeLogo = document.getElementById('themeLogo');
+    const cameraBtn = document.getElementById('cameraBtn');
+    const cameraPhotoCount = document.getElementById('cameraPhotoCount');
+    const cameraModalEl = document.getElementById('cameraModal');
+    const cameraModal = new bootstrap.Modal(cameraModalEl);
+    const cameraVideo = document.getElementById('cameraVideo');
+    const cameraCanvas = document.getElementById('cameraCanvas');
+    const cameraGallery = document.getElementById('cameraGallery');
+    const cameraGalleryEmpty = document.getElementById('cameraGalleryEmpty');
+    const cameraFileInput = document.getElementById('cameraFileInput');
+    const inspectionPhotoStrip = document.getElementById('inspectionPhotoStrip');
 
     // Form field references
     const fld = {
@@ -478,6 +623,9 @@
     let hasSigned = false; // Track whether signature pad has been drawn on
     let conditionCodes = []; // Cached trailer condition codes
     let equipmentTypes = []; // Cached trailer equipment types
+    let inspectionPhotos = []; // { id, base64Data, mimeType, dataUrl, extension }
+    let cameraStream = null;
+    let cameraFileInputBound = false;
 
     // THEME DEFINITIONS
     const themes = {
@@ -1414,9 +1562,160 @@
       document.querySelectorAll('.toggle-check').forEach(el => el.classList.remove('checked'));
       hasSigned = false;
       clearSignaturePad();
+      clearInspectionPhotos();
       apptForm.style.display = 'none';
       currentAppt = null;
       checkinBtn.disabled = true;
+    }
+
+    function clearInspectionPhotos() {
+      inspectionPhotos = [];
+      renderInspectionPhotos();
+      validateCompleteInspection();
+    }
+
+    function renderInspectionPhotos() {
+      const count = inspectionPhotos.length;
+      cameraPhotoCount.textContent = String(count);
+      cameraBtn.classList.toggle('has-photos', count > 0);
+      inspectionPhotoStrip.classList.toggle('has-photos', count > 0);
+      inspectionPhotoStrip.innerHTML = '';
+      cameraGallery.querySelectorAll('.inspection-photo-thumb').forEach(el => el.remove());
+
+      inspectionPhotos.forEach(photo => {
+        const buildThumb = () => {
+          const thumb = document.createElement('div');
+          thumb.className = 'inspection-photo-thumb';
+          thumb.innerHTML = `
+            <img src="${photo.dataUrl}" alt="Inspection photo" />
+            <button type="button" title="Remove photo" data-photo-id="${photo.id}">&times;</button>
+          `;
+          thumb.querySelector('button').onclick = () => removeInspectionPhoto(photo.id);
+          return thumb;
+        };
+        inspectionPhotoStrip.appendChild(buildThumb());
+        cameraGallery.appendChild(buildThumb());
+      });
+
+      let emptyEl = document.getElementById('cameraGalleryEmpty');
+      if (!emptyEl) {
+        emptyEl = document.createElement('div');
+        emptyEl.className = 'camera-gallery-empty';
+        emptyEl.id = 'cameraGalleryEmpty';
+        emptyEl.textContent = 'No photos captured yet.';
+        cameraGallery.appendChild(emptyEl);
+      }
+      emptyEl.style.display = count === 0 ? 'block' : 'none';
+    }
+
+    function addInspectionPhoto(base64Data, mimeType, dataUrl) {
+      const extension = mimeType === 'image/png' ? 'png' : 'jpg';
+      inspectionPhotos.push({
+        id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        base64Data,
+        mimeType,
+        dataUrl,
+        extension
+      });
+      renderInspectionPhotos();
+      validateCompleteInspection();
+    }
+
+    function removeInspectionPhoto(photoId) {
+      inspectionPhotos = inspectionPhotos.filter(photo => photo.id !== photoId);
+      renderInspectionPhotos();
+      validateCompleteInspection();
+    }
+
+    function stopCameraStream() {
+      if (!cameraStream) return;
+      cameraStream.getTracks().forEach(track => track.stop());
+      cameraStream = null;
+      cameraVideo.srcObject = null;
+    }
+
+    async function startCameraStream() {
+      stopCameraStream();
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Camera not supported in this browser');
+      }
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false
+      });
+      cameraVideo.srcObject = cameraStream;
+      await cameraVideo.play();
+    }
+
+    function readFileAsPhoto(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result;
+          const mimeType = file.type || 'image/jpeg';
+          const base64Data = String(dataUrl).split(',')[1] || '';
+          if (!base64Data) {
+            reject(new Error('Could not read image data'));
+            return;
+          }
+          resolve({ base64Data, mimeType, dataUrl });
+        };
+        reader.onerror = () => reject(reader.error || new Error('Could not read image file'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function openCameraModal() {
+      renderInspectionPhotos();
+      cameraModal.show();
+      try {
+        await startCameraStream();
+      } catch (err) {
+        console.warn('[CAMERA] getUserMedia failed, using file capture fallback:', err);
+        status('Camera unavailable — choose photo from device', 'error');
+        cameraFileInput.click();
+      }
+    }
+
+    cameraBtn.onclick = () => openCameraModal();
+
+    document.getElementById('capturePhotoBtn').onclick = () => {
+      if (!cameraVideo.videoWidth || !cameraVideo.videoHeight) {
+        status('Camera not ready yet', 'error');
+        return;
+      }
+      const ctx = cameraCanvas.getContext('2d');
+      cameraCanvas.width = cameraVideo.videoWidth;
+      cameraCanvas.height = cameraVideo.videoHeight;
+      ctx.drawImage(cameraVideo, 0, 0);
+      const dataUrl = cameraCanvas.toDataURL('image/jpeg', 0.92);
+      addInspectionPhoto(
+        dataUrl.replace(/^data:image\/jpeg;base64,/, ''),
+        'image/jpeg',
+        dataUrl
+      );
+      status(`Photo captured (${inspectionPhotos.length})`, 'success');
+    };
+
+    cameraModalEl.addEventListener('hidden.bs.modal', () => {
+      stopCameraStream();
+    });
+
+    if (!cameraFileInputBound) {
+      cameraFileInputBound = true;
+      cameraFileInput.addEventListener('change', async () => {
+        const file = cameraFileInput.files?.[0];
+        cameraFileInput.value = '';
+        if (!file) return;
+        try {
+          const photo = await readFileAsPhoto(file);
+          addInspectionPhoto(photo.base64Data, photo.mimeType, photo.dataUrl);
+          status(`Photo added (${inspectionPhotos.length})`, 'success');
+        } catch (err) {
+          status('Could not add photo', 'error');
+          console.warn('[CAMERA] File capture failed:', err);
+        }
+      });
     }
 
     // Validate required fields plus a linked ASN
@@ -1428,7 +1727,8 @@
       const carrierOk = fld.carrier.value.trim().length > 0;
       const trailerOk = fld.trailer.value.trim().length > 0;
       const driverOk = fld.driverName.value.trim().length > 0;
-      checkinBtn.disabled = !(carrierOk && trailerOk && driverOk && hasSigned);
+      const photosOk = inspectionPhotos.length > 0;
+      checkinBtn.disabled = !(carrierOk && trailerOk && driverOk && hasSigned && photosOk);
     }
 
     // Find inspection (appointment or ASN)
@@ -1524,6 +1824,12 @@
         return;
       }
 
+      if (inspectionPhotos.length === 0) {
+        status('At least one inspection photo is required', 'error');
+        validateCompleteInspection();
+        return;
+      }
+
       const inspectionStartTime = Date.now();
 
       trackEvent('inspection_attempt', {
@@ -1562,10 +1868,11 @@
 
       const uploadsSucceeded = uploadResults.filter(r => r.success).length;
       const uploadsFailed = uploadResults.filter(r => !r.success).length;
-      const expectedUploads = asnIds.length * 2;
+      const expectedUploads = asnIds.length * (2 + inspectionPhotos.length);
 
       if (uploadsFailed === 0 && uploadsSucceeded === expectedUploads) {
-        checkinMessage.textContent = `Inspection complete. ${uploadsSucceeded} document(s) uploaded (${asnIds.length} Inspector + ${asnIds.length} Inspection Form) for ASN${asnIds.length === 1 ? '' : 's'}: ${asnIds.join(', ')}.`;
+        const photosPerAsn = inspectionPhotos.length;
+        checkinMessage.textContent = `Inspection complete. ${uploadsSucceeded} document(s) uploaded (${asnIds.length} Inspector + ${asnIds.length} Inspection Form + ${asnIds.length * photosPerAsn} Inspection Photo${photosPerAsn === 1 ? '' : 's'}) for ASN${asnIds.length === 1 ? '' : 's'}: ${asnIds.join(', ')}.`;
         checkinModal.show();
 
         trackEvent('inspection_completed', {
@@ -1670,6 +1977,7 @@
     async function captureInspectionCardImage() {
       const card = document.getElementById('inspectionCaptureCard');
       const themeBtn = document.getElementById('themeSelectorBtn');
+      const cameraBtnEl = document.getElementById('cameraBtn');
       const statusBar = document.querySelector('.status-bar');
       const formActions = checkinBtn?.closest('.form-actions');
       const clearSignatureBtn = document.getElementById('clearSignature');
@@ -1685,6 +1993,7 @@
       }
 
       hideEl(themeBtn);
+      hideEl(cameraBtnEl);
       hideEl(statusBar);
       hideEl(formActions);
       hideEl(clearSignatureBtn);
@@ -1719,7 +2028,7 @@
       const notes = `${timestamp}, ${driverName}`;
       const results = [];
 
-      console.log(`[INSPECTION] Uploading Inspector + Inspection Form for ${asnIds.length} ASN(s)`);
+      console.log(`[INSPECTION] Uploading Inspector + Inspection Form + Photos for ${asnIds.length} ASN(s)`);
 
       for (const asnId of asnIds) {
         const label = `ASN: ${asnId}`;
@@ -1773,6 +2082,34 @@
             console.log(`[INSPECTION] Uploaded Inspector + Inspection Form for ASN: ${asnId}`);
           } else {
             console.warn(`[INSPECTION] Inspection Form upload failed for ASN: ${asnId}:`, formRes.error);
+            continue;
+          }
+
+          for (let photoIndex = 0; photoIndex < inspectionPhotos.length; photoIndex++) {
+            const photo = inspectionPhotos[photoIndex];
+            const photoRes = await api('upload_signature', {
+              org,
+              token,
+              objectTypeId: 'ASN',
+              objectId: asnId,
+              filename: `Inspection_${referenceId}_${asnId}_photo_${photoIndex + 1}.${photo.extension}`,
+              fileData: photo.base64Data,
+              notes,
+              documentName: 'Inspection Photos',
+              documentDescription: 'Inspection photo captured from device camera'
+            });
+
+            results.push({
+              asnId,
+              type: 'inspection_photo',
+              photoIndex: photoIndex + 1,
+              success: !!photoRes.success,
+              error: photoRes.error || null
+            });
+
+            if (!photoRes.success) {
+              console.warn(`[INSPECTION] Inspection Photos upload failed for ASN: ${asnId}, photo ${photoIndex + 1}:`, photoRes.error);
+            }
           }
         } catch (err) {
           results.push({ asnId, type: 'inspector', success: false, error: String(err) });
