@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Inspection v0.0.2</title>
+  <title>Inspection v0.0.3</title>
+  <!-- v0.0.3: Added Trailer, PO, iLPN, oLPN, and Shipment search types -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -394,7 +395,7 @@
     </button>
     <div class="header-with-logo">
       <img id="themeLogo" class="theme-logo" alt="Theme Logo" />
-      <h2 class="text-center mb-2" style="font-size:1.3rem;">Inspection v0.0.2</h2>
+      <h2 class="text-center mb-2" style="font-size:1.3rem;">Inspection v0.0.3</h2>
     </div>
 
     <!-- ORG -->
@@ -409,7 +410,7 @@
       <!-- APPOINTMENT ID INPUT -->
       <div class="mb-3">
         <label class="form-label">Enter Inspection:</label>
-        <input type="text" id="criteria" class="form-control" placeholder="Enter Appointment or ASN ID" />
+        <input type="text" id="criteria" class="form-control" placeholder="Enter Trailer, PO, iLPN, oLPN, Shipment, or ASN ID" />
       </div>
 
       <!-- STATUS + FIND BUTTON -->
@@ -621,9 +622,74 @@
     };
 
     let token = null;
-    let currentAppt = null; // Full appointment data from API
-    let validAppointmentIds = new Set(); // Cached from /api/scheduled after auth
-    let validAsnIds = new Set(); // Cached from /api/asns after auth
+    let currentAppt = null; // Full record data from API (appointment, ASN, trailer, etc.)
+    // Appointment search disabled for now — may revisit later
+    // let validAppointmentIds = new Set(); // Cached from /api/scheduled after auth
+    const INSPECTION_SEARCH_TYPES = {
+      trailer: {
+        label: 'Trailer',
+        listKey: 'trailers',
+        listApi: 'trailers',
+        searchApi: 'search_trailer',
+        searchParam: 'trailer_id',
+        idFields: ['TrailerId'],
+        objectTypeId: null,
+        supportsUpload: false
+      },
+      po: {
+        label: 'PO',
+        listKey: 'purchase_orders',
+        listApi: 'purchase_orders',
+        searchApi: 'search_purchase_order',
+        searchParam: 'purchase_order_id',
+        idFields: ['PurchaseOrderId'],
+        objectTypeId: 'PurchaseOrder',
+        supportsUpload: true
+      },
+      ilpn: {
+        label: 'iLPN',
+        listKey: 'ilpns',
+        listApi: 'ilpns',
+        searchApi: 'search_ilpn',
+        searchParam: 'ilpn_id',
+        idFields: ['IlpnId', 'IlpnID', 'LpnId'],
+        objectTypeId: 'ILPN',
+        supportsUpload: true
+      },
+      olpn: {
+        label: 'oLPN',
+        listKey: 'olpns',
+        listApi: 'olpns',
+        searchApi: 'search_olpn',
+        searchParam: 'olpn_id',
+        idFields: ['OlpnId', 'OlpnID', 'LpnId'],
+        objectTypeId: null,
+        supportsUpload: false
+      },
+      shipment: {
+        label: 'Shipment',
+        listKey: 'shipments',
+        listApi: 'shipments',
+        searchApi: 'search_shipment',
+        searchParam: 'shipment_id',
+        idFields: ['ShipmentId'],
+        objectTypeId: 'Shipment',
+        supportsUpload: true
+      },
+      asn: {
+        label: 'ASN',
+        listKey: 'asns',
+        listApi: 'asns',
+        searchApi: 'search_asn',
+        searchParam: 'asn_id',
+        idFields: ['AsnId'],
+        objectTypeId: 'ASN',
+        supportsUpload: true
+      }
+    };
+    const validIdsByType = Object.fromEntries(
+      Object.keys(INSPECTION_SEARCH_TYPES).map(type => [type, new Set()])
+    );
     let hasSigned = false; // Track whether signature pad has been drawn on
     let conditionCodes = []; // Cached trailer condition codes
     let equipmentTypes = []; // Cached trailer equipment types
@@ -1300,38 +1366,65 @@
       
       mainUI.style.display = 'block';
       
-      // Fetch scheduled appointments, ASNs, condition codes, and equipment types in parallel
-      const [scheduledRes, asnsRes, condRes, equipRes] = await Promise.all([
-        api('scheduled', { org, token }),
+      // Fetch record lists, condition codes, and equipment types in parallel
+      // Appointment search disabled for now — may revisit later:
+      // api('scheduled', { org, token }),
+      const [
+        asnsRes, trailersRes, posRes, ilpnsRes, olpnsRes, shipmentsRes,
+        condRes, equipRes
+      ] = await Promise.all([
         api('asns', { org, token }),
+        api('trailers', { org, token }),
+        api('purchase_orders', { org, token }),
+        api('ilpns', { org, token }),
+        api('olpns', { org, token }),
+        api('shipments', { org, token }),
         api('condition_codes', { org, token }),
         api('equipment_types', { org, token })
       ]);
 
-      if (scheduledRes.success && scheduledRes.appointments) {
-        validAppointmentIds = new Set(
-          scheduledRes.appointments.map(a => String(a.AppointmentId)).filter(Boolean)
-        );
-      } else {
-        validAppointmentIds = new Set();
-        console.error('[Scheduled] Failed to load appointments:', scheduledRes.error || 'Unknown error');
+      // Appointment search disabled for now — may revisit later:
+      // if (scheduledRes.success && scheduledRes.appointments) {
+      //   validAppointmentIds = new Set(
+      //     scheduledRes.appointments.map(a => String(a.AppointmentId)).filter(Boolean)
+      //   );
+      // } else {
+      //   validAppointmentIds = new Set();
+      //   console.error('[Scheduled] Failed to load appointments:', scheduledRes.error || 'Unknown error');
+      // }
+
+      const listResponses = {
+        asn: asnsRes,
+        trailer: trailersRes,
+        po: posRes,
+        ilpn: ilpnsRes,
+        olpn: olpnsRes,
+        shipment: shipmentsRes
+      };
+
+      let anyLoaded = false;
+      const countParts = [];
+      for (const [type, config] of Object.entries(INSPECTION_SEARCH_TYPES)) {
+        const res = listResponses[type];
+        if (res?.success && res[config.listKey]) {
+          validIdsByType[type] = buildValidIdSet(res[config.listKey], config.idFields);
+          anyLoaded = true;
+        } else {
+          validIdsByType[type] = new Set();
+          if (res && !res.success) {
+            console.error(`[${config.label}] Failed to load:`, res.error || 'Unknown error');
+          }
+        }
+        countParts.push(`${validIdsByType[type].size} ${config.label}${validIdsByType[type].size === 1 ? '' : 's'}`);
       }
 
-      if (asnsRes.success && asnsRes.asns) {
-        validAsnIds = new Set(
-          asnsRes.asns.map(a => String(a.AsnId)).filter(Boolean)
-        );
+      const totalIds = Object.values(validIdsByType).reduce((sum, set) => sum + set.size, 0);
+      if (totalIds > 0) {
+        status(`Ready – ${countParts.join(', ')} available`, 'success');
+      } else if (anyLoaded) {
+        status('Authenticated – no inspection records found', 'error');
       } else {
-        validAsnIds = new Set();
-        console.error('[ASNs] Failed to load ASNs:', asnsRes.error || 'Unknown error');
-      }
-
-      if (validAppointmentIds.size || validAsnIds.size) {
-        status(`Ready – ${validAppointmentIds.size} appointments and ${validAsnIds.size} ASNs available`, 'success');
-      } else if (scheduledRes.success || asnsRes.success) {
-        status('Authenticated – no appointments or ASNs found', 'error');
-      } else {
-        status('Authenticated – could not load appointments or ASNs', 'error');
+        status('Authenticated – could not load inspection records', 'error');
       }
 
       // Populate condition code dropdown
@@ -1375,10 +1468,10 @@
       await authenticate(orgInput.value.trim());
     });
 
-    // Real-time validation: enable Find when input matches a valid AppointmentId or AsnId
+    // Real-time validation: enable Find when input matches a valid inspection ID
     criteriaInput.addEventListener('input', () => {
       const value = criteriaInput.value.trim();
-      findBtn.disabled = !value || (!validAppointmentIds.has(value) && !validAsnIds.has(value));
+      findBtn.disabled = !value || !resolveSearchType(value);
     });
 
     // Enter → Search (only if button is enabled)
@@ -1424,6 +1517,63 @@
     }
 
     // Format trailer contents from AppointmentContents
+    function extractRecordId(record, idFields) {
+      if (!record) return null;
+      for (const field of idFields) {
+        const val = record[field];
+        if (!val) continue;
+        if (typeof val === 'string') return val;
+        if (typeof val === 'object') {
+          const nested = val[field] || val.Id;
+          if (nested) return String(nested);
+        }
+      }
+      return null;
+    }
+
+    function buildValidIdSet(records, idFields) {
+      return new Set(
+        records.map(r => extractRecordId(r, idFields)).filter(Boolean)
+      );
+    }
+
+    function resolveSearchType(criteria) {
+      for (const [type, config] of Object.entries(INSPECTION_SEARCH_TYPES)) {
+        if (validIdsByType[type]?.has(criteria)) return type;
+      }
+      return null;
+    }
+
+    function getInspectionUploadTargets(appt) {
+      if (!appt) return [];
+
+      if (appt._searchType && INSPECTION_SEARCH_TYPES[appt._searchType]) {
+        const config = INSPECTION_SEARCH_TYPES[appt._searchType];
+        const objectId = extractRecordId(appt, config.idFields);
+        if (!objectId) return [];
+        return [{
+          searchType: appt._searchType,
+          objectId,
+          objectTypeId: config.objectTypeId,
+          supportsUpload: config.supportsUpload,
+          label: `${config.label}: ${objectId}`
+        }];
+      }
+
+      // Appointment-linked ASNs (appointment search disabled — may revisit later)
+      return collectAsnIds(appt).map(asnId => ({
+        searchType: 'asn',
+        objectId: asnId,
+        objectTypeId: 'ASN',
+        supportsUpload: true,
+        label: `ASN: ${asnId}`
+      }));
+    }
+
+    function hasInspectionTarget(appt) {
+      return getInspectionUploadTargets(appt).length > 0;
+    }
+
     function formatTrailerContents(appt) {
       const contents = appt.AppointmentContents;
       if (!contents || !Array.isArray(contents) || contents.length === 0) return '';
@@ -1460,7 +1610,7 @@
       return parts.join(',   ');
     }
 
-    // Populate form from appointment search result
+    // Populate form from appointment search result (appointment search disabled — may revisit later)
     function populateForm(appt) {
       currentAppt = appt;
       fld.appointmentId.value = appt.AppointmentId || '';
@@ -1528,22 +1678,23 @@
       return collectAsnIds(appt).length > 0;
     }
 
-    // Minimal form state for ASN search (detail fields TBD)
-    function populateAsnForm(asn) {
-      currentAppt = { ...asn, _searchType: 'asn' };
-      fld.appointmentId.value = asn.AsnId || '';
-      fld.appointmentType.value = '';
+    function populateInspectionForm(record, searchType) {
+      const config = INSPECTION_SEARCH_TYPES[searchType];
+      const objectId = extractRecordId(record, config.idFields) || '';
+      currentAppt = { ...record, _searchType: searchType };
+      fld.appointmentId.value = objectId;
+      fld.appointmentType.value = config.label;
       fld.scheduledDate.value = '';
       fld.checkInTime.value = formatCurrentTime();
-      fld.carrier.value = asn.CarrierId || '';
-      fld.trailer.value = '';
-      fld.truckNumber.value = '';
-      fld.driverName.value = '';
+      fld.carrier.value = record.CarrierId || record.AssignedCarrierId || '';
+      fld.trailer.value = record.TrailerId || record.TrailerNumber || '';
+      fld.truckNumber.value = record.TractorId || '';
+      fld.driverName.value = record.DriverId || '';
       fld.driverPhone.value = '';
       fld.driverLicense.value = '';
       fld.tractorPlate.value = '';
       fld.rfidTag.value = '';
-      fld.trailerContents.value = asn.AsnId ? `ASN: ${asn.AsnId}` : '';
+      fld.trailerContents.value = objectId ? `${config.label}: ${objectId}` : '';
       document.getElementById('fld_trailerType').value = '53FT';
       document.getElementById('fld_conditionCode').value = '';
       document.querySelectorAll('.toggle-check').forEach(el => el.classList.remove('checked'));
@@ -1558,6 +1709,11 @@
 
       validateCompleteInspection();
       setCameraBtnVisible(true);
+    }
+
+    // Minimal form state for ASN search — delegates to generic populate
+    function populateAsnForm(asn) {
+      populateInspectionForm(asn, 'asn');
     }
 
     // Reset form
@@ -1735,9 +1891,9 @@
       });
     }
 
-    // Validate required fields plus a linked ASN
+    // Validate required fields plus a linked inspection target
     function validateCompleteInspection() {
-      if (!currentAppt || !hasLinkedAsn(currentAppt)) {
+      if (!currentAppt || !hasInspectionTarget(currentAppt)) {
         checkinBtn.disabled = true;
         return;
       }
@@ -1748,34 +1904,31 @@
       checkinBtn.disabled = !(carrierOk && trailerOk && driverOk && hasSigned && photosOk);
     }
 
-    // Find inspection (appointment or ASN)
+    // Find inspection by Trailer, PO, iLPN, oLPN, Shipment, or ASN
+    // Appointment search disabled for now — may revisit later
     findBtn.onclick = async () => {
       const criteria = criteriaInput.value.trim();
-      if (!criteria) return status('Enter an Appointment or ASN ID', 'error');
+      if (!criteria) return status('Enter an inspection ID', 'error');
 
-      const isAppointment = validAppointmentIds.has(criteria);
-      const isAsn = validAsnIds.has(criteria);
-      if (!isAppointment && !isAsn) return status('Enter a valid Appointment or ASN ID', 'error');
-      
+      const searchType = resolveSearchType(criteria);
+      if (!searchType) return status('Enter a valid Trailer, PO, iLPN, oLPN, Shipment, or ASN ID', 'error');
+
+      const config = INSPECTION_SEARCH_TYPES[searchType];
       const org = orgInput.value.trim() || 'unknown';
       const searchStartTime = Date.now();
       
       trackEvent('search_attempt', {
         org: org,
-        appointment_id: isAppointment ? criteria : undefined,
-        asn_id: isAsn ? criteria : undefined,
-        search_type: isAppointment ? 'appointment' : 'asn'
+        search_id: criteria,
+        search_type: searchType
       });
       
       status('Finding inspection...');
       const apiStartTime = Date.now();
 
-      let res;
-      if (isAppointment) {
-        res = await api('search', { org, appointment_id: criteria, token });
-      } else {
-        res = await api('search_asn', { org, asn_id: criteria, token });
-      }
+      const searchBody = { org, token };
+      searchBody[config.searchParam] = criteria;
+      const res = await api(config.searchApi, searchBody);
 
       const apiResponseTime = Date.now() - apiStartTime;
       const searchDuration = Date.now() - searchStartTime;
@@ -1784,35 +1937,41 @@
         resetForm();
         trackEvent('search_failed', {
           org: org,
-          appointment_id: isAppointment ? criteria : undefined,
-          asn_id: isAsn ? criteria : undefined,
-          search_type: isAppointment ? 'appointment' : 'asn',
+          search_id: criteria,
+          search_type: searchType,
           error: res.error || 'No results',
           search_duration_ms: searchDuration,
           api_response_time_ms: apiResponseTime
         });
-        return status(isAppointment ? 'Appointment not found' : 'ASN not found', 'error');
+        return status(`${config.label} not found`, 'error');
       }
       
-      if (isAppointment) {
-        populateForm(res.results[0]);
-      } else {
-        populateAsnForm(res.results[0]);
-      }
-      status(isAppointment ? 'Appointment loaded' : 'ASN loaded', 'success');
+      populateInspectionForm(res.results[0], searchType);
+      status(`${config.label} loaded`, 'success');
       
       trackEvent('search_completed', {
         org: org,
-        appointment_id: isAppointment ? criteria : undefined,
-        asn_id: isAsn ? criteria : undefined,
-        search_type: isAppointment ? 'appointment' : 'asn',
+        search_id: criteria,
+        search_type: searchType,
         results_count: res.results.length,
         search_duration_ms: searchDuration,
         api_response_time_ms: apiResponseTime
       });
     };
 
-    // Complete Inspection — upload inspection documents for linked ASNs
+    /* Appointment search disabled for now — may revisit later
+    findBtn.onclick = async () => {
+      const criteria = criteriaInput.value.trim();
+      if (!criteria) return status('Enter an Appointment or ASN ID', 'error');
+
+      const isAppointment = validAppointmentIds.has(criteria);
+      const isAsn = validIdsByType.asn.has(criteria);
+      if (!isAppointment && !isAsn) return status('Enter a valid Appointment or ASN ID', 'error');
+      ...
+    };
+    */
+
+    // Complete Inspection — upload inspection documents for linked record
     checkinBtn.onclick = async () => {
       if (!currentAppt) return;
 
@@ -1833,10 +1992,10 @@
 
     async function performCompleteInspection(appt) {
       const org = orgInput.value.trim() || 'unknown';
-      const asnIds = collectAsnIds(appt);
+      const uploadTargets = getInspectionUploadTargets(appt);
 
-      if (asnIds.length === 0) {
-        status('An ASN is required to complete inspection', 'error');
+      if (uploadTargets.length === 0) {
+        status('A valid inspection record is required to complete inspection', 'error');
         validateCompleteInspection();
         return;
       }
@@ -1848,12 +2007,13 @@
       }
 
       const inspectionStartTime = Date.now();
+      const targetIds = uploadTargets.map(t => t.objectId);
 
       trackEvent('inspection_attempt', {
         org: org,
         appointment_id: appt.AppointmentId || null,
-        asn_ids: asnIds,
         search_type: appt._searchType || (appt.AppointmentId ? 'appointment' : 'asn'),
+        target_ids: targetIds,
         carrier_id: appt.CarrierId || null,
         trailer_id: appt.TrailerId || null
       });
@@ -1866,7 +2026,7 @@
         trackEvent('inspection_failed', {
           org: org,
           appointment_id: appt.AppointmentId || null,
-          asn_ids: asnIds,
+          target_ids: targetIds,
           uploads_succeeded: 0,
           uploads_failed: 0,
           error: captureResult.error || 'Failed to capture inspection form image',
@@ -1879,23 +2039,43 @@
 
       status('Uploading inspection documents...');
       const uploadStartTime = Date.now();
-      const uploadResults = await uploadInspectionDocuments(appt, org, asnIds, captureResult.base64Data);
+      const uploadResults = await uploadInspectionDocuments(appt, org, uploadTargets, captureResult.base64Data);
       const uploadDuration = Date.now() - uploadStartTime;
       const inspectionDuration = Date.now() - inspectionStartTime;
 
       const uploadsSucceeded = uploadResults.filter(r => r.success).length;
       const uploadsFailed = uploadResults.filter(r => !r.success).length;
-      const expectedUploads = asnIds.length * (2 + inspectionPhotos.length);
+      const uploadableTargets = uploadTargets.filter(t => t.supportsUpload);
+      const mockTargets = uploadTargets.filter(t => !t.supportsUpload);
+      const expectedUploads = uploadableTargets.length * (1 + inspectionPhotos.length);
 
-      if (uploadsFailed === 0 && uploadsSucceeded === expectedUploads) {
-        const photosPerAsn = inspectionPhotos.length;
-        checkinMessage.textContent = `Inspection complete. ${uploadsSucceeded} document(s) uploaded (${asnIds.length} Inspector + ${asnIds.length} Inspection Form + ${asnIds.length * photosPerAsn} Inspection Photo${photosPerAsn === 1 ? '' : 's'}) for ASN${asnIds.length === 1 ? '' : 's'}: ${asnIds.join(', ')}.`;
+      const allUploadsOk = uploadsFailed === 0 && (
+        mockTargets.length > 0
+          ? uploadsSucceeded >= expectedUploads
+          : uploadsSucceeded === expectedUploads
+      );
+
+      if (allUploadsOk && (expectedUploads > 0 || mockTargets.length > 0)) {
+        const photosPerTarget = inspectionPhotos.length;
+        const labels = uploadTargets.map(t => t.label).join(', ');
+        let message = `Inspection complete for ${labels}.`;
+
+        if (uploadableTargets.length > 0) {
+          message += ` ${uploadsSucceeded} document(s) uploaded`;
+          message += ` (${uploadableTargets.length} Inspection Form + ${uploadableTargets.length * photosPerTarget} Inspection Photo${photosPerTarget === 1 ? '' : 's'}).`;
+        }
+
+        mockTargets.forEach(target => {
+          message += ` Sample confirmation for ${target.label}: inspection documents would be attached when upload API is available for this record type.`;
+        });
+
+        checkinMessage.textContent = message;
         checkinModal.show();
 
         trackEvent('inspection_completed', {
           org: org,
           appointment_id: appt.AppointmentId || null,
-          asn_ids: asnIds,
+          target_ids: targetIds,
           uploads_succeeded: uploadsSucceeded,
           uploads_failed: uploadsFailed,
           inspection_duration_ms: inspectionDuration,
@@ -1910,7 +2090,7 @@
         trackEvent('inspection_failed', {
           org: org,
           appointment_id: appt.AppointmentId || null,
-          asn_ids: asnIds,
+          target_ids: targetIds,
           uploads_succeeded: uploadsSucceeded,
           uploads_failed: uploadsFailed,
           error: uploadsFailed > 0 ? 'One or more document uploads failed' : 'No documents uploaded',
@@ -2037,27 +2217,41 @@
       }
     }
 
-    // Upload Inspector signature + Inspection Form screenshot for each linked ASN
-    async function uploadInspectionDocuments(appt, org, asnIds, formImageBase64) {
-      const referenceId = appt.AppointmentId || appt.AsnId || 'Unknown';
+    // Upload Inspection Form screenshot + photos for each linked target
+    // Inspector signature upload disabled for now — may revisit later
+    async function uploadInspectionDocuments(appt, org, uploadTargets, formImageBase64) {
+      const referenceId = extractRecordId(appt, INSPECTION_SEARCH_TYPES[appt._searchType]?.idFields || ['AsnId', 'AppointmentId']) || 'Unknown';
       const driverName = fld.driverName.value.trim() || 'Unknown';
       const timestamp = new Date().toLocaleString('en-US');
       const notes = `${timestamp}, ${driverName}`;
       const results = [];
 
-      console.log(`[INSPECTION] Uploading Inspector + Inspection Form + Photos for ${asnIds.length} ASN(s)`);
+      console.log(`[INSPECTION] Uploading documents for ${uploadTargets.length} target(s)`);
 
-      for (const asnId of asnIds) {
-        const label = `ASN: ${asnId}`;
+      for (const target of uploadTargets) {
+        const { objectId, objectTypeId, supportsUpload, label } = target;
+
+        if (!supportsUpload) {
+          results.push({
+            objectId,
+            type: 'mock_confirmation',
+            success: true,
+            message: `Sample confirmation for ${label}`
+          });
+          console.log(`[INSPECTION] Mock confirmation for ${label} (no upload API for this type)`);
+          continue;
+        }
 
         try {
+          // Inspector signature upload disabled for now — may revisit later
+          /*
           const { base64Data: inspectorBase64 } = await enhanceSignatureImage(referenceId, label);
           const inspectorRes = await api('upload_signature', {
             org,
             token,
-            objectTypeId: 'ASN',
-            objectId: asnId,
-            filename: `Inspection_${referenceId}_${asnId}_inspector.png`,
+            objectTypeId,
+            objectId,
+            filename: `Inspection_${referenceId}_${objectId}_inspector.png`,
             fileData: inspectorBase64,
             notes,
             documentName: 'Inspector',
@@ -2065,23 +2259,24 @@
           });
 
           results.push({
-            asnId,
+            objectId,
             type: 'inspector',
             success: !!inspectorRes.success,
             error: inspectorRes.error || null
           });
 
           if (!inspectorRes.success) {
-            console.warn(`[INSPECTION] Inspector upload failed for ASN: ${asnId}:`, inspectorRes.error);
+            console.warn(`[INSPECTION] Inspector upload failed for ${label}:`, inspectorRes.error);
             continue;
           }
+          */
 
           const formRes = await api('upload_signature', {
             org,
             token,
-            objectTypeId: 'ASN',
-            objectId: asnId,
-            filename: `Inspection_${referenceId}_${asnId}_form.png`,
+            objectTypeId,
+            objectId,
+            filename: `Inspection_${referenceId}_${objectId}_form.png`,
             fileData: formImageBase64,
             notes,
             documentName: 'Inspection Form',
@@ -2089,27 +2284,27 @@
           });
 
           results.push({
-            asnId,
+            objectId,
             type: 'inspection_form',
             success: !!formRes.success,
             error: formRes.error || null
           });
 
-          if (formRes.success) {
-            console.log(`[INSPECTION] Uploaded Inspector + Inspection Form for ASN: ${asnId}`);
-          } else {
-            console.warn(`[INSPECTION] Inspection Form upload failed for ASN: ${asnId}:`, formRes.error);
+          if (!formRes.success) {
+            console.warn(`[INSPECTION] Inspection Form upload failed for ${label}:`, formRes.error);
             continue;
           }
+
+          console.log(`[INSPECTION] Uploaded Inspection Form for ${label}`);
 
           for (let photoIndex = 0; photoIndex < inspectionPhotos.length; photoIndex++) {
             const photo = inspectionPhotos[photoIndex];
             const photoRes = await api('upload_signature', {
               org,
               token,
-              objectTypeId: 'ASN',
-              objectId: asnId,
-              filename: `Inspection_${referenceId}_${asnId}_photo_${photoIndex + 1}.${photo.extension}`,
+              objectTypeId,
+              objectId,
+              filename: `Inspection_${referenceId}_${objectId}_photo_${photoIndex + 1}.${photo.extension}`,
               fileData: photo.base64Data,
               notes,
               documentName: 'Inspection Photos',
@@ -2117,7 +2312,7 @@
             });
 
             results.push({
-              asnId,
+              objectId,
               type: 'inspection_photo',
               photoIndex: photoIndex + 1,
               success: !!photoRes.success,
@@ -2125,12 +2320,12 @@
             });
 
             if (!photoRes.success) {
-              console.warn(`[INSPECTION] Inspection Photos upload failed for ASN: ${asnId}, photo ${photoIndex + 1}:`, photoRes.error);
+              console.warn(`[INSPECTION] Inspection Photos upload failed for ${label}, photo ${photoIndex + 1}:`, photoRes.error);
             }
           }
         } catch (err) {
-          results.push({ asnId, type: 'inspector', success: false, error: String(err) });
-          console.warn(`[INSPECTION] Error uploading for ASN: ${asnId}:`, err);
+          results.push({ objectId, type: 'inspection_form', success: false, error: String(err) });
+          console.warn(`[INSPECTION] Error uploading for ${label}:`, err);
         }
       }
 

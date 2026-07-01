@@ -166,6 +166,53 @@ def format_date(date_str):
 def format_status(status_id):
     return STATUS_MAP.get(status_id, "Unknown")
 
+def manhattan_api_headers(org, token):
+    return {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "selectedOrganization": org,
+        "selectedLocation": f"{org}-DM1"
+    }
+
+def fetch_paginated_search(org, token, api_path):
+    """Fetch all records using Query: \"\" with pagination."""
+    url = f"https://{API_HOST}{api_path}"
+    headers = manhattan_api_headers(org, token)
+    all_records = []
+    page = 0
+    page_size = 1000
+    while True:
+        payload = {"Query": "", "Size": page_size, "Page": page}
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+        if not r.ok:
+            return None, f"Failed to fetch records (HTTP {r.status_code})"
+        data = r.json().get("data", [])
+        if not isinstance(data, list):
+            data = []
+        all_records.extend(data)
+        if len(data) < page_size:
+            break
+        page += 1
+    return all_records, None
+
+def search_single_record(org, token, api_path, id_field, record_id):
+    """Search for a single record by ID field."""
+    url = f"https://{API_HOST}{api_path}"
+    headers = manhattan_api_headers(org, token)
+    payload = {
+        "Query": f"{id_field}='{record_id}'",
+        "Size": 1,
+        "Page": 0
+    }
+    try:
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+        results = r.json().get("data", []) if r.ok else []
+        if not isinstance(results, list):
+            results = []
+        return results
+    except Exception:
+        return []
+
 # === API ROUTES ===
 @app.route('/api/app_opened', methods=['POST'])
 def app_opened():
@@ -184,7 +231,7 @@ def usage_track():
         payload = {
             "event_name": event_name,
             "app_name": "inspection",
-            "app_version": "0.0.2",
+            "app_version": "0.0.3",
             **metadata,
             "timestamp": datetime.now().isoformat()
         }
@@ -357,6 +404,141 @@ def search():
         "results": results
     })
 
+@app.route('/api/trailers', methods=['POST'])
+def trailers():
+    """Fetch all trailers (Query: \"\")"""
+    org = request.json.get('org')
+    token = request.json.get('token')
+    if not all([org, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    path = "/yard-management/api/yard-management/trailerList/search"
+    try:
+        records, err = fetch_paginated_search(org, token, path)
+        if err:
+            return jsonify({"success": False, "error": err})
+        return jsonify({"success": True, "trailers": records})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/search_trailer', methods=['POST'])
+def search_trailer():
+    org = request.json.get('org')
+    trailer_id = request.json.get('trailer_id', '').strip()
+    token = request.json.get('token')
+    if not all([org, trailer_id, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    path = "/yard-management/api/yard-management/trailerList/search"
+    results = search_single_record(org, token, path, "TrailerId", trailer_id)
+    return jsonify({"success": True, "results": results})
+
+@app.route('/api/purchase_orders', methods=['POST'])
+def purchase_orders():
+    """Fetch all purchase orders (Query: \"\")"""
+    org = request.json.get('org')
+    token = request.json.get('token')
+    if not all([org, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    path = "/receiving/api/receiving/purchaseOrder/search"
+    try:
+        records, err = fetch_paginated_search(org, token, path)
+        if err:
+            return jsonify({"success": False, "error": err})
+        return jsonify({"success": True, "purchase_orders": records})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/search_purchase_order', methods=['POST'])
+def search_purchase_order():
+    org = request.json.get('org')
+    purchase_order_id = request.json.get('purchase_order_id', '').strip()
+    token = request.json.get('token')
+    if not all([org, purchase_order_id, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    path = "/receiving/api/receiving/purchaseOrder/search"
+    results = search_single_record(org, token, path, "PurchaseOrderId", purchase_order_id)
+    return jsonify({"success": True, "results": results})
+
+@app.route('/api/ilpns', methods=['POST'])
+def ilpns():
+    """Fetch all iLPNs (Query: \"\")"""
+    org = request.json.get('org')
+    token = request.json.get('token')
+    if not all([org, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    path = "/dcinventory/api/dcinventory/ilpn/search"
+    try:
+        records, err = fetch_paginated_search(org, token, path)
+        if err:
+            return jsonify({"success": False, "error": err})
+        return jsonify({"success": True, "ilpns": records})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/search_ilpn', methods=['POST'])
+def search_ilpn():
+    org = request.json.get('org')
+    ilpn_id = request.json.get('ilpn_id', '').strip()
+    token = request.json.get('token')
+    if not all([org, ilpn_id, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    path = "/dcinventory/api/dcinventory/ilpn/search"
+    results = search_single_record(org, token, path, "IlpnId", ilpn_id)
+    return jsonify({"success": True, "results": results})
+
+@app.route('/api/olpns', methods=['POST'])
+def olpns():
+    """Fetch all oLPNs (Query: \"\")"""
+    org = request.json.get('org')
+    token = request.json.get('token')
+    if not all([org, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    path = "/pickpack/api/pickpack/olpn/search"
+    try:
+        records, err = fetch_paginated_search(org, token, path)
+        if err:
+            return jsonify({"success": False, "error": err})
+        return jsonify({"success": True, "olpns": records})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/search_olpn', methods=['POST'])
+def search_olpn():
+    org = request.json.get('org')
+    olpn_id = request.json.get('olpn_id', '').strip()
+    token = request.json.get('token')
+    if not all([org, olpn_id, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    path = "/pickpack/api/pickpack/olpn/search"
+    results = search_single_record(org, token, path, "OlpnId", olpn_id)
+    return jsonify({"success": True, "results": results})
+
+@app.route('/api/shipments', methods=['POST'])
+def shipments():
+    """Fetch all shipments (Query: \"\")"""
+    org = request.json.get('org')
+    token = request.json.get('token')
+    if not all([org, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    path = "/shipment/api/shipment/shipment/search"
+    try:
+        records, err = fetch_paginated_search(org, token, path)
+        if err:
+            return jsonify({"success": False, "error": err})
+        return jsonify({"success": True, "shipments": records})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/search_shipment', methods=['POST'])
+def search_shipment():
+    org = request.json.get('org')
+    shipment_id = request.json.get('shipment_id', '').strip()
+    token = request.json.get('token')
+    if not all([org, shipment_id, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    path = "/shipment/api/shipment/shipment/search"
+    results = search_single_record(org, token, path, "ShipmentId", shipment_id)
+    return jsonify({"success": True, "results": results})
+
 @app.route('/api/condition_codes', methods=['POST'])
 def condition_codes():
     """Fetch trailer condition codes"""
@@ -471,7 +653,7 @@ def upload_signature():
     data = request.json
     org = data.get('org')
     token = data.get('token')
-    object_type_id = data.get('objectTypeId')  # "ASN" or "PurchaseOrder"
+    object_type_id = data.get('objectTypeId')  # e.g. ASN, PurchaseOrder, ILPN, Shipment
     object_id = data.get('objectId')
     filename = data.get('filename')
     file_data = data.get('fileData')  # Base64 encoded PNG
