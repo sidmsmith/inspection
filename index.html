@@ -3164,7 +3164,10 @@
     // ===== SIGNATURE PAD =====
     const sigCanvas = document.getElementById('signaturePad');
     const sigCtx = sigCanvas.getContext('2d');
+    const SIGNATURE_MIN_INK_PX = 100;
     let sigDrawing = false;
+    let signatureStrokeLength = 0;
+    let lastSigPos = null;
 
     function resizeSignatureCanvas() {
       const wrapper = sigCanvas.parentElement;
@@ -3175,8 +3178,11 @@
       sigCanvas.width = w * ratio;
       sigCanvas.height = h * ratio;
       sigCanvas.style.height = h + 'px';
+      sigCtx.setTransform(1, 0, 0, 1, 0, 0);
       sigCtx.scale(ratio, ratio);
       setupSigStyle();
+      signatureStrokeLength = 0;
+      lastSigPos = null;
     }
 
     function setupSigStyle() {
@@ -3192,23 +3198,36 @@
       return { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
 
+    function updateSignatureValidity() {
+      const signed = signatureStrokeLength >= SIGNATURE_MIN_INK_PX;
+      if (signed === hasSigned) return;
+      hasSigned = signed;
+      validateCompleteInspection();
+    }
+
     function sigStart(e) {
       sigDrawing = true;
       const pos = getSigPos(e);
+      lastSigPos = pos;
       sigCtx.beginPath();
       sigCtx.moveTo(pos.x, pos.y);
     }
     function sigMove(e) {
       if (!sigDrawing) return;
       const pos = getSigPos(e);
+      if (lastSigPos) {
+        signatureStrokeLength += Math.hypot(pos.x - lastSigPos.x, pos.y - lastSigPos.y);
+      }
+      lastSigPos = pos;
       sigCtx.lineTo(pos.x, pos.y);
       sigCtx.stroke();
-      if (!hasSigned) {
-        hasSigned = true;
-        validateCompleteInspection();
-      }
+      updateSignatureValidity();
     }
-    function sigStop() { sigDrawing = false; }
+    function sigStop() {
+      sigDrawing = false;
+      lastSigPos = null;
+      updateSignatureValidity();
+    }
 
     sigCanvas.addEventListener('mousedown', sigStart);
     sigCanvas.addEventListener('mousemove', sigMove);
@@ -3221,6 +3240,8 @@
     function clearSignaturePad() {
       const ratio = window.devicePixelRatio || 1;
       sigCtx.clearRect(0, 0, sigCanvas.width / ratio, sigCanvas.height / ratio);
+      signatureStrokeLength = 0;
+      lastSigPos = null;
     }
 
     document.getElementById('clearSignature').onclick = () => {
