@@ -218,35 +218,42 @@
       justify-content: flex-end;
     }
     .damage-pad-stock-toggle {
-      display: none;
+      display: none !important;
       gap: 0.2rem;
     }
     .damage-pad-stock-toggle.visible {
-      display: flex;
+      display: flex !important;
     }
     .damage-pad-stock-toggle .segment-btn {
+      flex: 0 0 auto;
       min-width: 4.1rem;
       padding: 0.2rem 0.4rem;
       font-size: 0.72rem;
-    }
-    .damage-pad-photo-btn {
-      display: none;
-      background: none;
       border: 1px solid var(--input-border);
       border-radius: 6px;
+      background: var(--input-bg);
       color: var(--text);
-      padding: 0.28rem 0.55rem;
       cursor: pointer;
-      font-size: 1rem;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .damage-pad-stock-toggle .segment-btn.selected {
+      background: var(--success);
+      border-color: var(--success);
+      color: #fff;
+      font-weight: 600;
+    }
+    .damage-pad-photo-btn {
+      display: none !important;
+      align-items: center;
+      justify-content: center;
+      min-width: 2.1rem;
+      padding-left: 0.55rem;
+      padding-right: 0.55rem;
+      font-size: 1.05rem;
       line-height: 1;
     }
     .damage-pad-photo-btn.visible {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .damage-pad-photo-btn:hover {
-      opacity: 0.85;
+      display: inline-flex !important;
     }
     .damage-pad-wrapper {
       border: 2px dashed var(--border);
@@ -762,11 +769,11 @@
             <div class="damage-pad-header">
               <label style="margin:0;">Damage Diagram</label>
               <div class="damage-pad-controls">
-                <div id="damagePadStockToggle" class="damage-pad-stock-toggle checklist-segmented" aria-label="Diagram image">
+                <div id="damagePadStockToggle" class="damage-pad-stock-toggle" aria-label="Diagram image">
                   <button type="button" class="segment-btn" data-image="container">Container</button>
                   <button type="button" class="segment-btn" data-image="trailer">Trailer</button>
                 </div>
-                <button type="button" class="damage-pad-photo-btn" id="damagePadPhotoBtn" title="Add photo to damage diagram" aria-label="Add photo to damage diagram">
+                <button type="button" class="btn btn-sm btn-secondary damage-pad-photo-btn" id="damagePadPhotoBtn" title="Take photo for damage diagram" aria-label="Take photo for damage diagram">
                   <i class="fas fa-camera"></i>
                 </button>
                 <button type="button" class="btn btn-sm btn-secondary" id="clearDamagePhotoBtn" style="display:none;">Clear Photo</button>
@@ -819,7 +826,7 @@
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">Inspection Photos</h5>
+          <h5 class="modal-title" id="cameraModalTitle">Inspection Photos</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
@@ -877,6 +884,8 @@
     const cameraPhotoCount = document.getElementById('cameraPhotoCount');
     const cameraModalEl = document.getElementById('cameraModal');
     const cameraModal = new bootstrap.Modal(cameraModalEl);
+    const cameraModalTitle = document.getElementById('cameraModalTitle');
+    const capturePhotoBtn = document.getElementById('capturePhotoBtn');
     const cameraVideo = document.getElementById('cameraVideo');
     const cameraCanvas = document.getElementById('cameraCanvas');
     const cameraGallery = document.getElementById('cameraGallery');
@@ -2527,7 +2536,12 @@
       });
     }
 
+    let cameraModalPurpose = 'inspection';
+
     async function openCameraModal() {
+      cameraModalPurpose = 'inspection';
+      if (cameraModalTitle) cameraModalTitle.textContent = 'Inspection Photos';
+      if (cameraGallery) cameraGallery.style.display = '';
       renderInspectionPhotos();
       cameraModal.show();
       try {
@@ -2539,9 +2553,26 @@
       }
     }
 
+    async function openDamagePadCamera() {
+      cameraModalPurpose = 'damagePad';
+      if (cameraModalTitle) cameraModalTitle.textContent = 'Damage Diagram Photo';
+      if (cameraGallery) cameraGallery.style.display = 'none';
+      cameraModal.show();
+      try {
+        await startCameraStream();
+      } catch (err) {
+        console.warn('[DAMAGE PAD] getUserMedia failed, using file capture fallback:', err);
+        cameraModalPurpose = 'inspection';
+        cameraModal.hide();
+        status('Camera unavailable — choose photo from device', 'error');
+        damagePadFileInput.value = '';
+        damagePadFileInput.click();
+      }
+    }
+
     cameraBtn.onclick = () => openCameraModal();
 
-    document.getElementById('capturePhotoBtn').onclick = () => {
+    capturePhotoBtn.onclick = async () => {
       if (!cameraVideo.videoWidth || !cameraVideo.videoHeight) {
         status('Camera not ready yet', 'error');
         return;
@@ -2551,6 +2582,19 @@
       cameraCanvas.height = cameraVideo.videoHeight;
       ctx.drawImage(cameraVideo, 0, 0);
       const dataUrl = cameraCanvas.toDataURL('image/jpeg', 0.92);
+
+      if (cameraModalPurpose === 'damagePad') {
+        try {
+          await setDamagePadUserPhotoFromDataUrl(dataUrl);
+          status('Damage diagram photo added', 'success');
+          cameraModal.hide();
+        } catch (err) {
+          status('Could not add damage diagram photo', 'error');
+          console.warn('[DAMAGE PAD] Camera capture failed:', err);
+        }
+        return;
+      }
+
       addInspectionPhoto(
         dataUrl.replace(/^data:image\/jpeg;base64,/, ''),
         'image/jpeg',
@@ -2561,6 +2605,9 @@
 
     cameraModalEl.addEventListener('hidden.bs.modal', () => {
       stopCameraStream();
+      cameraModalPurpose = 'inspection';
+      if (cameraGallery) cameraGallery.style.display = '';
+      if (cameraModalTitle) cameraModalTitle.textContent = 'Inspection Photos';
     });
 
     if (!cameraFileInputBound) {
@@ -3401,25 +3448,23 @@
         .catch(err => console.warn('[DAMAGE PAD] Stock image load failed:', err));
     }
 
-    function setDamagePadUserPhoto(file) {
+    function setDamagePadUserPhotoFromDataUrl(dataUrl) {
       return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const dataUrl = reader.result;
-          const img = new Image();
-          img.onload = () => {
-            revokeDamagePadUserPhoto();
-            setDamagePadBackgroundImage(img);
-            clearDamagePadMarks();
-            applyDamagePadSize();
-            resolve();
-          };
-          img.onerror = () => reject(new Error('Could not load damage diagram photo'));
-          img.src = dataUrl;
+        const img = new Image();
+        img.onload = () => {
+          revokeDamagePadUserPhoto();
+          setDamagePadBackgroundImage(img);
+          clearDamagePadMarks();
+          applyDamagePadSize();
+          resolve();
         };
-        reader.onerror = () => reject(new Error('Could not read damage diagram photo'));
-        reader.readAsDataURL(file);
+        img.onerror = () => reject(new Error('Could not load damage diagram photo'));
+        img.src = dataUrl;
       });
+    }
+
+    function setDamagePadUserPhoto(file) {
+      return readFileAsPhoto(file).then(photo => setDamagePadUserPhotoFromDataUrl(photo.dataUrl));
     }
 
     function getDamagePos(e) {
@@ -3482,8 +3527,7 @@
     };
 
     damagePadPhotoBtn.onclick = () => {
-      damagePadFileInput.value = '';
-      damagePadFileInput.click();
+      openDamagePadCamera();
     };
 
     damagePadFileInput.onchange = async () => {
