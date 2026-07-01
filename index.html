@@ -1222,7 +1222,8 @@
         },
         logo: '/kendrascott_logo.png',
         logoMaxHeight: '126px',
-        logoMaxWidth: '300px'
+        logoMaxWidth: '300px',
+        logoMobileScale: 0.8
       },
       'pricesmart': {
         name: 'PriceSmart',
@@ -1257,10 +1258,36 @@
     };
 
     // THEME FUNCTIONS
+    let activeThemeKey = 'default';
+
+    function syncThemeLogoSize() {
+      const theme = themes[activeThemeKey];
+      if (!theme?.logo) return;
+
+      const height = theme.logoMaxHeight || '50px';
+      const width = theme.logoMaxWidth;
+      const scale = theme.logoMobileScale;
+
+      if (scale && isMobileLayout()) {
+        themeLogo.style.maxHeight = `calc(${height} * ${scale})`;
+        if (width) {
+          themeLogo.style.maxWidth = `calc(${width} * ${scale})`;
+        }
+      } else {
+        themeLogo.style.maxHeight = height;
+        if (width) {
+          themeLogo.style.maxWidth = width;
+        } else {
+          themeLogo.style.removeProperty('max-width');
+        }
+      }
+    }
+
     function applyTheme(themeKey) {
       const theme = themes[themeKey];
       if (!theme) return;
 
+      activeThemeKey = themeKey;
       const root = document.documentElement;
       Object.entries(theme.colors).forEach(([property, value]) => {
         root.style.setProperty(property, value);
@@ -1270,12 +1297,7 @@
       if (theme.logo) {
         themeLogo.src = theme.logo;
         themeLogo.style.display = 'block';
-        themeLogo.style.maxHeight = theme.logoMaxHeight || '50px';
-        if (theme.logoMaxWidth) {
-          themeLogo.style.maxWidth = theme.logoMaxWidth;
-        } else {
-          themeLogo.style.removeProperty('max-width');
-        }
+        syncThemeLogoSize();
       } else {
         themeLogo.style.display = 'none';
         themeLogo.style.maxHeight = '50px';
@@ -3053,11 +3075,13 @@
       resizeDamagePad();
       syncInspectionFormLayout();
       refreshReadyStatusIfShowing();
+      syncThemeLogoSize();
     });
     window.addEventListener('orientationchange', () => {
       requestAnimationFrame(() => {
         syncInspectionFormLayout();
         refreshReadyStatusIfShowing();
+        syncThemeLogoSize();
       });
     });
 
