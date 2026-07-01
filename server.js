@@ -4,7 +4,7 @@ const fs = require('fs');
 const fetch = require('node-fetch');
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
 
 // Serve static files from both root and public directory
 app.use(express.static(__dirname));
@@ -19,8 +19,19 @@ app.post('/api/:action', async (req, res) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req.body)
     });
-    const data = await response.json();
-    res.json(data);
+    const rawText = await response.text();
+    let data;
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      return res.status(response.status).json({
+        success: false,
+        error: response.status === 413
+          ? 'Upload too large for server (HTTP 413)'
+          : (rawText.slice(0, 200) || `Request failed (HTTP ${response.status})`)
+      });
+    }
+    res.status(response.status).json(data);
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
