@@ -248,6 +248,23 @@
       padding-bottom: max(0.35rem, env(safe-area-inset-bottom, 0px));
       box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.2);
     }
+    @media (max-width: 991px) {
+      #apptForm .form-actions.form-actions-sticky {
+        box-shadow: none;
+        border-top: none;
+        margin-top: 0.5rem;
+        padding-top: 0.35rem;
+        padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+      }
+      body.inspection-layout-active #inspectionCaptureCard.inspection-capture-active {
+        min-height: auto;
+      }
+      body.inspection-layout-active #inspectionCaptureCard.inspection-capture-active #mainUI,
+      body.inspection-layout-active #inspectionCaptureCard.inspection-capture-active #apptForm.inspection-form-active {
+        flex: none;
+        min-height: auto;
+      }
+    }
     body.inspection-layout-active {
       min-height: 100dvh;
     }
@@ -332,15 +349,6 @@
         padding-right: 0.15rem;
       }
     }
-    @media (max-width: 991px) {
-      body.inspection-layout-active #inspectionCaptureCard.inspection-capture-active #apptForm.inspection-form-active {
-        flex: 1 1 auto;
-      }
-      body.inspection-layout-active #inspectionCaptureCard.inspection-capture-active .form-actions.form-actions-sticky {
-        margin-top: auto;
-      }
-    }
-
     @media (max-width: 991px) {
       .checklist-form-grid {
         grid-template-columns: 1fr;
