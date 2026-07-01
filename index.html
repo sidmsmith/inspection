@@ -1158,8 +1158,8 @@
       });
     }
 
-    function setBusyOverlay(message) {
-      inspectionBusyMessage.textContent = message;
+    function showBusyOverlay() {
+      inspectionBusyMessage.textContent = 'Uploading inspection documents...';
       inspectionBusyOverlay.hidden = false;
     }
 
@@ -2061,7 +2061,7 @@
       const targetIds = uploadTargets.map(t => t.objectId);
 
       checkinBtn.disabled = true;
-      setBusyOverlay('Capturing inspection form...');
+      showBusyOverlay();
       await yieldToUi();
 
       trackEvent('inspection_attempt', {
@@ -2089,9 +2089,6 @@
         validateCompleteInspection();
         return;
       }
-
-      setBusyOverlay('Uploading inspection documents...');
-      await yieldToUi();
 
       const uploadStartTime = Date.now();
       const uploadResults = await uploadInspectionDocuments(appt, org, uploadTargets, captureResult.base64Data);
