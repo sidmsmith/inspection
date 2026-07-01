@@ -229,6 +229,95 @@
       padding-top: 0.5rem;
       border-top: 1px solid var(--border);
     }
+    #apptForm.inspection-form-active {
+      display: flex;
+      flex-direction: column;
+    }
+    #apptForm .form-scroll-region {
+      min-height: 0;
+    }
+    .checklist-form-section {
+      display: none;
+      margin-bottom: 0.5rem;
+    }
+    .checklist-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.65rem 1rem;
+    }
+    .checklist-form-grid .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 0.25rem;
+    }
+    .checklist-object-id .form-control[readonly] {
+      background: var(--input-bg);
+      opacity: 0.75;
+      cursor: default;
+      border-style: dashed;
+    }
+    .checklist-segmented {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+    .checklist-segmented .segment-btn {
+      flex: 1;
+      min-width: 4.5rem;
+      padding: 0.45rem 0.5rem;
+      font-size: 0.85rem;
+      border: 1px solid var(--input-border);
+      border-radius: 6px;
+      background: var(--input-bg);
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .checklist-segmented .segment-btn.selected {
+      background: var(--success);
+      border-color: var(--success);
+      color: #fff;
+      font-weight: 600;
+    }
+    .checklist-toggle-pair {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      padding: 0.2rem 0;
+    }
+    .checklist-field-full {
+      grid-column: 1 / -1;
+    }
+
+    @media (min-width: 992px) {
+      #apptForm.inspection-form-active {
+        max-height: calc(100vh - 7rem);
+      }
+      #apptForm .form-scroll-region {
+        flex: 1;
+        overflow-y: auto;
+        padding-right: 0.15rem;
+      }
+      #apptForm .form-actions.form-actions-sticky {
+        flex-shrink: 0;
+        position: sticky;
+        bottom: 0;
+        z-index: 20;
+        background: var(--card-bg);
+        margin-top: 0;
+        padding-top: 0.75rem;
+        padding-bottom: 0.35rem;
+        box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.2);
+      }
+    }
+
+    @media (max-width: 991px) {
+      .checklist-form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
 
     @media (max-width: 1200px) {
       .appt-form-grid {
@@ -488,7 +577,14 @@
 
       <!-- APPOINTMENT DETAIL FORM -->
       <div id="apptForm">
-        <div class="appt-form-grid">
+        <div class="form-scroll-region" id="formScrollRegion">
+          <!-- Config-driven checklist (Trailer, PO) -->
+          <div id="checklistFormSection" class="checklist-form-section">
+            <div class="checklist-form-grid" id="checklistFormFields"></div>
+          </div>
+
+          <!-- Legacy layout (ASN, iLPN, oLPN, Shipment) -->
+          <div id="legacyFormGrid" class="appt-form-grid">
           <div class="form-group">
             <label>Appointment</label>
             <input type="text" id="fld_appointmentId" class="form-control" readonly />
@@ -565,36 +661,37 @@
               </div>
             </div>
           </div>
-        </div>
+          </div>
 
-        <!-- Signature Pad -->
-        <div class="signature-section">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
-            <label style="margin:0;">Inspector's Signature</label>
-            <button type="button" class="btn btn-sm btn-secondary" id="clearSignature">Clear Signature</button>
+          <!-- Signature Pad -->
+          <div class="signature-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+              <label style="margin:0;">Inspector's Signature</label>
+              <button type="button" class="btn btn-sm btn-secondary" id="clearSignature">Clear Signature</button>
+            </div>
+            <div class="signature-pad-wrapper">
+              <canvas id="signaturePad"></canvas>
+            </div>
+            <div class="inspection-photo-strip" id="inspectionPhotoStrip"></div>
           </div>
-          <div class="signature-pad-wrapper">
-            <canvas id="signaturePad"></canvas>
+
+          <!-- Container damage diagram (prototype) -->
+          <div class="damage-pad-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+              <label style="margin:0;">Container Damage Diagram</label>
+              <button type="button" class="btn btn-sm btn-secondary" id="clearDamagePad">Clear Marks</button>
+            </div>
+            <div class="damage-pad-wrapper" id="damagePadWrapper">
+              <canvas id="damagePadBg" aria-hidden="true"></canvas>
+              <canvas id="damagePadDraw" aria-label="Draw damage marks on container diagram"></canvas>
+            </div>
+            <small class="text-muted">Circle or mark areas of damage on the container image.</small>
           </div>
-          <div class="inspection-photo-strip" id="inspectionPhotoStrip"></div>
         </div>
 
         <!-- Complete Inspection Button -->
-        <div class="form-actions">
+        <div class="form-actions form-actions-sticky">
           <button id="checkinBtn" class="btn btn-success btn-lg w-100" disabled>Complete Inspection</button>
-        </div>
-
-        <!-- Container damage diagram (prototype) -->
-        <div class="damage-pad-section">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
-            <label style="margin:0;">Container Damage Diagram</label>
-            <button type="button" class="btn btn-sm btn-secondary" id="clearDamagePad">Clear Marks</button>
-          </div>
-          <div class="damage-pad-wrapper" id="damagePadWrapper">
-            <canvas id="damagePadBg" aria-hidden="true"></canvas>
-            <canvas id="damagePadDraw" aria-label="Draw damage marks on container diagram"></canvas>
-          </div>
-          <small class="text-muted">Circle or mark areas of damage on the container image.</small>
         </div>
       </div>
     </div>
@@ -693,6 +790,11 @@
     const inspectionPhotoStrip = document.getElementById('inspectionPhotoStrip');
     const inspectionBusyOverlay = document.getElementById('inspectionBusyOverlay');
     const inspectionBusyMessage = document.getElementById('inspectionBusyMessage');
+    const checklistFormSection = document.getElementById('checklistFormSection');
+    const checklistFormFields = document.getElementById('checklistFormFields');
+    const legacyFormGrid = document.getElementById('legacyFormGrid');
+    const CHECKLIST_FORM_TYPES = ['trailer', 'po'];
+    let checklistsConfig = null;
 
     // Form field references
     const fld = {
@@ -1188,6 +1290,7 @@
       }
       
       loadTheme();
+      await loadChecklistsConfig();
       
       // Track app opened with full metadata
       trackEvent('app_opened', {});
@@ -1718,6 +1821,194 @@
       return getInspectionUploadTargets(appt).length > 0;
     }
 
+    function usesChecklistForm(searchType) {
+      return CHECKLIST_FORM_TYPES.includes(searchType);
+    }
+
+    async function loadChecklistsConfig() {
+      try {
+        const res = await fetch('/config/checklists.json', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        checklistsConfig = await res.json();
+      } catch (err) {
+        console.error('[CHECKLIST] Failed to load config:', err);
+        checklistsConfig = { checklists: {} };
+      }
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function getChecklistFieldValue(fieldId) {
+      const el = document.querySelector(`[data-checklist-field="${fieldId}"]`);
+      if (!el) return '';
+      if (el.tagName === 'SELECT' || el.tagName === 'INPUT') return el.value.trim();
+      return (el.dataset.value || '').trim();
+    }
+
+    function validateChecklistComplete(searchType) {
+      const checklist = checklistsConfig?.checklists?.[searchType];
+      if (!checklist) return true;
+      for (const field of checklist.fields) {
+        if (!field.required) continue;
+        if (!getChecklistFieldValue(field.id)) return false;
+      }
+      return true;
+    }
+
+    function buildChecklistFieldElement(field) {
+      const group = document.createElement('div');
+      group.className = 'form-group';
+      if (field.type === 'freeform') group.classList.add('checklist-field-full');
+
+      const label = document.createElement('label');
+      label.textContent = field.label;
+      if (field.required) {
+        const star = document.createElement('span');
+        star.className = 'required-asterisk';
+        star.textContent = '*';
+        label.appendChild(star);
+      }
+      group.appendChild(label);
+
+      let control;
+      if (field.type === 'segmented') {
+        control = document.createElement('div');
+        control.className = 'checklist-segmented';
+        control.dataset.checklistField = field.id;
+        control.dataset.value = '';
+        (field.options || []).forEach(option => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'segment-btn';
+          btn.textContent = option;
+          btn.dataset.option = option;
+          btn.onclick = () => {
+            control.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            control.dataset.value = option;
+            validateCompleteInspection();
+          };
+          control.appendChild(btn);
+        });
+      } else if (field.type === 'toggle_pair') {
+        control = document.createElement('div');
+        control.className = 'checklist-toggle-pair';
+        control.dataset.checklistField = field.id;
+        control.dataset.value = '';
+        (field.options || []).forEach(option => {
+          const toggle = document.createElement('div');
+          toggle.className = 'toggle-check';
+          toggle.dataset.option = option;
+          toggle.innerHTML = `
+            <div class="check-box"><span class="check-icon">&#10003;</span></div>
+            <span class="check-label">${escapeHtml(option)}</span>
+          `;
+          toggle.onclick = () => {
+            control.querySelectorAll('.toggle-check').forEach(t => t.classList.remove('checked'));
+            toggle.classList.add('checked');
+            control.dataset.value = option;
+            validateCompleteInspection();
+          };
+          control.appendChild(toggle);
+        });
+      } else if (field.type === 'dropdown') {
+        control = document.createElement('select');
+        control.className = 'form-select';
+        control.dataset.checklistField = field.id;
+        const emptyOpt = document.createElement('option');
+        emptyOpt.value = '';
+        emptyOpt.textContent = '';
+        control.appendChild(emptyOpt);
+        if (field.dataSource === 'condition_codes') {
+          conditionCodes.forEach(code => {
+            const opt = document.createElement('option');
+            opt.value = code.ConditionCodeId;
+            opt.textContent = code.Description || code.ConditionCodeId;
+            control.appendChild(opt);
+          });
+        } else {
+          (field.options || []).forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option;
+            control.appendChild(opt);
+          });
+        }
+        control.addEventListener('change', validateCompleteInspection);
+      } else if (field.type === 'freeform') {
+        control = document.createElement('input');
+        control.type = 'text';
+        control.className = 'form-control';
+        control.dataset.checklistField = field.id;
+        if (field.placeholder) control.placeholder = field.placeholder;
+        control.addEventListener('input', validateCompleteInspection);
+      }
+
+      if (control) group.appendChild(control);
+      return group;
+    }
+
+    function renderChecklistForm(searchType, objectId, objectLabel) {
+      checklistFormFields.innerHTML = '';
+      const checklist = checklistsConfig?.checklists?.[searchType];
+      if (!checklist) {
+        checklistFormFields.innerHTML = '<p class="text-muted mb-0">Checklist not configured for this type.</p>';
+        return;
+      }
+
+      const objectGroup = document.createElement('div');
+      objectGroup.className = 'form-group checklist-object-id checklist-field-full';
+      objectGroup.innerHTML = `
+        <label>${escapeHtml(objectLabel)}:</label>
+        <input type="text" class="form-control" readonly value="${escapeHtml(objectId)}" />
+      `;
+      checklistFormFields.appendChild(objectGroup);
+
+      checklist.fields.forEach(field => {
+        checklistFormFields.appendChild(buildChecklistFieldElement(field));
+      });
+    }
+
+    function populateLegacyInspectionForm(record, searchType) {
+      const config = INSPECTION_SEARCH_TYPES[searchType];
+      const objectId = extractRecordId(record, config.idFields) || '';
+      fld.appointmentId.value = objectId;
+      fld.appointmentType.value = config.label;
+      fld.scheduledDate.value = '';
+      fld.checkInTime.value = formatCurrentTime();
+      fld.carrier.value = record.CarrierId || record.AssignedCarrierId || '';
+      fld.trailer.value = record.TrailerId || record.TrailerNumber || '';
+      fld.truckNumber.value = record.TractorId || '';
+      fld.driverName.value = record.DriverId || '';
+      fld.driverPhone.value = '';
+      fld.driverLicense.value = '';
+      fld.tractorPlate.value = '';
+      fld.rfidTag.value = '';
+      fld.trailerContents.value = objectId ? `${config.label}: ${objectId}` : '';
+      document.getElementById('fld_trailerType').value = '53FT';
+      document.getElementById('fld_conditionCode').value = '';
+      document.querySelectorAll('#legacyFormGrid .toggle-check').forEach(el => el.classList.remove('checked'));
+    }
+
+    function showInspectionFormUi() {
+      apptForm.style.display = 'block';
+      apptForm.classList.add('inspection-form-active');
+      hasSigned = false;
+      requestAnimationFrame(() => {
+        resizeSignatureCanvas();
+        clearSignaturePad();
+        resizeDamagePad();
+        clearDamagePad();
+      });
+      validateCompleteInspection();
+      setCameraBtnVisible(true);
+    }
+
     function formatTrailerContents(appt) {
       const contents = appt.AppointmentContents;
       if (!contents || !Array.isArray(contents) || contents.length === 0) return '';
@@ -1757,6 +2048,8 @@
     // Populate form from appointment search result (appointment search disabled — may revisit later)
     function populateForm(appt) {
       currentAppt = appt;
+      checklistFormSection.style.display = 'none';
+      legacyFormGrid.style.display = '';
       fld.appointmentId.value = appt.AppointmentId || '';
       fld.appointmentType.value = formatApptType(appt.AppointmentTypeId);
       fld.scheduledDate.value = formatDateNice(appt.PreferredDateTime);
@@ -1781,19 +2074,7 @@
       document.getElementById('fld_conditionCode').value = '';
       document.querySelectorAll('.toggle-check').forEach(el => el.classList.remove('checked'));
 
-      hasSigned = false;
-      apptForm.style.display = 'block';
-
-      // Initialize signature pad now that form is visible
-      requestAnimationFrame(() => {
-        resizeSignatureCanvas();
-        clearSignaturePad();
-        resizeDamagePad();
-        clearDamagePad();
-      });
-
-      validateCompleteInspection();
-      setCameraBtnVisible(true);
+      showInspectionFormUi();
     }
 
     // Collect ASN IDs from a direct ASN search or appointment-linked contents
@@ -1828,35 +2109,18 @@
       const config = INSPECTION_SEARCH_TYPES[searchType];
       const objectId = extractRecordId(record, config.idFields) || '';
       currentAppt = { ...record, _searchType: searchType };
-      fld.appointmentId.value = objectId;
-      fld.appointmentType.value = config.label;
-      fld.scheduledDate.value = '';
-      fld.checkInTime.value = formatCurrentTime();
-      fld.carrier.value = record.CarrierId || record.AssignedCarrierId || '';
-      fld.trailer.value = record.TrailerId || record.TrailerNumber || '';
-      fld.truckNumber.value = record.TractorId || '';
-      fld.driverName.value = record.DriverId || '';
-      fld.driverPhone.value = '';
-      fld.driverLicense.value = '';
-      fld.tractorPlate.value = '';
-      fld.rfidTag.value = '';
-      fld.trailerContents.value = objectId ? `${config.label}: ${objectId}` : '';
-      document.getElementById('fld_trailerType').value = '53FT';
-      document.getElementById('fld_conditionCode').value = '';
-      document.querySelectorAll('.toggle-check').forEach(el => el.classList.remove('checked'));
 
-      hasSigned = false;
-      apptForm.style.display = 'block';
+      if (usesChecklistForm(searchType)) {
+        legacyFormGrid.style.display = 'none';
+        checklistFormSection.style.display = 'block';
+        renderChecklistForm(searchType, objectId, config.label);
+      } else {
+        checklistFormSection.style.display = 'none';
+        legacyFormGrid.style.display = '';
+        populateLegacyInspectionForm(record, searchType);
+      }
 
-      requestAnimationFrame(() => {
-        resizeSignatureCanvas();
-        clearSignaturePad();
-        resizeDamagePad();
-        clearDamagePad();
-      });
-
-      validateCompleteInspection();
-      setCameraBtnVisible(true);
+      showInspectionFormUi();
     }
 
     // Minimal form state for ASN search — delegates to generic populate
@@ -1870,12 +2134,16 @@
       document.getElementById('fld_trailerType').value = '53FT';
       document.getElementById('fld_conditionCode').value = '';
       document.querySelectorAll('.toggle-check').forEach(el => el.classList.remove('checked'));
+      checklistFormFields.innerHTML = '';
+      checklistFormSection.style.display = 'none';
+      legacyFormGrid.style.display = '';
       hasSigned = false;
       clearSignaturePad();
       clearDamagePad();
       clearInspectionPhotos();
       setCameraBtnVisible(false);
       apptForm.style.display = 'none';
+      apptForm.classList.remove('inspection-form-active');
       currentAppt = null;
       checkinBtn.disabled = true;
     }
@@ -2046,11 +2314,17 @@
         checkinBtn.disabled = true;
         return;
       }
-      const carrierOk = fld.carrier.value.trim().length > 0;
-      const trailerOk = fld.trailer.value.trim().length > 0;
-      const driverOk = fld.driverName.value.trim().length > 0;
       const photosOk = !photoRequired || inspectionPhotos.length > 0;
-      checkinBtn.disabled = !(carrierOk && trailerOk && driverOk && hasSigned && photosOk);
+      let fieldsOk;
+      if (usesChecklistForm(currentAppt._searchType)) {
+        fieldsOk = validateChecklistComplete(currentAppt._searchType);
+      } else {
+        const carrierOk = fld.carrier.value.trim().length > 0;
+        const trailerOk = fld.trailer.value.trim().length > 0;
+        const driverOk = fld.driverName.value.trim().length > 0;
+        fieldsOk = carrierOk && trailerOk && driverOk;
+      }
+      checkinBtn.disabled = !(fieldsOk && hasSigned && photosOk);
     }
 
     // Find inspection by Trailer, PO, iLPN, oLPN, Shipment, or ASN
@@ -2124,20 +2398,34 @@
     checkinBtn.onclick = async () => {
       if (!currentAppt) return;
 
-      const conditionCode = document.getElementById('fld_conditionCode').value || null;
-      const equipmentTypeId = document.getElementById('fld_trailerType').value || currentAppt.EquipmentTypeId;
-      const appt = {
-        ...currentAppt,
-        CarrierId: fld.carrier.value.trim() || currentAppt.CarrierId,
-        TrailerId: fld.trailer.value.trim() || currentAppt.TrailerId,
-        TractorId: fld.truckNumber.value.trim() || currentAppt.TractorId,
-        DriverId: fld.driverName.value.trim() || currentAppt.DriverId,
-        EquipmentTypeId: equipmentTypeId,
-        ConditionCodeId: conditionCode
-      };
+      const appt = { ...currentAppt };
+      if (!usesChecklistForm(currentAppt._searchType)) {
+        const conditionCode = document.getElementById('fld_conditionCode').value || null;
+        const equipmentTypeId = document.getElementById('fld_trailerType').value || currentAppt.EquipmentTypeId;
+        Object.assign(appt, {
+          CarrierId: fld.carrier.value.trim() || currentAppt.CarrierId,
+          TrailerId: fld.trailer.value.trim() || currentAppt.TrailerId,
+          TractorId: fld.truckNumber.value.trim() || currentAppt.TractorId,
+          DriverId: fld.driverName.value.trim() || currentAppt.DriverId,
+          EquipmentTypeId: equipmentTypeId,
+          ConditionCodeId: conditionCode
+        });
+      } else {
+        appt._checklistResponses = collectChecklistResponses(currentAppt._searchType);
+      }
 
       await performCompleteInspection(appt);
     };
+
+    function collectChecklistResponses(searchType) {
+      const checklist = checklistsConfig?.checklists?.[searchType];
+      if (!checklist) return {};
+      const responses = {};
+      checklist.fields.forEach(field => {
+        responses[field.id] = getChecklistFieldValue(field.id);
+      });
+      return responses;
+    }
 
     async function performCompleteInspection(appt) {
       const org = orgInput.value.trim() || 'unknown';

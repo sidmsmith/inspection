@@ -9,6 +9,7 @@ app.use(express.json({ limit: '50mb' }));
 // Serve static files from both root and public directory
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/config', express.static(path.join(__dirname, 'config')));
 
 // Proxy all /api calls to Flask (running on localhost:5000 during dev)
 app.post('/api/:action', async (req, res) => {

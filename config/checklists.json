@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "checklists": {
+    "trailer": {
+      "fields": [
+        {
+          "id": "exterior_damage_buttons",
+          "label": "Visible exterior damage? (Pass/Fail buttons)",
+          "type": "segmented",
+          "options": ["Pass", "Fail"]
+        },
+        {
+          "id": "exterior_damage_toggles",
+          "label": "Visible exterior damage? (Pass/Fail toggles)",
+          "type": "toggle_pair",
+          "options": ["Pass", "Fail"]
+        },
+        {
+          "id": "floor_condition",
+          "label": "Floor condition",
+          "type": "dropdown",
+          "options": ["Clean & Dry", "Minor Debris", "Damaged", "Wet"],
+          "required": true
+        },
+        {
+          "id": "door_seals_locks",
+          "label": "Door seals & locks",
+          "type": "segmented",
+          "options": ["Pass", "Fail"]
+        },
+        {
+          "id": "interior_cleanliness",
+          "label": "Interior cleanliness",
+          "type": "dropdown",
+          "options": ["Clean", "Acceptable", "Needs Cleaning"]
+        },
+        {
+          "id": "temperature_reefer",
+          "label": "Temperature (if reefer)",
+          "type": "freeform",
+          "placeholder": ""
+        },
+        {
+          "id": "tires_brakes",
+          "label": "Tires & brakes",
+          "type": "segmented",
+          "options": ["Pass", "Fail"]
+        },
+        {
+          "id": "lighting_reflectors",
+          "label": "Lighting & reflectors",
+          "type": "segmented",
+          "options": ["Pass", "Fail"]
+        },
+        {
+          "id": "securement_equipment",
+          "label": "Securement equipment",
+          "type": "dropdown",
+          "options": ["Available & Good", "Missing", "Damaged"],
+          "required": true
+        },
+        {
+          "id": "trailer_docs_match",
+          "label": "Trailer # & docs match",
+          "type": "segmented",
+          "options": ["Yes", "No"]
+        },
+        {
+          "id": "trailer_condition_code",
+          "label": "Trailer Condition Code",
+          "type": "dropdown",
+          "dataSource": "condition_codes",
+          "required": true
+        }
+      ]
+    },
+    "po": {
+      "fields": [
+        {
+          "id": "po_details_match",
+          "label": "PO # and details match",
+          "type": "segmented",
+          "options": ["Yes", "No"]
+        },
+        {
+          "id": "items_skus_correct",
+          "label": "Items / SKUs correct",
+          "type": "segmented",
+          "options": ["Yes", "No"]
+        },
+        {
+          "id": "quantities_match",
+          "label": "Quantities match",
+          "type": "segmented",
+          "options": ["Yes", "No"]
+        },
+        {
+          "id": "delivery_date_on_track",
+          "label": "Delivery date on track",
+          "type": "dropdown",
+          "options": ["On Time", "Delayed", "Early"],
+          "required": true
+        },
+        {
+          "id": "special_instructions_met",
+          "label": "Special instructions met",
+          "type": "segmented",
+          "options": ["Yes", "No"]
+        },
+        {
+          "id": "approvals_complete",
+          "label": "Approvals complete",
+          "type": "segmented",
+          "options": ["Yes", "No"]
+        },
+        {
+          "id": "compliance_requirements",
+          "label": "Compliance requirements",
+          "type": "segmented",
+          "options": ["Yes", "No"]
+        },
+        {
+          "id": "amendments_noted",
+          "label": "Amendments noted",
+          "type": "freeform",
+          "placeholder": "None / Details here..."
+        }
+      ]
+    }
+  }
+}

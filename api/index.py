@@ -683,6 +683,13 @@ def upload_signature():
         return jsonify({"success": False, "error": str(e)})
 
 
+@app.route('/config/<path:filename>')
+def serve_config(filename):
+    try:
+        return send_from_directory(os.path.join(os.path.dirname(__file__), '..', 'config'), filename)
+    except Exception:
+        return "File not found", 404
+
 # === FALLBACK: Serve index.html for SPA (Critical for Vercel) ===
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
