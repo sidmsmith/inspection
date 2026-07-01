@@ -80,13 +80,15 @@
           "id": "po_details_match",
           "label": "PO # and details match",
           "type": "segmented",
-          "options": ["Yes", "No"]
+          "options": ["Yes", "No"],
+          "default": "Yes"
         },
         {
           "id": "items_skus_correct",
           "label": "Items / SKUs correct",
           "type": "segmented",
-          "options": ["Yes", "No"]
+          "options": ["Yes", "No"],
+          "default": "No"
         },
         {
           "id": "quantities_match",
@@ -100,13 +102,14 @@
           "type": "dropdown",
           "options": ["On Time", "Delayed", "Early"],
           "required": true,
-          "default": "On Time"
+          "default": "Delayed"
         },
         {
           "id": "special_instructions_met",
           "label": "Special instructions met",
           "type": "segmented",
-          "options": ["Yes", "No"]
+          "options": ["Yes", "No"],
+          "default": "Pass"
         },
         {
           "id": "approvals_complete",
@@ -118,13 +121,15 @@
           "id": "compliance_requirements",
           "label": "Compliance requirements",
           "type": "segmented",
-          "options": ["Yes", "No"]
+          "options": ["Yes", "No"],
+          "default": "OnTime"
         },
         {
           "id": "amendments_noted",
           "label": "Amendments noted",
           "type": "freeform",
-          "placeholder": "None / Details here..."
+          "placeholder": "None / Details here...",
+          "default": "None"
         }
       ]
     }
