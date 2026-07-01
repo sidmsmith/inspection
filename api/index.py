@@ -1,5 +1,5 @@
-# api/index.py — Inspection v0.0.4
-# Major updates: lean ID-only initial search, multi-type inspection uploads, optional photorequired URL param
+# api/index.py — Inspection v0.0.5
+# Major updates: container damage diagram pad, JPEG form capture/upload 413 fixes, diagram in form screenshot
 from flask import Flask, request, jsonify, send_from_directory
 import json, re, os, traceback
 from datetime import datetime
@@ -277,7 +277,7 @@ def usage_track():
         payload = {
             "event_name": event_name,
             "app_name": "inspection",
-            "app_version": "0.0.4",
+            "app_version": "0.0.5",
             **metadata,
             "timestamp": datetime.now().isoformat()
         }
