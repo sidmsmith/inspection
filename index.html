@@ -572,7 +572,7 @@
       <!-- STATUS + FIND BUTTON -->
       <div class="status-bar">
         <div class="status" id="status">Enter ORG and press Enter to authenticate</div>
-        <button id="findBtn" class="btn btn-primary px-4" disabled>Find Inspection</button>
+        <button id="findBtn" class="btn btn-primary px-4" disabled>Enter ID</button>
       </div>
 
       <!-- APPOINTMENT DETAIL FORM -->
@@ -1723,8 +1723,7 @@
 
     // Real-time validation: enable Find when input matches a valid inspection ID
     criteriaInput.addEventListener('input', () => {
-      const value = criteriaInput.value.trim();
-      findBtn.disabled = !value || !resolveSearchType(value);
+      updateFindButton(criteriaInput.value);
     });
 
     // Enter → Search (only if button is enabled)
@@ -1791,6 +1790,18 @@
       return null;
     }
 
+    function updateFindButton(criteria) {
+      const value = String(criteria || '').trim();
+      const searchType = value ? resolveSearchType(value) : null;
+      if (!value || !searchType) {
+        findBtn.disabled = true;
+        findBtn.textContent = 'Enter ID';
+        return;
+      }
+      findBtn.disabled = false;
+      findBtn.textContent = `Find ${INSPECTION_SEARCH_TYPES[searchType].label}`;
+    }
+
     function getInspectionUploadTargets(appt) {
       if (!appt) return [];
 
@@ -1850,6 +1861,75 @@
       return (el.dataset.value || '').trim();
     }
 
+    function getValidChecklistDefault(field) {
+      if (field.default === undefined || field.default === null || field.default === '') {
+        return null;
+      }
+      const defaultValue = String(field.default);
+
+      if (field.type === 'freeform') {
+        return defaultValue;
+      }
+
+      if (field.type === 'dropdown') {
+        if (field.dataSource === 'condition_codes') {
+          const isValid = conditionCodes.some(code => code.ConditionCodeId === defaultValue);
+          if (!isValid) {
+            console.warn(
+              `[CHECKLIST] Invalid default for "${field.id}": "${defaultValue}" is not a valid condition code`
+            );
+            return null;
+          }
+          return defaultValue;
+        }
+        const options = field.options || [];
+        if (!options.includes(defaultValue)) {
+          console.warn(
+            `[CHECKLIST] Invalid default for "${field.id}": "${defaultValue}" is not in [${options.join(', ')}]`
+          );
+          return null;
+        }
+        return defaultValue;
+      }
+
+      if (field.type === 'segmented' || field.type === 'toggle_pair') {
+        const options = field.options || [];
+        if (!options.includes(defaultValue)) {
+          console.warn(
+            `[CHECKLIST] Invalid default for "${field.id}": "${defaultValue}" is not in [${options.join(', ')}]`
+          );
+          return null;
+        }
+        return defaultValue;
+      }
+
+      console.warn(`[CHECKLIST] Invalid default for "${field.id}": unsupported field type "${field.type}"`);
+      return null;
+    }
+
+    function applyChecklistFieldDefault(field, control) {
+      const defaultValue = getValidChecklistDefault(field);
+      if (!defaultValue || !control) return;
+
+      if (field.type === 'segmented') {
+        control.querySelectorAll('.segment-btn').forEach(btn => {
+          const isMatch = btn.dataset.option === defaultValue;
+          btn.classList.toggle('selected', isMatch);
+        });
+        control.dataset.value = defaultValue;
+      } else if (field.type === 'toggle_pair') {
+        control.querySelectorAll('.toggle-check').forEach(toggle => {
+          const isMatch = toggle.dataset.option === defaultValue;
+          toggle.classList.toggle('checked', isMatch);
+        });
+        control.dataset.value = defaultValue;
+      } else if (field.type === 'dropdown') {
+        control.value = defaultValue;
+      } else if (field.type === 'freeform') {
+        control.value = defaultValue;
+      }
+    }
+
     function validateChecklistComplete(searchType) {
       const checklist = checklistsConfig?.checklists?.[searchType];
       if (!checklist) return true;
@@ -1888,9 +1968,14 @@
           btn.textContent = option;
           btn.dataset.option = option;
           btn.onclick = () => {
+            const wasSelected = btn.classList.contains('selected');
             control.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
-            control.dataset.value = option;
+            if (wasSelected) {
+              control.dataset.value = '';
+            } else {
+              btn.classList.add('selected');
+              control.dataset.value = option;
+            }
             validateCompleteInspection();
           };
           control.appendChild(btn);
@@ -1909,9 +1994,14 @@
             <span class="check-label">${escapeHtml(option)}</span>
           `;
           toggle.onclick = () => {
+            const wasChecked = toggle.classList.contains('checked');
             control.querySelectorAll('.toggle-check').forEach(t => t.classList.remove('checked'));
-            toggle.classList.add('checked');
-            control.dataset.value = option;
+            if (wasChecked) {
+              control.dataset.value = '';
+            } else {
+              toggle.classList.add('checked');
+              control.dataset.value = option;
+            }
             validateCompleteInspection();
           };
           control.appendChild(toggle);
@@ -1949,7 +2039,10 @@
         control.addEventListener('input', validateCompleteInspection);
       }
 
-      if (control) group.appendChild(control);
+      if (control) {
+        group.appendChild(control);
+        applyChecklistFieldDefault(field, control);
+      }
       return group;
     }
 
@@ -1972,6 +2065,8 @@
       checklist.fields.forEach(field => {
         checklistFormFields.appendChild(buildChecklistFieldElement(field));
       });
+
+      validateCompleteInspection();
     }
 
     function populateLegacyInspectionForm(record, searchType) {
@@ -2532,7 +2627,7 @@
         });
 
         criteriaInput.value = '';
-        findBtn.disabled = true;
+        updateFindButton('');
         resetForm();
         status('Inspection complete', 'success');
       } else {

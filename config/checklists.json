@@ -99,7 +99,8 @@
           "label": "Delivery date on track",
           "type": "dropdown",
           "options": ["On Time", "Delayed", "Early"],
-          "required": true
+          "required": true,
+          "default": "On Time"
         },
         {
           "id": "special_instructions_met",
