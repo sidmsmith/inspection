@@ -1951,8 +1951,7 @@
       const carrierOk = fld.carrier.value.trim().length > 0;
       const trailerOk = fld.trailer.value.trim().length > 0;
       const driverOk = fld.driverName.value.trim().length > 0;
-      const photosOk = inspectionPhotos.length > 0;
-      checkinBtn.disabled = !(carrierOk && trailerOk && driverOk && hasSigned && photosOk);
+      checkinBtn.disabled = !(carrierOk && trailerOk && driverOk && hasSigned);
     }
 
     // Find inspection by Trailer, PO, iLPN, oLPN, Shipment, or ASN
@@ -2051,12 +2050,6 @@
         return;
       }
 
-      if (inspectionPhotos.length === 0) {
-        status('At least one inspection photo is required', 'error');
-        validateCompleteInspection();
-        return;
-      }
-
       const inspectionStartTime = Date.now();
       const targetIds = uploadTargets.map(t => t.objectId);
 
@@ -2114,7 +2107,11 @@
 
         if (uploadableTargets.length > 0) {
           message += ` ${uploadsSucceeded} document(s) uploaded`;
-          message += ` (${uploadableTargets.length} Inspection Form + ${uploadableTargets.length * photosPerTarget} Inspection Photo${photosPerTarget === 1 ? '' : 's'}).`;
+          message += ` (${uploadableTargets.length} Inspection Form`;
+          if (photosPerTarget > 0) {
+            message += ` + ${uploadableTargets.length * photosPerTarget} Inspection Photo${photosPerTarget === 1 ? '' : 's'}`;
+          }
+          message += ').';
         }
 
         mockTargets.forEach(target => {
@@ -2274,7 +2271,6 @@
     // Upload Inspection Form screenshot + photos for each linked target
     // Inspector signature upload disabled for now — may revisit later
     async function uploadInspectionDocuments(appt, org, uploadTargets, formImageBase64) {
-      const referenceId = extractRecordId(appt, INSPECTION_SEARCH_TYPES[appt._searchType]?.idFields || ['AsnId', 'AppointmentId']) || 'Unknown';
       const driverName = fld.driverName.value.trim() || 'Unknown';
       const timestamp = new Date().toLocaleString('en-US');
       const notes = `${timestamp}, ${driverName}`;
@@ -2299,13 +2295,13 @@
         try {
           // Inspector signature upload disabled for now — may revisit later
           /*
-          const { base64Data: inspectorBase64 } = await enhanceSignatureImage(referenceId, label);
+          const { base64Data: inspectorBase64 } = await enhanceSignatureImage(objectId, label);
           const inspectorRes = await api('upload_signature', {
             org,
             token,
             objectTypeId,
             objectId,
-            filename: `Inspection_${referenceId}_${objectId}_inspector.png`,
+            filename: `Inspection_${objectId}_inspector.png`,
             fileData: inspectorBase64,
             notes,
             documentName: 'Inspector',
@@ -2330,7 +2326,7 @@
             token,
             objectTypeId,
             objectId,
-            filename: `Inspection_${referenceId}_${objectId}_form.png`,
+            filename: `Inspection_${objectId}_form.png`,
             fileData: formImageBase64,
             notes,
             documentName: 'Inspection Form',
@@ -2351,30 +2347,32 @@
 
           console.log(`[INSPECTION] Uploaded Inspection Form for ${label}`);
 
-          for (let photoIndex = 0; photoIndex < inspectionPhotos.length; photoIndex++) {
-            const photo = inspectionPhotos[photoIndex];
-            const photoRes = await api('upload_signature', {
-              org,
-              token,
-              objectTypeId,
-              objectId,
-              filename: `Inspection_${referenceId}_${objectId}_photo_${photoIndex + 1}.${photo.extension}`,
-              fileData: photo.base64Data,
-              notes,
-              documentName: 'Inspection Photos',
-              documentDescription: 'Inspection photo captured from device camera'
-            });
+          if (inspectionPhotos.length > 0) {
+            for (let photoIndex = 0; photoIndex < inspectionPhotos.length; photoIndex++) {
+              const photo = inspectionPhotos[photoIndex];
+              const photoRes = await api('upload_signature', {
+                org,
+                token,
+                objectTypeId,
+                objectId,
+                filename: `Inspection_${objectId}_photo_${photoIndex + 1}.${photo.extension}`,
+                fileData: photo.base64Data,
+                notes,
+                documentName: 'Inspection Photos',
+                documentDescription: 'Inspection photo captured from device camera'
+              });
 
-            results.push({
-              objectId,
-              type: 'inspection_photo',
-              photoIndex: photoIndex + 1,
-              success: !!photoRes.success,
-              error: photoRes.error || null
-            });
+              results.push({
+                objectId,
+                type: 'inspection_photo',
+                photoIndex: photoIndex + 1,
+                success: !!photoRes.success,
+                error: photoRes.error || null
+              });
 
-            if (!photoRes.success) {
-              console.warn(`[INSPECTION] Inspection Photos upload failed for ${label}, photo ${photoIndex + 1}:`, photoRes.error);
+              if (!photoRes.success) {
+                console.warn(`[INSPECTION] Inspection Photos upload failed for ${label}, photo ${photoIndex + 1}:`, photoRes.error);
+              }
             }
           }
         } catch (err) {
