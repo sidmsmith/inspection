@@ -2340,7 +2340,6 @@
       const statusBar = document.querySelector('.status-bar');
       const formActions = checkinBtn?.closest('.form-actions');
       const clearSignatureBtn = document.getElementById('clearSignature');
-      const damagePadSection = document.querySelector('.damage-pad-section');
       if (!card) {
         return { success: false, error: 'Capture container not found' };
       }
@@ -2357,7 +2356,6 @@
       hideEl(statusBar);
       hideEl(formActions);
       hideEl(clearSignatureBtn);
-      hideEl(damagePadSection);
 
       try {
         // Allow hidden elements to repaint before capture
