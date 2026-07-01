@@ -192,6 +192,37 @@
       width: 100%;
       border-radius: 6px;
     }
+    .damage-pad-section {
+      margin-top: 1rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+    .damage-pad-section label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .damage-pad-wrapper {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      background: var(--input-bg);
+      position: relative;
+      width: 100%;
+      min-height: 180px;
+      cursor: crosshair;
+      touch-action: none;
+      overflow: hidden;
+    }
+    .damage-pad-wrapper canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: block;
+      border-radius: 6px;
+    }
+    #damagePadDraw {
+      z-index: 1;
+    }
     /* CHECK IN BUTTON AREA */
     .form-actions {
       margin-top: 0.5rem;
@@ -551,6 +582,19 @@
         <!-- Complete Inspection Button -->
         <div class="form-actions">
           <button id="checkinBtn" class="btn btn-success btn-lg w-100" disabled>Complete Inspection</button>
+        </div>
+
+        <!-- Container damage diagram (prototype) -->
+        <div class="damage-pad-section">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+            <label style="margin:0;">Container Damage Diagram</label>
+            <button type="button" class="btn btn-sm btn-secondary" id="clearDamagePad">Clear Marks</button>
+          </div>
+          <div class="damage-pad-wrapper" id="damagePadWrapper">
+            <canvas id="damagePadBg" aria-hidden="true"></canvas>
+            <canvas id="damagePadDraw" aria-label="Draw damage marks on container diagram"></canvas>
+          </div>
+          <small class="text-muted">Circle or mark areas of damage on the container image.</small>
         </div>
       </div>
     </div>
@@ -1711,6 +1755,8 @@
       requestAnimationFrame(() => {
         resizeSignatureCanvas();
         clearSignaturePad();
+        resizeDamagePad();
+        clearDamagePad();
       });
 
       validateCompleteInspection();
@@ -1772,6 +1818,8 @@
       requestAnimationFrame(() => {
         resizeSignatureCanvas();
         clearSignaturePad();
+        resizeDamagePad();
+        clearDamagePad();
       });
 
       validateCompleteInspection();
@@ -1791,6 +1839,7 @@
       document.querySelectorAll('.toggle-check').forEach(el => el.classList.remove('checked'));
       hasSigned = false;
       clearSignaturePad();
+      clearDamagePad();
       clearInspectionPhotos();
       setCameraBtnVisible(false);
       apptForm.style.display = 'none';
@@ -2477,7 +2526,146 @@
 
     // Initialize canvas size
     resizeSignatureCanvas();
-    window.addEventListener('resize', resizeSignatureCanvas);
+    window.addEventListener('resize', () => {
+      resizeSignatureCanvas();
+      resizeDamagePad();
+    });
+
+    // ===== CONTAINER DAMAGE DIAGRAM PAD =====
+    const DAMAGE_PAD_IMAGE_SRC = '/container.png';
+    const damagePadWrapper = document.getElementById('damagePadWrapper');
+    const damageBgCanvas = document.getElementById('damagePadBg');
+    const damageDrawCanvas = document.getElementById('damagePadDraw');
+    let damageBgCtx = damageBgCanvas.getContext('2d');
+    let damageDrawCtx = damageDrawCanvas.getContext('2d');
+    let damageImage = null;
+    let damageImageLoaded = false;
+    let damageDrawing = false;
+    let damagePadCssWidth = 0;
+    let damagePadCssHeight = 0;
+
+    function loadDamagePadImage() {
+      if (damageImageLoaded && damageImage) return Promise.resolve(damageImage);
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          damageImage = img;
+          damageImageLoaded = true;
+          resolve(img);
+        };
+        img.onerror = () => reject(new Error('Failed to load container diagram image'));
+        img.src = DAMAGE_PAD_IMAGE_SRC;
+      });
+    }
+
+    function drawDamageBackground() {
+      if (!damagePadCssWidth || !damagePadCssHeight) return;
+      damageBgCtx.clearRect(0, 0, damagePadCssWidth, damagePadCssHeight);
+      const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--input-bg').trim() || '#2d2d2d';
+      damageBgCtx.fillStyle = bgColor;
+      damageBgCtx.fillRect(0, 0, damagePadCssWidth, damagePadCssHeight);
+      if (!damageImage) return;
+      const scale = Math.min(
+        damagePadCssWidth / damageImage.naturalWidth,
+        damagePadCssHeight / damageImage.naturalHeight
+      );
+      const drawW = damageImage.naturalWidth * scale;
+      const drawH = damageImage.naturalHeight * scale;
+      const offsetX = (damagePadCssWidth - drawW) / 2;
+      const offsetY = (damagePadCssHeight - drawH) / 2;
+      damageBgCtx.drawImage(damageImage, offsetX, offsetY, drawW, drawH);
+    }
+
+    function setupDamageDrawStyle() {
+      damageDrawCtx.strokeStyle = '#dc3545';
+      damageDrawCtx.lineWidth = 3;
+      damageDrawCtx.lineCap = 'round';
+      damageDrawCtx.lineJoin = 'round';
+    }
+
+    function resizeDamagePad() {
+      const w = damagePadWrapper.offsetWidth;
+      if (w === 0) return;
+
+      const applySize = () => {
+        const ratio = window.devicePixelRatio || 1;
+        const aspect = damageImage.naturalHeight / damageImage.naturalWidth;
+        const cssH = Math.max(180, Math.round(w * aspect));
+        damagePadCssWidth = w;
+        damagePadCssHeight = cssH;
+        damagePadWrapper.style.height = cssH + 'px';
+
+        [damageBgCanvas, damageDrawCanvas].forEach(canvas => {
+          canvas.width = w * ratio;
+          canvas.height = cssH * ratio;
+          canvas.style.width = w + 'px';
+          canvas.style.height = cssH + 'px';
+        });
+
+        damageBgCtx = damageBgCanvas.getContext('2d');
+        damageDrawCtx = damageDrawCanvas.getContext('2d');
+        damageBgCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        damageDrawCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        drawDamageBackground();
+        setupDamageDrawStyle();
+      };
+
+      if (!damageImageLoaded) {
+        loadDamagePadImage().then(applySize).catch(err => {
+          console.warn('[DAMAGE PAD] Image load failed:', err);
+        });
+        return;
+      }
+      applySize();
+    }
+
+    function getDamagePos(e) {
+      const rect = damageDrawCanvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    function damageStart(e) {
+      damageDrawing = true;
+      const pos = getDamagePos(e);
+      damageDrawCtx.beginPath();
+      damageDrawCtx.moveTo(pos.x, pos.y);
+    }
+
+    function damageMove(e) {
+      if (!damageDrawing) return;
+      const pos = getDamagePos(e);
+      damageDrawCtx.lineTo(pos.x, pos.y);
+      damageDrawCtx.stroke();
+    }
+
+    function damageStop() {
+      damageDrawing = false;
+    }
+
+    damageDrawCanvas.addEventListener('mousedown', damageStart);
+    damageDrawCanvas.addEventListener('mousemove', damageMove);
+    damageDrawCanvas.addEventListener('mouseup', damageStop);
+    damageDrawCanvas.addEventListener('mouseleave', damageStop);
+    damageDrawCanvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      damageStart(e.touches[0]);
+    }, { passive: false });
+    damageDrawCanvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      damageMove(e.touches[0]);
+    }, { passive: false });
+    damageDrawCanvas.addEventListener('touchend', damageStop);
+
+    function clearDamagePad() {
+      if (!damagePadCssWidth || !damagePadCssHeight) return;
+      damageDrawCtx.clearRect(0, 0, damagePadCssWidth, damagePadCssHeight);
+    }
+
+    document.getElementById('clearDamagePad').onclick = () => {
+      clearDamagePad();
+    };
+
+    loadDamagePadImage().catch(err => console.warn('[DAMAGE PAD] Preload failed:', err));
 
   </script>
   <!-- Vercel Analytics -->
