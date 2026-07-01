@@ -608,7 +608,7 @@
       <!-- STATUS + FIND BUTTON -->
       <div class="status-bar">
         <div class="status" id="status">Enter ORG and press Enter to authenticate</div>
-        <button id="findBtn" class="btn btn-primary px-4" disabled>Enter ID</button>
+        <button id="findBtn" class="btn btn-primary px-4" disabled>Enter Valid Object</button>
       </div>
 
       <!-- APPOINTMENT DETAIL FORM -->
@@ -1833,7 +1833,7 @@
       const searchType = value ? resolveSearchType(value) : null;
       if (!value || !searchType) {
         findBtn.disabled = true;
-        findBtn.textContent = 'Enter ID';
+        findBtn.textContent = 'Enter Valid Object';
         return;
       }
       findBtn.disabled = false;
@@ -2823,6 +2823,7 @@
         const { toJpeg } = await import('https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/+esm');
         const dataUrl = await toJpeg(card, {
           cacheBust: true,
+          skipFonts: true,
           pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
           quality: 0.85,
           backgroundColor: getComputedStyle(card).backgroundColor || '#1e1e1e'
