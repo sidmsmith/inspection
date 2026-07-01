@@ -1348,6 +1348,25 @@
     });
 
     // STATUS
+    function isMobileLayout() {
+      return window.matchMedia('(max-width: 991px)').matches;
+    }
+
+    let readyCountParts = null;
+
+    function formatReadyStatusMessage() {
+      if (!readyCountParts || isMobileLayout()) return 'Ready';
+      return `Ready – ${readyCountParts.join(', ')} available`;
+    }
+
+    function refreshReadyStatusIfShowing() {
+      if (!readyCountParts) return;
+      const current = statusEl.textContent;
+      if (current === 'Ready' || current.startsWith('Ready –')) {
+        status(formatReadyStatusMessage(), 'success');
+      }
+    }
+
     function status(text, type = 'info') {
       statusEl.textContent = text;
       statusEl.className = `status text-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'}`;
@@ -1711,10 +1730,13 @@
 
       const totalIds = Object.values(validIdsByType).reduce((sum, set) => sum + set.size, 0);
       if (totalIds > 0) {
-        status(`Ready – ${countParts.join(', ')} available`, 'success');
+        readyCountParts = countParts;
+        status(formatReadyStatusMessage(), 'success');
       } else if (anyLoaded) {
+        readyCountParts = null;
         status('Authenticated – no inspection records found', 'error');
       } else {
+        readyCountParts = null;
         status('Authenticated – could not load inspection records', 'error');
       }
 
@@ -2541,7 +2563,7 @@
       }
       
       populateInspectionForm(res.results[0], searchType);
-      status(`${config.label} loaded`, 'success');
+      status(`${config.label} Loaded`, 'success');
       
       trackEvent('search_completed', {
         org: org,
@@ -3030,9 +3052,13 @@
       resizeSignatureCanvas();
       resizeDamagePad();
       syncInspectionFormLayout();
+      refreshReadyStatusIfShowing();
     });
     window.addEventListener('orientationchange', () => {
-      requestAnimationFrame(() => syncInspectionFormLayout());
+      requestAnimationFrame(() => {
+        syncInspectionFormLayout();
+        refreshReadyStatusIfShowing();
+      });
     });
 
     // ===== CONTAINER DAMAGE DIAGRAM PAD =====
