@@ -132,6 +132,241 @@
           "default": "None"
         }
       ]
+    },
+    "asn": {
+      "fields": [
+        {
+          "id": "asn_matches_po",
+          "label": "ASN # matches PO",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "Yes"
+        },
+        {
+          "id": "items_quantities_match",
+          "label": "Items / quantities match",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "No"
+        },
+        {
+          "id": "shipment_date_carrier_ok",
+          "label": "Shipment date & carrier OK",
+          "type": "segmented",
+          "options": ["Yes", "No"]
+        },
+        {
+          "id": "packaging_details_correct",
+          "label": "Packaging details correct",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "Yes"
+        },
+        {
+          "id": "special_handling_noted",
+          "label": "Special handling noted",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "Pass"
+        },
+        {
+          "id": "supporting_docs_attached",
+          "label": "Supporting docs attached",
+          "type": "segmented",
+          "options": ["Yes", "No"]
+        },
+        {
+          "id": "discrepancies_found",
+          "label": "Discrepancies found",
+          "type": "freeform",
+          "placeholder": "None / List discrepancies...",
+          "default": "None"
+        }
+      ]
+    },
+    "ilpn": {
+      "fields": [
+        {
+          "id": "label_present_legible",
+          "label": "Label present & legible",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "Yes"
+        },
+        {
+          "id": "contents_match_system",
+          "label": "Contents match system",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "No"
+        },
+        {
+          "id": "visible_damage",
+          "label": "Visible damage",
+          "type": "segmented",
+          "options": ["None", "Yes (describe)"]
+        },
+        {
+          "id": "storage_conditions_ok",
+          "label": "Storage conditions OK",
+          "type": "dropdown",
+          "options": ["Good", "Temperature Issue", "Improper Stacking"],
+          "required": true,
+          "default": "Good"
+        },
+        {
+          "id": "location_correct",
+          "label": "Location correct",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "Pass"
+        },
+        {
+          "id": "seal_tag_intact",
+          "label": "Seal / tag intact",
+          "type": "segmented",
+          "options": ["Yes", "No"]
+        },
+        {
+          "id": "weight_dims_accurate",
+          "label": "Weight & dims accurate",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "OnTime"
+        },
+        {
+          "id": "status_updated_system",
+          "label": "Status updated in system",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "Yes"
+        }
+      ]
+    },
+    "olpn": {
+      "fields": [
+        {
+          "id": "label_present_legible",
+          "label": "Label present & legible",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "Yes"
+        },
+        {
+          "id": "contents_match_order",
+          "label": "Contents match order",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "No"
+        },
+        {
+          "id": "packaging_secure",
+          "label": "Packaging secure",
+          "type": "segmented",
+          "options": ["Yes", "No"]
+        },
+        {
+          "id": "shipping_labels_correct",
+          "label": "Shipping labels correct",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "Yes"
+        },
+        {
+          "id": "special_markings_applied",
+          "label": "Special markings applied",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "Fail"
+        },
+        {
+          "id": "weight_dims_accurate",
+          "label": "Weight & dims accurate",
+          "type": "segmented",
+          "options": ["Yes", "No"]
+        },
+        {
+          "id": "stacking_securement_ok",
+          "label": "Stacking / securement OK",
+          "type": "dropdown",
+          "options": ["Good", "Needs Adjustment"],
+          "required": true,
+          "default": "Needs Adjustment"
+        },
+        {
+          "id": "status_updated_system",
+          "label": "Status updated in system",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "Maybe"
+        }
+      ]
+    },
+    "shipment": {
+      "fields": [
+        {
+          "id": "documents_complete_matching",
+          "label": "Documents complete & matching",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "Yes"
+        },
+        {
+          "id": "total_quantity_matches",
+          "label": "Total quantity matches",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "No"
+        },
+        {
+          "id": "visible_damage_load",
+          "label": "Visible damage to load",
+          "type": "segmented",
+          "options": ["None", "Yes"]
+        },
+        {
+          "id": "cargo_properly_secured",
+          "label": "Cargo properly secured",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "Yes"
+        },
+        {
+          "id": "carrier_tracking_correct",
+          "label": "Carrier & tracking correct",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "Pass"
+        },
+        {
+          "id": "temperature_conditions_ok",
+          "label": "Temperature / conditions OK",
+          "type": "dropdown",
+          "options": ["Within Range", "Out of Range"],
+          "required": true,
+          "default": "Within Range"
+        },
+        {
+          "id": "seal_numbers_recorded",
+          "label": "Seal numbers recorded",
+          "type": "segmented",
+          "options": ["Yes", "No"]
+        },
+        {
+          "id": "regulatory_compliance",
+          "label": "Regulatory compliance",
+          "type": "segmented",
+          "options": ["Yes", "No"],
+          "default": "OnTime"
+        },
+        {
+          "id": "exceptions_notes",
+          "label": "Exceptions / notes",
+          "type": "freeform",
+          "placeholder": "None / Details...",
+          "default": "None"
+        }
+      ]
     }
   }
 }
