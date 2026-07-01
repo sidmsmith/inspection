@@ -189,7 +189,16 @@ def extract_record_id(record, id_field):
     return str(val).strip() or None
 
 def fetch_paginated_ids(org, token, api_path, id_field, query=""):
-    """Fetch record IDs only using Template + pagination."""
+    """Fetch record IDs only using Template + pagination.
+
+    Manhattan payload shape (per entity), e.g. shipments:
+    {
+      "Query": "",
+      "Size": 1000,
+      "Page": 0,
+      "Template": { "ShipmentId": null }
+    }
+    """
     url = f"https://{API_HOST}{api_path}"
     headers = manhattan_api_headers(org, token)
     ids = []

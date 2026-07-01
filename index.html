@@ -382,6 +382,42 @@
     .modal-header, .modal-footer {
       border-color: var(--border);
     }
+    .inspection-busy-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 3000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.6);
+      pointer-events: all;
+    }
+    .inspection-busy-overlay[hidden] {
+      display: none !important;
+    }
+    .inspection-busy-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      padding: 2rem 2.5rem;
+      border-radius: 12px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+      max-width: min(90vw, 420px);
+      text-align: center;
+    }
+    .inspection-busy-spinner {
+      width: 3rem;
+      height: 3rem;
+      border-width: 0.3rem;
+    }
+    .inspection-busy-message {
+      color: var(--text);
+      font-size: 1.05rem;
+      line-height: 1.4;
+    }
   </style>
 </head>
 <body>
@@ -520,6 +556,14 @@
     </div>
   </div>
 
+  <!-- Outside inspectionCaptureCard so it is not included in form screenshots -->
+  <div id="inspectionBusyOverlay" class="inspection-busy-overlay" hidden aria-live="polite" aria-busy="true">
+    <div class="inspection-busy-content">
+      <div class="spinner-border text-primary inspection-busy-spinner" role="status" aria-hidden="true"></div>
+      <div id="inspectionBusyMessage" class="inspection-busy-message"></div>
+    </div>
+  </div>
+
   <!-- SUCCESS MODAL -->
   <div class="modal fade" id="checkinModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -603,6 +647,8 @@
     const cameraGalleryEmpty = document.getElementById('cameraGalleryEmpty');
     const cameraFileInput = document.getElementById('cameraFileInput');
     const inspectionPhotoStrip = document.getElementById('inspectionPhotoStrip');
+    const inspectionBusyOverlay = document.getElementById('inspectionBusyOverlay');
+    const inspectionBusyMessage = document.getElementById('inspectionBusyMessage');
 
     // Form field references
     const fld = {
@@ -1110,6 +1156,16 @@
       return new Promise(resolve => {
         requestAnimationFrame(() => requestAnimationFrame(resolve));
       });
+    }
+
+    function setBusyOverlay(message) {
+      inspectionBusyMessage.textContent = message;
+      inspectionBusyOverlay.hidden = false;
+    }
+
+    function clearBusyOverlay() {
+      inspectionBusyOverlay.hidden = true;
+      inspectionBusyMessage.textContent = '';
     }
 
     // API
@@ -2005,7 +2061,7 @@
       const targetIds = uploadTargets.map(t => t.objectId);
 
       checkinBtn.disabled = true;
-      status('Uploading inspection documents...');
+      setBusyOverlay('Capturing inspection form...');
       await yieldToUi();
 
       trackEvent('inspection_attempt', {
@@ -2019,6 +2075,7 @@
 
       const captureResult = await captureInspectionCardImage();
       if (!captureResult.success) {
+        clearBusyOverlay();
         trackEvent('inspection_failed', {
           org: org,
           appointment_id: appt.AppointmentId || null,
@@ -2032,6 +2089,9 @@
         validateCompleteInspection();
         return;
       }
+
+      setBusyOverlay('Uploading inspection documents...');
+      await yieldToUi();
 
       const uploadStartTime = Date.now();
       const uploadResults = await uploadInspectionDocuments(appt, org, uploadTargets, captureResult.base64Data);
@@ -2064,6 +2124,7 @@
           message += ` Sample confirmation for ${target.label}: inspection documents would be attached when upload API is available for this record type.`;
         });
 
+        clearBusyOverlay();
         checkinMessage.textContent = message;
         checkinModal.show();
 
@@ -2082,6 +2143,7 @@
         resetForm();
         status('Inspection complete', 'success');
       } else {
+        clearBusyOverlay();
         trackEvent('inspection_failed', {
           org: org,
           appointment_id: appt.AppointmentId || null,
