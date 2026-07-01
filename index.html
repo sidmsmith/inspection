@@ -410,7 +410,7 @@
       <!-- APPOINTMENT ID INPUT -->
       <div class="mb-3">
         <label class="form-label">Enter Inspection:</label>
-        <input type="text" id="criteria" class="form-control" placeholder="Enter Trailer, PO, iLPN, oLPN, Shipment, or ASN ID" />
+        <input type="text" id="criteria" class="form-control" placeholder="Enter Trailer, PO, ASN, iLPN, oLPN, or Shipment" />
       </div>
 
       <!-- STATUS + FIND BUTTON -->
@@ -646,6 +646,16 @@
         objectTypeId: 'PurchaseOrder',
         supportsUpload: true
       },
+      asn: {
+        label: 'ASN',
+        listKey: 'asns',
+        listApi: 'asns',
+        searchApi: 'search_asn',
+        searchParam: 'asn_id',
+        idFields: ['AsnId'],
+        objectTypeId: 'ASN',
+        supportsUpload: true
+      },
       ilpn: {
         label: 'iLPN',
         listKey: 'ilpns',
@@ -674,16 +684,6 @@
         searchParam: 'shipment_id',
         idFields: ['ShipmentId'],
         objectTypeId: 'Shipment',
-        supportsUpload: true
-      },
-      asn: {
-        label: 'ASN',
-        listKey: 'asns',
-        listApi: 'asns',
-        searchApi: 'search_asn',
-        searchParam: 'asn_id',
-        idFields: ['AsnId'],
-        objectTypeId: 'ASN',
         supportsUpload: true
       }
     };
@@ -1110,6 +1110,12 @@
     function status(text, type = 'info') {
       statusEl.textContent = text;
       statusEl.className = `status text-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'}`;
+    }
+
+    function yieldToUi() {
+      return new Promise(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      });
     }
 
     // API
@@ -1911,7 +1917,7 @@
       if (!criteria) return status('Enter an inspection ID', 'error');
 
       const searchType = resolveSearchType(criteria);
-      if (!searchType) return status('Enter a valid Trailer, PO, iLPN, oLPN, Shipment, or ASN ID', 'error');
+      if (!searchType) return status('Enter a valid Trailer, PO, ASN, iLPN, oLPN, or Shipment', 'error');
 
       const config = INSPECTION_SEARCH_TYPES[searchType];
       const org = orgInput.value.trim() || 'unknown';
@@ -2009,6 +2015,10 @@
       const inspectionStartTime = Date.now();
       const targetIds = uploadTargets.map(t => t.objectId);
 
+      checkinBtn.disabled = true;
+      status('Uploading inspection documents...');
+      await yieldToUi();
+
       trackEvent('inspection_attempt', {
         org: org,
         appointment_id: appt.AppointmentId || null,
@@ -2017,9 +2027,6 @@
         carrier_id: appt.CarrierId || null,
         trailer_id: appt.TrailerId || null
       });
-
-      status('Capturing inspection form...');
-      checkinBtn.disabled = true;
 
       const captureResult = await captureInspectionCardImage();
       if (!captureResult.success) {
@@ -2037,7 +2044,6 @@
         return;
       }
 
-      status('Uploading inspection documents...');
       const uploadStartTime = Date.now();
       const uploadResults = await uploadInspectionDocuments(appt, org, uploadTargets, captureResult.base64Data);
       const uploadDuration = Date.now() - uploadStartTime;
