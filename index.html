@@ -628,7 +628,6 @@
     const INSPECTION_SEARCH_TYPES = {
       trailer: {
         label: 'Trailer',
-        listKey: 'trailers',
         listApi: 'trailers',
         searchApi: 'search_trailer',
         searchParam: 'trailer_id',
@@ -638,7 +637,6 @@
       },
       po: {
         label: 'PO',
-        listKey: 'purchase_orders',
         listApi: 'purchase_orders',
         searchApi: 'search_purchase_order',
         searchParam: 'purchase_order_id',
@@ -648,7 +646,6 @@
       },
       asn: {
         label: 'ASN',
-        listKey: 'asns',
         listApi: 'asns',
         searchApi: 'search_asn',
         searchParam: 'asn_id',
@@ -658,7 +655,6 @@
       },
       ilpn: {
         label: 'iLPN',
-        listKey: 'ilpns',
         listApi: 'ilpns',
         searchApi: 'search_ilpn',
         searchParam: 'ilpn_id',
@@ -668,7 +664,6 @@
       },
       olpn: {
         label: 'oLPN',
-        listKey: 'olpns',
         listApi: 'olpns',
         searchApi: 'search_olpn',
         searchParam: 'olpn_id',
@@ -678,7 +673,6 @@
       },
       shipment: {
         label: 'Shipment',
-        listKey: 'shipments',
         listApi: 'shipments',
         searchApi: 'search_shipment',
         searchParam: 'shipment_id',
@@ -1412,8 +1406,8 @@
       const countParts = [];
       for (const [type, config] of Object.entries(INSPECTION_SEARCH_TYPES)) {
         const res = listResponses[type];
-        if (res?.success && res[config.listKey]) {
-          validIdsByType[type] = buildValidIdSet(res[config.listKey], config.idFields);
+        if (res?.success && Array.isArray(res.ids)) {
+          validIdsByType[type] = new Set(res.ids.map(String).filter(Boolean));
           anyLoaded = true;
         } else {
           validIdsByType[type] = new Set();
@@ -1421,7 +1415,8 @@
             console.error(`[${config.label}] Failed to load:`, res.error || 'Unknown error');
           }
         }
-        countParts.push(`${validIdsByType[type].size} ${config.label}${validIdsByType[type].size === 1 ? '' : 's'}`);
+        const count = res?.success && typeof res.count === 'number' ? res.count : validIdsByType[type].size;
+        countParts.push(`${count} ${config.label}${count === 1 ? '' : 's'}`);
       }
 
       const totalIds = Object.values(validIdsByType).reduce((sum, set) => sum + set.size, 0);
@@ -1535,12 +1530,6 @@
         }
       }
       return null;
-    }
-
-    function buildValidIdSet(records, idFields) {
-      return new Set(
-        records.map(r => extractRecordId(r, idFields)).filter(Boolean)
-      );
     }
 
     function resolveSearchType(criteria) {

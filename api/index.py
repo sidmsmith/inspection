@@ -174,26 +174,62 @@ def manhattan_api_headers(org, token):
         "selectedLocation": f"{org}-DM1"
     }
 
-def fetch_paginated_search(org, token, api_path):
-    """Fetch all records using Query: \"\" with pagination."""
+def extract_record_id(record, id_field):
+    """Extract a string ID from a Manhattan search result row."""
+    if not record or not isinstance(record, dict):
+        return None
+    val = record.get(id_field)
+    if val is None:
+        return None
+    if isinstance(val, str):
+        return val.strip() or None
+    if isinstance(val, dict):
+        nested = val.get(id_field) or val.get("Id")
+        return str(nested).strip() if nested else None
+    return str(val).strip() or None
+
+def fetch_paginated_ids(org, token, api_path, id_field, query=""):
+    """Fetch record IDs only using Template + pagination."""
     url = f"https://{API_HOST}{api_path}"
     headers = manhattan_api_headers(org, token)
-    all_records = []
+    ids = []
+    seen = set()
     page = 0
     page_size = 1000
     while True:
-        payload = {"Query": "", "Size": page_size, "Page": page}
+        payload = {
+            "Query": query,
+            "Template": {id_field: None},
+            "Size": page_size,
+            "Page": page
+        }
         r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
         if not r.ok:
             return None, f"Failed to fetch records (HTTP {r.status_code})"
         data = r.json().get("data", [])
         if not isinstance(data, list):
             data = []
-        all_records.extend(data)
+        for record in data:
+            record_id = extract_record_id(record, id_field)
+            if record_id and record_id not in seen:
+                seen.add(record_id)
+                ids.append(record_id)
         if len(data) < page_size:
             break
         page += 1
-    return all_records, None
+    return ids, None
+
+def id_list_response(org, token, api_path, id_field, query=""):
+    """Build a lean list response with count + ids for initial auth load."""
+    if not all([org, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    try:
+        ids, err = fetch_paginated_ids(org, token, api_path, id_field, query)
+        if err:
+            return jsonify({"success": False, "error": err})
+        return jsonify({"success": True, "count": len(ids), "ids": ids})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 def search_single_record(org, token, api_path, id_field, record_id):
     """Search for a single record by ID field."""
@@ -298,43 +334,11 @@ def scheduled():
 
 @app.route('/api/asns', methods=['POST'])
 def asns():
-    """Fetch all ASNs (AsnId != null)"""
+    """Fetch ASN IDs only (AsnId != null)"""
     org = request.json.get('org')
     token = request.json.get('token')
-    if not all([org, token]):
-        return jsonify({"success": False, "error": "Missing data"})
-
-    url = f"https://{API_HOST}/receiving/api/receiving/asn/search"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-        "selectedOrganization": org,
-        "selectedLocation": f"{org}-DM1"
-    }
-    all_asns = []
-    page = 0
-    page_size = 1000
-    try:
-        while True:
-            payload = {
-                "Query": "AsnId != null",
-                "Template": {
-                    "AsnId": None
-                },
-                "Size": page_size,
-                "Page": page
-            }
-            r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
-            if not r.ok:
-                return jsonify({"success": False, "error": "Failed to fetch ASNs"})
-            data = r.json().get("data", [])
-            all_asns.extend(data)
-            if len(data) < page_size:
-                break
-            page += 1
-        return jsonify({"success": True, "asns": all_asns})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    path = "/receiving/api/receiving/asn/search"
+    return id_list_response(org, token, path, "AsnId", "AsnId != null")
 
 @app.route('/api/search_asn', methods=['POST'])
 def search_asn():
@@ -406,19 +410,11 @@ def search():
 
 @app.route('/api/trailers', methods=['POST'])
 def trailers():
-    """Fetch all trailers (Query: \"\")"""
+    """Fetch trailer IDs only (Query: \"\")"""
     org = request.json.get('org')
     token = request.json.get('token')
-    if not all([org, token]):
-        return jsonify({"success": False, "error": "Missing data"})
     path = "/yard-management/api/yard-management/trailerList/search"
-    try:
-        records, err = fetch_paginated_search(org, token, path)
-        if err:
-            return jsonify({"success": False, "error": err})
-        return jsonify({"success": True, "trailers": records})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    return id_list_response(org, token, path, "TrailerId")
 
 @app.route('/api/search_trailer', methods=['POST'])
 def search_trailer():
@@ -433,19 +429,11 @@ def search_trailer():
 
 @app.route('/api/purchase_orders', methods=['POST'])
 def purchase_orders():
-    """Fetch all purchase orders (Query: \"\")"""
+    """Fetch purchase order IDs only (Query: \"\")"""
     org = request.json.get('org')
     token = request.json.get('token')
-    if not all([org, token]):
-        return jsonify({"success": False, "error": "Missing data"})
     path = "/receiving/api/receiving/purchaseOrder/search"
-    try:
-        records, err = fetch_paginated_search(org, token, path)
-        if err:
-            return jsonify({"success": False, "error": err})
-        return jsonify({"success": True, "purchase_orders": records})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    return id_list_response(org, token, path, "PurchaseOrderId")
 
 @app.route('/api/search_purchase_order', methods=['POST'])
 def search_purchase_order():
@@ -460,19 +448,11 @@ def search_purchase_order():
 
 @app.route('/api/ilpns', methods=['POST'])
 def ilpns():
-    """Fetch all iLPNs (Query: \"\")"""
+    """Fetch iLPN IDs only (Query: \"\")"""
     org = request.json.get('org')
     token = request.json.get('token')
-    if not all([org, token]):
-        return jsonify({"success": False, "error": "Missing data"})
     path = "/dcinventory/api/dcinventory/ilpn/search"
-    try:
-        records, err = fetch_paginated_search(org, token, path)
-        if err:
-            return jsonify({"success": False, "error": err})
-        return jsonify({"success": True, "ilpns": records})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    return id_list_response(org, token, path, "IlpnId")
 
 @app.route('/api/search_ilpn', methods=['POST'])
 def search_ilpn():
@@ -487,19 +467,11 @@ def search_ilpn():
 
 @app.route('/api/olpns', methods=['POST'])
 def olpns():
-    """Fetch all oLPNs (Query: \"\")"""
+    """Fetch oLPN IDs only (Query: \"\")"""
     org = request.json.get('org')
     token = request.json.get('token')
-    if not all([org, token]):
-        return jsonify({"success": False, "error": "Missing data"})
     path = "/pickpack/api/pickpack/olpn/search"
-    try:
-        records, err = fetch_paginated_search(org, token, path)
-        if err:
-            return jsonify({"success": False, "error": err})
-        return jsonify({"success": True, "olpns": records})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    return id_list_response(org, token, path, "OlpnId")
 
 @app.route('/api/search_olpn', methods=['POST'])
 def search_olpn():
@@ -514,19 +486,11 @@ def search_olpn():
 
 @app.route('/api/shipments', methods=['POST'])
 def shipments():
-    """Fetch all shipments (Query: \"\")"""
+    """Fetch shipment IDs only (Query: \"\")"""
     org = request.json.get('org')
     token = request.json.get('token')
-    if not all([org, token]):
-        return jsonify({"success": False, "error": "Missing data"})
     path = "/shipment/api/shipment/shipment/search"
-    try:
-        records, err = fetch_paginated_search(org, token, path)
-        if err:
-            return jsonify({"success": False, "error": err})
-        return jsonify({"success": True, "shipments": records})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    return id_list_response(org, token, path, "ShipmentId")
 
 @app.route('/api/search_shipment', methods=['POST'])
 def search_shipment():
