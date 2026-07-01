@@ -737,6 +737,22 @@
     let cameraStream = null;
     let cameraFileInputBound = false;
 
+    function isAffirmativeUrlParam(value) {
+      if (value == null || value === '') return false;
+      const normalized = String(value).trim().toLowerCase();
+      return normalized === 'y' || normalized === 'yes' || normalized === 'true' || normalized === '1';
+    }
+
+    const photoRequired = (() => {
+      const params = new URLSearchParams(window.location.search);
+      for (const [key, value] of params.entries()) {
+        if (key.toLowerCase() === 'photorequired') {
+          return isAffirmativeUrlParam(value);
+        }
+      }
+      return false;
+    })();
+
     // THEME DEFINITIONS
     const themes = {
       'default': {
@@ -1951,7 +1967,8 @@
       const carrierOk = fld.carrier.value.trim().length > 0;
       const trailerOk = fld.trailer.value.trim().length > 0;
       const driverOk = fld.driverName.value.trim().length > 0;
-      checkinBtn.disabled = !(carrierOk && trailerOk && driverOk && hasSigned);
+      const photosOk = !photoRequired || inspectionPhotos.length > 0;
+      checkinBtn.disabled = !(carrierOk && trailerOk && driverOk && hasSigned && photosOk);
     }
 
     // Find inspection by Trailer, PO, iLPN, oLPN, Shipment, or ASN
@@ -2046,6 +2063,12 @@
 
       if (uploadTargets.length === 0) {
         status('A valid inspection record is required to complete inspection', 'error');
+        validateCompleteInspection();
+        return;
+      }
+
+      if (photoRequired && inspectionPhotos.length === 0) {
+        status('At least one inspection photo is required', 'error');
         validateCompleteInspection();
         return;
       }
