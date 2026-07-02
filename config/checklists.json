@@ -13,7 +13,7 @@
       "fields": [
         {
           "id": "exterior_damage_buttons",
-          "label": "Visible exterior damage? (Pass/Fail buttons)",
+          "label": "Visible Exterior Damage?",
           "type": "segmented",
           "options": [
             "Pass",
@@ -22,7 +22,7 @@
         },
         {
           "id": "exterior_damage_toggles",
-          "label": "Visible exterior damage? (Pass/Fail toggles)",
+          "label": "Visible Exterior Damage?",
           "type": "toggle_pair",
           "options": [
             "Pass",
@@ -43,7 +43,7 @@
         },
         {
           "id": "door_seals_locks",
-          "label": "Door seals & locks",
+          "label": "Door Seals & Locks",
           "type": "segmented",
           "options": [
             "Pass",
@@ -52,23 +52,23 @@
         },
         {
           "id": "interior_cleanliness",
-          "label": "Interior cleanliness",
+          "label": "Interior Cleanliness",
           "type": "dropdown",
           "options": [
-            "Clean",
             "Acceptable",
+            "Clean",
             "Needs Cleaning"
           ]
         },
         {
           "id": "temperature_reefer",
-          "label": "Temperature (if reefer)",
+          "label": "Temperature",
           "type": "freeform",
           "placeholder": ""
         },
         {
           "id": "tires_brakes",
-          "label": "Tires & brakes",
+          "label": "Tires & Brakes",
           "type": "segmented",
           "options": [
             "Pass",
@@ -77,7 +77,7 @@
         },
         {
           "id": "lighting_reflectors",
-          "label": "Lighting & reflectors",
+          "label": "Lighting & Reflectors",
           "type": "segmented",
           "options": [
             "Pass",
@@ -86,18 +86,18 @@
         },
         {
           "id": "securement_equipment",
-          "label": "Securement equipment",
+          "label": "Securement Equipment",
           "type": "dropdown",
           "options": [
             "Available & Good",
-            "Missing",
-            "Damaged"
+            "Damaged",
+            "Missing"
           ],
           "required": true
         },
         {
           "id": "trailer_docs_match",
-          "label": "Trailer # & docs match",
+          "label": "Trailer # & Docs Match",
           "type": "segmented",
           "options": [
             "Yes",
@@ -125,7 +125,7 @@
       "fields": [
         {
           "id": "po_details_match",
-          "label": "PO # and details match",
+          "label": "PO # And Details Match",
           "type": "segmented",
           "options": [
             "Yes",
@@ -135,7 +135,7 @@
         },
         {
           "id": "items_skus_correct",
-          "label": "Items / SKUs correct",
+          "label": "Items / SKUs Correct",
           "type": "segmented",
           "options": [
             "Yes",
@@ -145,7 +145,7 @@
         },
         {
           "id": "quantities_match",
-          "label": "Quantities match",
+          "label": "Quantities Match",
           "type": "segmented",
           "options": [
             "Yes",
@@ -154,19 +154,19 @@
         },
         {
           "id": "delivery_date_on_track",
-          "label": "Delivery date on track",
+          "label": "Delivery Date On Track",
           "type": "dropdown",
           "options": [
-            "On Time",
             "Delayed",
-            "Early"
+            "Early",
+            "On Time"
           ],
           "required": true,
           "default": "Delayed"
         },
         {
           "id": "special_instructions_met",
-          "label": "Special instructions met",
+          "label": "Special Instructions Met",
           "type": "segmented",
           "options": [
             "Yes",
@@ -176,7 +176,7 @@
         },
         {
           "id": "approvals_complete",
-          "label": "Approvals complete",
+          "label": "Approvals Complete",
           "type": "segmented",
           "options": [
             "Yes",
@@ -185,7 +185,7 @@
         },
         {
           "id": "compliance_requirements",
-          "label": "Compliance requirements",
+          "label": "Compliance Requirements",
           "type": "segmented",
           "options": [
             "Yes",
@@ -195,7 +195,7 @@
         },
         {
           "id": "amendments_noted",
-          "label": "Amendments noted",
+          "label": "Amendments Noted",
           "type": "freeform",
           "placeholder": "None / Details here...",
           "default": "None"
@@ -214,7 +214,7 @@
       "fields": [
         {
           "id": "asn_matches_po",
-          "label": "ASN # matches PO",
+          "label": "ASN # Matches PO",
           "type": "segmented",
           "options": [
             "Yes",
@@ -224,7 +224,7 @@
         },
         {
           "id": "items_quantities_match",
-          "label": "Items / quantities match",
+          "label": "Items / Quantities Match",
           "type": "segmented",
           "options": [
             "Yes",
@@ -234,7 +234,7 @@
         },
         {
           "id": "shipment_date_carrier_ok",
-          "label": "Shipment date & carrier OK",
+          "label": "Shipment Date & Carrier OK",
           "type": "segmented",
           "options": [
             "Yes",
@@ -243,7 +243,7 @@
         },
         {
           "id": "packaging_details_correct",
-          "label": "Packaging details correct",
+          "label": "Packaging Details Correct",
           "type": "segmented",
           "options": [
             "Yes",
@@ -253,7 +253,7 @@
         },
         {
           "id": "special_handling_noted",
-          "label": "Special handling noted",
+          "label": "Special Handling Noted",
           "type": "segmented",
           "options": [
             "Yes",
@@ -263,7 +263,7 @@
         },
         {
           "id": "supporting_docs_attached",
-          "label": "Supporting docs attached",
+          "label": "Supporting Docs Attached",
           "type": "segmented",
           "options": [
             "Yes",
@@ -272,7 +272,7 @@
         },
         {
           "id": "discrepancies_found",
-          "label": "Discrepancies found",
+          "label": "Discrepancies Found",
           "type": "freeform",
           "placeholder": "None / List discrepancies...",
           "default": "None"
@@ -286,7 +286,7 @@
       "fields": [
         {
           "id": "label_present_legible",
-          "label": "Label present & legible",
+          "label": "Label Present & Legible",
           "type": "segmented",
           "options": [
             "Yes",
@@ -296,7 +296,7 @@
         },
         {
           "id": "contents_match_system",
-          "label": "Contents match system",
+          "label": "Contents Match System",
           "type": "segmented",
           "options": [
             "Yes",
@@ -306,7 +306,7 @@
         },
         {
           "id": "visible_damage",
-          "label": "Visible damage",
+          "label": "Visible Damage",
           "type": "segmented",
           "options": [
             "None",
@@ -315,19 +315,19 @@
         },
         {
           "id": "storage_conditions_ok",
-          "label": "Storage conditions OK",
+          "label": "Storage Conditions OK",
           "type": "dropdown",
           "options": [
             "Good",
-            "Temperature Issue",
-            "Improper Stacking"
+            "Improper Stacking",
+            "Temperature Issue"
           ],
           "required": true,
           "default": "Good"
         },
         {
           "id": "location_correct",
-          "label": "Location correct",
+          "label": "Location Correct",
           "type": "segmented",
           "options": [
             "Yes",
@@ -337,7 +337,7 @@
         },
         {
           "id": "seal_tag_intact",
-          "label": "Seal / tag intact",
+          "label": "Seal / Tag Intact",
           "type": "segmented",
           "options": [
             "Yes",
@@ -346,7 +346,7 @@
         },
         {
           "id": "weight_dims_accurate",
-          "label": "Weight & dims accurate",
+          "label": "Weight & Dims Accurate",
           "type": "segmented",
           "options": [
             "Yes",
@@ -356,7 +356,7 @@
         },
         {
           "id": "status_updated_system",
-          "label": "Status updated in system",
+          "label": "Status Updated In System",
           "type": "segmented",
           "options": [
             "Yes",
@@ -373,7 +373,7 @@
       "fields": [
         {
           "id": "label_present_legible",
-          "label": "Label present & legible",
+          "label": "Label Present & Legible",
           "type": "segmented",
           "options": [
             "Yes",
@@ -383,7 +383,7 @@
         },
         {
           "id": "contents_match_order",
-          "label": "Contents match order",
+          "label": "Contents Match Order",
           "type": "segmented",
           "options": [
             "Yes",
@@ -393,7 +393,7 @@
         },
         {
           "id": "packaging_secure",
-          "label": "Packaging secure",
+          "label": "Packaging Secure",
           "type": "segmented",
           "options": [
             "Yes",
@@ -402,7 +402,7 @@
         },
         {
           "id": "shipping_labels_correct",
-          "label": "Shipping labels correct",
+          "label": "Shipping Labels Correct",
           "type": "segmented",
           "options": [
             "Yes",
@@ -412,7 +412,7 @@
         },
         {
           "id": "special_markings_applied",
-          "label": "Special markings applied",
+          "label": "Special Markings Applied",
           "type": "segmented",
           "options": [
             "Yes",
@@ -422,7 +422,7 @@
         },
         {
           "id": "weight_dims_accurate",
-          "label": "Weight & dims accurate",
+          "label": "Weight & Dims Accurate",
           "type": "segmented",
           "options": [
             "Yes",
@@ -431,7 +431,7 @@
         },
         {
           "id": "stacking_securement_ok",
-          "label": "Stacking / securement OK",
+          "label": "Stacking / Securement OK",
           "type": "dropdown",
           "options": [
             "Good",
@@ -442,7 +442,7 @@
         },
         {
           "id": "status_updated_system",
-          "label": "Status updated in system",
+          "label": "Status Updated In System",
           "type": "segmented",
           "options": [
             "Yes",
@@ -464,7 +464,7 @@
       "fields": [
         {
           "id": "documents_complete_matching",
-          "label": "Documents complete & matching",
+          "label": "Documents Complete & Matching",
           "type": "segmented",
           "options": [
             "Yes",
@@ -474,7 +474,7 @@
         },
         {
           "id": "total_quantity_matches",
-          "label": "Total quantity matches",
+          "label": "Total Quantity Matches",
           "type": "segmented",
           "options": [
             "Yes",
@@ -484,7 +484,7 @@
         },
         {
           "id": "visible_damage_load",
-          "label": "Visible damage to load",
+          "label": "Visible Damage To Load",
           "type": "segmented",
           "options": [
             "None",
@@ -493,7 +493,7 @@
         },
         {
           "id": "cargo_properly_secured",
-          "label": "Cargo properly secured",
+          "label": "Cargo Properly Secured",
           "type": "segmented",
           "options": [
             "Yes",
@@ -503,7 +503,7 @@
         },
         {
           "id": "carrier_tracking_correct",
-          "label": "Carrier & tracking correct",
+          "label": "Carrier & Tracking Correct",
           "type": "segmented",
           "options": [
             "Yes",
@@ -513,18 +513,18 @@
         },
         {
           "id": "temperature_conditions_ok",
-          "label": "Temperature / conditions OK",
+          "label": "Temperature / Conditions OK",
           "type": "dropdown",
           "options": [
-            "Within Range",
-            "Out of Range"
+            "Out of Range",
+            "Within Range"
           ],
           "required": true,
           "default": "Within Range"
         },
         {
           "id": "seal_numbers_recorded",
-          "label": "Seal numbers recorded",
+          "label": "Seal Numbers Recorded",
           "type": "segmented",
           "options": [
             "Yes",
@@ -533,7 +533,7 @@
         },
         {
           "id": "regulatory_compliance",
-          "label": "Regulatory compliance",
+          "label": "Regulatory Compliance",
           "type": "segmented",
           "options": [
             "Yes",
@@ -543,7 +543,7 @@
         },
         {
           "id": "exceptions_notes",
-          "label": "Exceptions / notes",
+          "label": "Exceptions / Notes",
           "type": "freeform",
           "placeholder": "None / Details...",
           "default": "None"
