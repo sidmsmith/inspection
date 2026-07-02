@@ -31,12 +31,12 @@
         },
         {
           "id": "floor_condition",
-          "label": "Floor condition",
+          "label": "Floor Condition",
           "type": "dropdown",
           "options": [
             "Clean & Dry",
-            "Minor Debris",
             "Damaged",
+            "Minor Debris",
             "Wet"
           ],
           "required": true
