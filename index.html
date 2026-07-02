@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Inspection v0.0.9</title>
-  <!-- v0.0.9: LPN photo pad UX — live camera, LPN Photo labels/hints, desktop compact empty pad with +;
-       mobile tap-to-add via + placeholder (camera icon retained); title-case checklist labels;
-       alphabetized dropdown options; trailer floor condition label update -->
+  <title>Inspection v0.0.10</title>
+  <!-- v0.0.10: Resolve overlapping LPN IDs to oLPN (search order: … ASN → oLPN → iLPN → Shipment);
+       Ready counts and placeholders keep iLPN before oLPN display order -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -678,7 +677,7 @@
     </button>
     <div class="header-with-logo">
       <img id="themeLogo" class="theme-logo" alt="Theme Logo" />
-      <h2 class="text-center mb-2" style="font-size:1.3rem;">Inspection v0.0.9</h2>
+      <h2 class="text-center mb-2" style="font-size:1.3rem;">Inspection v0.0.10</h2>
     </div>
 
     <!-- ORG -->
@@ -1018,6 +1017,9 @@
         supportsUpload: true
       }
     };
+    // ID lookup order for Find button + search (oLPN before iLPN when both match).
+    // Ready-status counts and placeholders still use INSPECTION_SEARCH_TYPES key order (iLPN before oLPN).
+    const SEARCH_RESOLVE_ORDER = ['trailer', 'po', 'asn', 'olpn', 'ilpn', 'shipment'];
     const validIdsByType = Object.fromEntries(
       Object.keys(INSPECTION_SEARCH_TYPES).map(type => [type, new Set()])
     );
@@ -1973,7 +1975,7 @@
     }
 
     function resolveSearchType(criteria) {
-      for (const [type, config] of Object.entries(INSPECTION_SEARCH_TYPES)) {
+      for (const type of SEARCH_RESOLVE_ORDER) {
         if (validIdsByType[type]?.has(criteria)) return type;
       }
       return null;
