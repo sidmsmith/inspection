@@ -118,6 +118,16 @@
       letter-spacing: 0.02em;
       padding: 0 0.25rem;
     }
+    .status-bar.capture-timer-only {
+      justify-content: flex-start;
+    }
+    .status-bar.capture-timer-only .inspection-timer {
+      flex: 1;
+      padding: 0;
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
 
     #barcodeScannerRegion {
       width: 100%;
@@ -2161,10 +2171,31 @@
       return `${m}:${String(s).padStart(2, '0')}`;
     }
 
+    function getInspectionElapsedSeconds() {
+      if (!inspectionTimerStart) return 0;
+      return Math.floor((Date.now() - inspectionTimerStart) / 1000);
+    }
+
     function updateInspectionTimerDisplay() {
       if (!inspectionTimerStart || !inspectionTimerEl) return;
-      const elapsed = Math.floor((Date.now() - inspectionTimerStart) / 1000);
-      inspectionTimerEl.textContent = `In progress · ${formatElapsedInspectionTime(elapsed)}`;
+      inspectionTimerEl.textContent = `In progress · ${formatElapsedInspectionTime(getInspectionElapsedSeconds())}`;
+    }
+
+    function applyCaptureTimerPresentation() {
+      const bar = document.querySelector('.status-bar');
+      if (statusEl) statusEl.style.display = 'none';
+      if (inspectionTimerEl && inspectionTimerStart) {
+        inspectionTimerEl.textContent =
+          `Inspection time: ${formatElapsedInspectionTime(getInspectionElapsedSeconds())}`;
+      }
+      bar?.classList.add('capture-timer-only');
+    }
+
+    function restoreCaptureTimerPresentation() {
+      const bar = document.querySelector('.status-bar');
+      bar?.classList.remove('capture-timer-only');
+      if (statusEl) statusEl.style.display = '';
+      updateInspectionTimerDisplay();
     }
 
     function startInspectionTimer() {
@@ -3468,6 +3499,7 @@
       }
 
       updateInspectionTimerDisplay();
+      applyCaptureTimerPresentation();
 
       hideEl(themeBtn);
       hideEl(cameraBtnEl);
