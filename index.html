@@ -3403,7 +3403,6 @@
       const card = document.getElementById('inspectionCaptureCard');
       const themeBtn = document.getElementById('themeSelectorBtn');
       const cameraBtnEl = document.getElementById('cameraBtn');
-      const statusBar = document.querySelector('.status-bar');
       const formActions = checkinBtn?.closest('.form-actions');
       const clearSignatureBtn = document.getElementById('clearSignature');
       const clearDamagePadBtn = document.getElementById('clearDamagePad');
@@ -3468,9 +3467,11 @@
         syncInspectionFormLayout();
       }
 
+      updateInspectionTimerDisplay();
+
       hideEl(themeBtn);
       hideEl(cameraBtnEl);
-      hideEl(statusBar);
+      hideEl(findBtn);
       hideEl(formActions);
       hideEl(clearSignatureBtn);
       hideEl(clearDamagePadBtn);
