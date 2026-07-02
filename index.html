@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Inspection v0.0.12</title>
-  <!-- v0.0.12: Fix iLPN lock when Manhattan totalCount is a string; v0.0.11 iLPN condition code + post-upload lock -->
+  <title>Inspection v0.0.13</title>
+  <!-- v0.0.13: Barcode scan-to-find (1D formats, validated IDs); in-progress inspection timer -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
     :root {
       --bg-dark: #121212;
@@ -89,6 +90,49 @@
       font-weight: 600; 
       padding: 0.25rem 0;
       flex: 1;
+    }
+
+    .criteria-input-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: stretch;
+    }
+    .criteria-input-row .form-control {
+      flex: 1;
+      min-width: 0;
+    }
+    .criteria-scan-btn {
+      flex-shrink: 0;
+      min-width: 2.75rem;
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+
+    .inspection-timer {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: center;
+      margin: 0.15rem 0 0.35rem;
+      letter-spacing: 0.02em;
+    }
+    .inspection-timer:not([hidden]) {
+      display: block;
+    }
+
+    #barcodeScannerRegion {
+      width: 100%;
+      min-height: 260px;
+      border-radius: 0.375rem;
+      overflow: hidden;
+      background: #000;
+    }
+    #barcodeScannerRegion video {
+      object-fit: cover;
+    }
+    .barcode-scan-hint {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
     }
 
     /* APPOINTMENT DETAIL FORM */
@@ -676,7 +720,7 @@
     </button>
     <div class="header-with-logo">
       <img id="themeLogo" class="theme-logo" alt="Theme Logo" />
-      <h2 class="text-center mb-2" style="font-size:1.3rem;">Inspection v0.0.12</h2>
+      <h2 class="text-center mb-2" style="font-size:1.3rem;">Inspection v0.0.13</h2>
     </div>
 
     <!-- ORG -->
@@ -691,7 +735,13 @@
       <!-- APPOINTMENT ID INPUT -->
       <div class="mb-3">
         <label class="form-label">Enter Inspection:</label>
-        <input type="text" id="criteria" class="form-control" placeholder="Enter Trailer, PO, ASN, iLPN, oLPN, or Shipment" />
+        <div class="criteria-input-row">
+          <input type="text" id="criteria" class="form-control" placeholder="Enter Trailer, PO, ASN, iLPN, oLPN, or Shipment" />
+          <button type="button" id="barcodeScanBtn" class="btn btn-outline-secondary criteria-scan-btn" title="Scan barcode">
+            <i class="fas fa-barcode" aria-hidden="true"></i>
+            <span class="visually-hidden">Scan barcode</span>
+          </button>
+        </div>
       </div>
 
       <!-- STATUS + FIND BUTTON -->
@@ -699,6 +749,8 @@
         <div class="status" id="status">Enter ORG and press Enter to authenticate</div>
         <button id="findBtn" class="btn btn-primary px-4" disabled>Enter Valid Object</button>
       </div>
+
+      <div id="inspectionTimer" class="inspection-timer" hidden aria-live="polite"></div>
 
       <!-- APPOINTMENT DETAIL FORM -->
       <div id="apptForm">
@@ -860,6 +912,25 @@
     </div>
   </div>
 
+  <!-- BARCODE SCAN MODAL -->
+  <div class="modal fade" id="barcodeScanModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Scan Barcode</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="barcode-scan-hint mb-2">Point at the label barcode (Code 128, Code 39, etc.). Only IDs loaded for this ORG will be accepted.</p>
+          <div id="barcodeScannerRegion"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- CAMERA MODAL -->
   <div class="modal fade" id="cameraModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -907,6 +978,10 @@
     const orgInput = document.getElementById('org');
     const mainUI = document.getElementById('mainUI');
     const criteriaInput = document.getElementById('criteria');
+    const barcodeScanBtn = document.getElementById('barcodeScanBtn');
+    const barcodeScanModalEl = document.getElementById('barcodeScanModal');
+    const barcodeScanModal = barcodeScanModalEl ? new bootstrap.Modal(barcodeScanModalEl) : null;
+    const inspectionTimerEl = document.getElementById('inspectionTimer');
     const findBtn = document.getElementById('findBtn');
     const apptForm = document.getElementById('apptForm');
     const formScrollRegion = document.getElementById('formScrollRegion');
@@ -1029,6 +1104,11 @@
     let inspectionPhotos = []; // { id, base64Data, mimeType, dataUrl, extension }
     let cameraStream = null;
     let cameraFileInputBound = false;
+    let html5QrCodeScanner = null;
+    let lastBarcodeScanAt = 0;
+    let lastBarcodeScanValue = '';
+    let inspectionTimerStart = null;
+    let inspectionTimerInterval = null;
 
     function isAffirmativeUrlParam(value) {
       if (value == null || value === '') return false;
@@ -1932,6 +2012,20 @@
       if (e.key === 'Enter' && !findBtn.disabled) findBtn.click();
     });
 
+    if (barcodeScanBtn) {
+      if (typeof Html5Qrcode === 'undefined') {
+        barcodeScanBtn.disabled = true;
+        barcodeScanBtn.title = 'Barcode scanning unavailable';
+      } else {
+        barcodeScanBtn.onclick = () => openBarcodeScanner();
+      }
+    }
+    if (barcodeScanModalEl) {
+      barcodeScanModalEl.addEventListener('hidden.bs.modal', () => {
+        stopBarcodeScanner();
+      });
+    }
+
     // Validate Complete Inspection when required fields change
     fld.carrier.addEventListener('input', validateCompleteInspection);
     fld.trailer.addEventListener('input', validateCompleteInspection);
@@ -1989,6 +2083,173 @@
         if (validIdsByType[type]?.has(criteria)) return type;
       }
       return null;
+    }
+
+    function scanCandidates(raw) {
+      const trimmed = String(raw || '').trim().replace(/\0/g, '');
+      if (!trimmed) return [];
+      const out = new Set([trimmed, trimmed.toUpperCase(), trimmed.toLowerCase()]);
+      trimmed.split(/[\s,;|]+/).filter(Boolean).forEach(part => {
+        out.add(part);
+        out.add(part.toUpperCase());
+      });
+      return [...out];
+    }
+
+    function resolveScannedCriteria(raw) {
+      for (const candidate of scanCandidates(raw)) {
+        const searchType = resolveSearchType(candidate);
+        if (searchType) return { criteria: candidate, searchType };
+      }
+      const normalized = String(raw || '').trim().toUpperCase();
+      if (normalized.length < 3) return null;
+      let best = null;
+      for (const type of SEARCH_RESOLVE_ORDER) {
+        for (const id of validIdsByType[type] || []) {
+          const idUp = String(id).toUpperCase();
+          if (normalized.includes(idUp) && (!best || idUp.length > best.criteria.length)) {
+            best = { criteria: id, searchType: type };
+          }
+        }
+      }
+      return best;
+    }
+
+    function formatElapsedInspectionTime(totalSeconds) {
+      const m = Math.floor(totalSeconds / 60);
+      const s = totalSeconds % 60;
+      return `${m}:${String(s).padStart(2, '0')}`;
+    }
+
+    function updateInspectionTimerDisplay() {
+      if (!inspectionTimerStart || !inspectionTimerEl) return;
+      const elapsed = Math.floor((Date.now() - inspectionTimerStart) / 1000);
+      inspectionTimerEl.textContent = `In progress · ${formatElapsedInspectionTime(elapsed)}`;
+    }
+
+    function startInspectionTimer() {
+      stopInspectionTimer();
+      inspectionTimerStart = Date.now();
+      if (inspectionTimerEl) {
+        inspectionTimerEl.hidden = false;
+        updateInspectionTimerDisplay();
+        inspectionTimerInterval = setInterval(updateInspectionTimerDisplay, 1000);
+      }
+    }
+
+    function stopInspectionTimer() {
+      if (inspectionTimerInterval) {
+        clearInterval(inspectionTimerInterval);
+        inspectionTimerInterval = null;
+      }
+      inspectionTimerStart = null;
+      if (inspectionTimerEl) {
+        inspectionTimerEl.hidden = true;
+        inspectionTimerEl.textContent = '';
+      }
+    }
+
+    function getBarcodeFormatsToSupport() {
+      if (typeof Html5QrcodeSupportedFormats === 'undefined') return undefined;
+      return [
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.CODE_93,
+        Html5QrcodeSupportedFormats.CODABAR,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.ITF
+      ];
+    }
+
+    async function stopBarcodeScanner() {
+      if (!html5QrCodeScanner) return;
+      try {
+        if (html5QrCodeScanner.isScanning) {
+          await html5QrCodeScanner.stop();
+        }
+        html5QrCodeScanner.clear();
+      } catch (err) {
+        console.warn('[BARCODE] Stop failed:', err);
+      }
+      html5QrCodeScanner = null;
+    }
+
+    async function handleBarcodeScan(decodedText) {
+      const raw = String(decodedText || '').trim();
+      if (!raw) return;
+      const now = Date.now();
+      if (raw === lastBarcodeScanValue && now - lastBarcodeScanAt < 2500) return;
+      lastBarcodeScanValue = raw;
+      lastBarcodeScanAt = now;
+
+      const resolved = resolveScannedCriteria(raw);
+      await stopBarcodeScanner();
+      if (barcodeScanModal) barcodeScanModal.hide();
+
+      if (resolved) {
+        criteriaInput.value = resolved.criteria;
+        updateFindButton(resolved.criteria);
+        status(`Scanned ${resolved.criteria}`, 'success');
+        trackEvent('barcode_scan_success', {
+          org: orgInput.value.trim() || 'unknown',
+          scanned_raw: raw,
+          resolved_id: resolved.criteria,
+          search_type: resolved.searchType
+        });
+        if (!findBtn.disabled) findBtn.click();
+        return;
+      }
+
+      criteriaInput.value = raw;
+      updateFindButton(raw);
+      status(`Scanned "${raw}" — not a known ID; edit the field or try again`, 'error');
+      trackEvent('barcode_scan_unrecognized', {
+        org: orgInput.value.trim() || 'unknown',
+        scanned_raw: raw
+      });
+      criteriaInput.focus();
+    }
+
+    async function openBarcodeScanner() {
+      if (typeof Html5Qrcode === 'undefined') {
+        status('Barcode scanning is not available in this browser', 'error');
+        return;
+      }
+      lastBarcodeScanValue = '';
+      lastBarcodeScanAt = 0;
+      if (barcodeScanModal) barcodeScanModal.show();
+      await yieldToUi();
+      await stopBarcodeScanner();
+
+      html5QrCodeScanner = new Html5Qrcode('barcodeScannerRegion', { verbose: false });
+      const formatsToSupport = getBarcodeFormatsToSupport();
+      const config = {
+        fps: 10,
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+          const width = Math.min(Math.floor(viewfinderWidth * 0.88), 420);
+          const height = Math.max(Math.floor(width * 0.42), 80);
+          return { width, height };
+        },
+        aspectRatio: 1.777778
+      };
+      if (formatsToSupport) config.formatsToSupport = formatsToSupport;
+
+      try {
+        await html5QrCodeScanner.start(
+          { facingMode: 'environment' },
+          config,
+          handleBarcodeScan,
+          () => {}
+        );
+      } catch (err) {
+        console.warn('[BARCODE] Camera start failed:', err);
+        await stopBarcodeScanner();
+        if (barcodeScanModal) barcodeScanModal.hide();
+        status('Could not start barcode camera — use manual entry', 'error');
+      }
     }
 
     function updateFindButton(criteria) {
@@ -2350,6 +2611,7 @@
     function showInspectionFormUi() {
       apptForm.style.display = 'block';
       apptForm.classList.add('inspection-form-active');
+      startInspectionTimer();
       hasSigned = false;
       requestAnimationFrame(() => {
         resizeSignatureCanvas();
@@ -2498,6 +2760,7 @@
       apptForm.style.display = 'none';
       apptForm.classList.remove('inspection-form-active');
       syncInspectionFormLayout();
+      stopInspectionTimer();
       currentAppt = null;
       checkinBtn.disabled = true;
     }
@@ -3122,6 +3385,7 @@
       hideEl(themeBtn);
       hideEl(cameraBtnEl);
       hideEl(statusBar);
+      hideEl(inspectionTimerEl);
       hideEl(formActions);
       hideEl(clearSignatureBtn);
       hideEl(clearDamagePadBtn);
