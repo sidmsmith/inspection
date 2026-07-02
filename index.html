@@ -284,7 +284,7 @@
     .damage-pad-wrapper.is-empty {
       cursor: default;
     }
-    .damage-pad-wrapper.is-empty.lpn-photo-compact {
+    .damage-pad-wrapper.is-empty.show-empty-placeholder {
       cursor: pointer;
     }
     .damage-pad-empty-placeholder {
@@ -3361,6 +3361,12 @@
       return !!damagePadBackgroundImage;
     }
 
+    function isLpnPhotoPadEmpty() {
+      return damagePadMode === 'photo'
+        && isLpnDamagePadType(currentDamagePadSearchType)
+        && !damagePadHasBackground();
+    }
+
     function shouldUseCompactLpnPhotoPad() {
       return window.matchMedia('(min-width: 992px)').matches
         && damagePadMode === 'photo'
@@ -3377,11 +3383,14 @@
     }
 
     function updateDamagePadWrapperState() {
-      const showPlaceholder = damagePadMode === 'photo' && !damagePadHasBackground();
+      const showPlaceholder = isLpnPhotoPadEmpty();
       damagePadWrapper.classList.toggle('is-empty', !damagePadHasBackground());
       damagePadWrapper.classList.toggle('has-image', damagePadHasBackground());
       damagePadWrapper.classList.toggle('show-empty-placeholder', showPlaceholder);
       damagePadWrapper.classList.toggle('lpn-photo-compact', shouldUseCompactLpnPhotoPad());
+      damagePadWrapper.setAttribute('aria-label', showPlaceholder
+        ? 'Add LPN photo for markup'
+        : 'Draw damage marks on diagram');
       damageDrawCanvas.style.pointerEvents = damagePadHasBackground() ? 'auto' : 'none';
     }
 
@@ -3649,7 +3658,7 @@
     };
 
     damagePadWrapper.addEventListener('click', () => {
-      if (shouldUseCompactLpnPhotoPad()) {
+      if (isLpnPhotoPadEmpty()) {
         openDamagePadCamera();
       }
     });
