@@ -3596,7 +3596,7 @@
       if (!file) return;
       try {
         await setDamagePadUserPhoto(file);
-        status('Damage diagram photo added', 'success');
+        status(isLpnDamagePadType(currentDamagePadSearchType) ? 'LPN photo added' : 'Damage diagram photo added', 'success');
       } catch (err) {
         status('Could not add damage diagram photo', 'error');
         console.warn('[DAMAGE PAD] Photo load failed:', err);
