@@ -281,6 +281,28 @@
       touch-action: none;
       overflow: hidden;
     }
+    .damage-pad-wrapper.is-empty {
+      cursor: default;
+    }
+    .damage-pad-wrapper.is-empty.lpn-photo-compact {
+      cursor: pointer;
+    }
+    .damage-pad-empty-placeholder {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 2;
+      color: var(--text-muted);
+      font-size: 2.75rem;
+      line-height: 1;
+      opacity: 0.55;
+    }
+    .damage-pad-wrapper.show-empty-placeholder .damage-pad-empty-placeholder {
+      display: flex;
+    }
     .damage-pad-wrapper canvas {
       position: absolute;
       top: 0;
@@ -796,6 +818,9 @@
               </div>
             </div>
             <div class="damage-pad-wrapper" id="damagePadWrapper">
+              <div class="damage-pad-empty-placeholder" id="damagePadEmptyPlaceholder" aria-hidden="true">
+                <i class="fas fa-plus"></i>
+              </div>
               <canvas id="damagePadBg" aria-hidden="true"></canvas>
               <canvas id="damagePadDraw" aria-label="Draw damage marks on diagram"></canvas>
             </div>
@@ -3179,6 +3204,7 @@
     }
 
     // ===== SIGNATURE PAD =====
+    const SIGNATURE_PAD_HEIGHT = 240;
     const sigCanvas = document.getElementById('signaturePad');
     const sigCtx = sigCanvas.getContext('2d');
     const SIGNATURE_MIN_INK_PX = 100;
@@ -3191,7 +3217,7 @@
       const w = wrapper.offsetWidth;
       if (w === 0) return; // Skip if form is hidden
       const ratio = window.devicePixelRatio || 1;
-      const h = 240;
+      const h = SIGNATURE_PAD_HEIGHT;
       sigCanvas.width = w * ratio;
       sigCanvas.height = h * ratio;
       sigCanvas.style.height = h + 'px';
@@ -3335,9 +3361,27 @@
       return !!damagePadBackgroundImage;
     }
 
+    function shouldUseCompactLpnPhotoPad() {
+      return window.matchMedia('(min-width: 992px)').matches
+        && damagePadMode === 'photo'
+        && isLpnDamagePadType(currentDamagePadSearchType)
+        && !damagePadHasBackground();
+    }
+
+    function getDamagePadTargetHeight(width) {
+      if (shouldUseCompactLpnPhotoPad()) {
+        return SIGNATURE_PAD_HEIGHT;
+      }
+      const aspect = getDamagePadAspectRatio();
+      return Math.max(180, Math.round(width * aspect));
+    }
+
     function updateDamagePadWrapperState() {
+      const showPlaceholder = damagePadMode === 'photo' && !damagePadHasBackground();
       damagePadWrapper.classList.toggle('is-empty', !damagePadHasBackground());
       damagePadWrapper.classList.toggle('has-image', damagePadHasBackground());
+      damagePadWrapper.classList.toggle('show-empty-placeholder', showPlaceholder);
+      damagePadWrapper.classList.toggle('lpn-photo-compact', shouldUseCompactLpnPhotoPad());
       damageDrawCanvas.style.pointerEvents = damagePadHasBackground() ? 'auto' : 'none';
     }
 
@@ -3440,8 +3484,7 @@
       if (w === 0) return;
 
       const ratio = window.devicePixelRatio || 1;
-      const aspect = getDamagePadAspectRatio();
-      const cssH = Math.max(180, Math.round(w * aspect));
+      const cssH = getDamagePadTargetHeight(w);
       damagePadCssWidth = w;
       damagePadCssHeight = cssH;
       damagePadWrapper.style.height = cssH + 'px';
@@ -3459,6 +3502,7 @@
       damageDrawCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
       drawDamageBackground();
       setupDamageDrawStyle();
+      updateDamagePadWrapperState();
       syncInspectionFormLayout();
     }
 
@@ -3490,6 +3534,7 @@
       damagePadPhotoBtn.classList.remove('visible');
       clearDamagePhotoBtn.style.display = 'none';
       damagePadWrapper.style.height = '';
+      damagePadWrapper.classList.remove('show-empty-placeholder', 'lpn-photo-compact');
       damagePadCssWidth = 0;
       damagePadCssHeight = 0;
       if (damagePadLabel) damagePadLabel.textContent = 'Damage Diagram';
@@ -3602,6 +3647,12 @@
     damagePadPhotoBtn.onclick = () => {
       openDamagePadCamera();
     };
+
+    damagePadWrapper.addEventListener('click', () => {
+      if (shouldUseCompactLpnPhotoPad()) {
+        openDamagePadCamera();
+      }
+    });
 
     damagePadFileInput.onchange = async () => {
       const file = damagePadFileInput.files?.[0];
