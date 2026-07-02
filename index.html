@@ -243,20 +243,32 @@
       color: #fff;
       font-weight: 600;
     }
-    .damage-pad-photo-btn {
-      display: none !important;
+    .damage-pad-controls .btn.btn-sm {
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0.25rem 0.5rem;
+      box-sizing: border-box;
+      min-height: 31px;
+      height: 31px;
+      padding-top: 0.25rem;
+      padding-bottom: 0.25rem;
+    }
+    .damage-pad-photo-btn {
+      display: none !important;
+      min-width: 31px;
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
       line-height: 1.5;
       font-size: 0.875rem;
     }
     .damage-pad-photo-btn.visible {
       display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
     }
     .damage-pad-photo-btn .fa-camera {
-      font-size: 1rem;
-      line-height: 1;
+      font-size: 0.875rem;
+      line-height: 1.5;
     }
     .damage-pad-wrapper {
       border: 2px dashed var(--border);
@@ -2559,7 +2571,7 @@
     async function openDamagePadCamera() {
       cameraModalPurpose = 'damagePad';
       if (cameraModalTitle) {
-        cameraModalTitle.textContent = isLpnDamagePadType(currentDamagePadSearchType) ? 'LPN Photo' : 'Damage Diagram Photo';
+        cameraModalTitle.textContent = isLpnDamagePadType(currentDamagePadSearchType) ? 'LPN Photo for Markup' : 'Damage Diagram Photo';
       }
       if (cameraGallery) cameraGallery.style.display = 'none';
       cameraModal.show();
@@ -3303,7 +3315,7 @@
     }
 
     function getDamagePadSectionTitle(searchType = currentDamagePadSearchType) {
-      return isLpnDamagePadType(searchType) ? 'LPN Photo' : 'Damage Diagram';
+      return isLpnDamagePadType(searchType) ? 'LPN Photo for Markup' : 'Damage Diagram';
     }
 
     function updateDamagePadLabels() {
@@ -3311,7 +3323,7 @@
       if (damagePadLabel) damagePadLabel.textContent = title;
       if (damagePadPhotoBtn) {
         const photoLabel = isLpnDamagePadType(currentDamagePadSearchType)
-          ? 'Take LPN photo'
+          ? 'Take LPN photo for markup'
           : 'Take photo for damage diagram';
         damagePadPhotoBtn.title = photoLabel;
         damagePadPhotoBtn.setAttribute('aria-label', photoLabel);
@@ -3334,7 +3346,7 @@
         if (isLpnDamagePadType(currentDamagePadSearchType)) {
           damagePadHint.textContent = damagePadHasBackground()
             ? 'Circle or mark areas of damage on the LPN photo.'
-            : 'Tap the camera icon to add an LPN photo, then mark damage.';
+            : 'Tap the camera icon to add an LPN photo to mark up';
           return;
         }
         damagePadHint.textContent = damagePadHasBackground()
