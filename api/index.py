@@ -593,6 +593,13 @@ def ilpn_condition_codes():
         return jsonify({"success": False, "error": str(e)})
 
 
+def _coerce_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 @app.route('/api/lock_ilpn', methods=['POST'])
 def lock_ilpn():
     """Lock an iLPN with a condition code after inspection upload succeeds."""
@@ -616,7 +623,8 @@ def lock_ilpn():
         )
         if not search_res.ok:
             return jsonify({"success": False, "error": f"Inventory search failed: HTTP {search_res.status_code}"})
-        if (search_res.json().get("header") or {}).get("totalCount", 0) <= 0:
+        total_count = _coerce_int((search_res.json().get("header") or {}).get("totalCount"), 0)
+        if total_count <= 0:
             return jsonify({"success": False, "error": "LPN does not exist"})
 
         current_res = requests.post(
