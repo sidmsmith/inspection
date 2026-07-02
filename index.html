@@ -247,14 +247,16 @@
       display: none !important;
       align-items: center;
       justify-content: center;
-      min-width: 2.1rem;
-      padding-left: 0.55rem;
-      padding-right: 0.55rem;
-      font-size: 1.05rem;
-      line-height: 1;
+      padding: 0.25rem 0.5rem;
+      line-height: 1.5;
+      font-size: 0.875rem;
     }
     .damage-pad-photo-btn.visible {
       display: inline-flex !important;
+    }
+    .damage-pad-photo-btn .fa-camera {
+      font-size: 1rem;
+      line-height: 1;
     }
     .damage-pad-wrapper {
       border: 2px dashed var(--border);
@@ -768,7 +770,7 @@
           <!-- Damage diagram pad -->
           <div class="damage-pad-section">
             <div class="damage-pad-header">
-              <label style="margin:0;">Damage Diagram</label>
+              <label id="damagePadLabel" style="margin:0;">Damage Diagram</label>
               <div class="damage-pad-controls">
                 <div id="damagePadStockToggle" class="damage-pad-stock-toggle" aria-label="Diagram image">
                   <button type="button" class="segment-btn" data-image="container">Container</button>
@@ -2556,7 +2558,9 @@
 
     async function openDamagePadCamera() {
       cameraModalPurpose = 'damagePad';
-      if (cameraModalTitle) cameraModalTitle.textContent = 'Damage Diagram Photo';
+      if (cameraModalTitle) {
+        cameraModalTitle.textContent = isLpnDamagePadType(currentDamagePadSearchType) ? 'LPN Photo' : 'Damage Diagram Photo';
+      }
       if (cameraGallery) cameraGallery.style.display = 'none';
       cameraModal.show();
       try {
@@ -2587,7 +2591,7 @@
       if (cameraModalPurpose === 'damagePad') {
         try {
           await setDamagePadUserPhotoFromDataUrl(dataUrl);
-          status('Damage diagram photo added', 'success');
+          status(isLpnDamagePadType(currentDamagePadSearchType) ? 'LPN photo added' : 'Damage diagram photo added', 'success');
           cameraModal.hide();
         } catch (err) {
           status('Could not add damage diagram photo', 'error');
@@ -3276,6 +3280,7 @@
     const damagePadWrapper = document.getElementById('damagePadWrapper');
     const damageBgCanvas = document.getElementById('damagePadBg');
     const damageDrawCanvas = document.getElementById('damagePadDraw');
+    const damagePadLabel = document.getElementById('damagePadLabel');
     const damagePadHint = document.getElementById('damagePadHint');
     const damagePadStockToggle = document.getElementById('damagePadStockToggle');
     const damagePadPhotoBtn = document.getElementById('damagePadPhotoBtn');
@@ -3291,6 +3296,29 @@
     let damagePadCssWidth = 0;
     let damagePadCssHeight = 0;
 
+    let currentDamagePadSearchType = null;
+
+    function isLpnDamagePadType(searchType) {
+      return searchType === 'ilpn' || searchType === 'olpn';
+    }
+
+    function getDamagePadSectionTitle(searchType = currentDamagePadSearchType) {
+      return isLpnDamagePadType(searchType) ? 'LPN Photo' : 'Damage Diagram';
+    }
+
+    function updateDamagePadLabels() {
+      const title = getDamagePadSectionTitle();
+      if (damagePadLabel) damagePadLabel.textContent = title;
+      if (damagePadPhotoBtn) {
+        const photoLabel = isLpnDamagePadType(currentDamagePadSearchType)
+          ? 'Take LPN photo'
+          : 'Take photo for damage diagram';
+        damagePadPhotoBtn.title = photoLabel;
+        damagePadPhotoBtn.setAttribute('aria-label', photoLabel);
+      }
+      updateDamagePadHint();
+    }
+
     function damagePadHasBackground() {
       return !!damagePadBackgroundImage;
     }
@@ -3303,6 +3331,12 @@
 
     function updateDamagePadHint() {
       if (damagePadMode === 'photo') {
+        if (isLpnDamagePadType(currentDamagePadSearchType)) {
+          damagePadHint.textContent = damagePadHasBackground()
+            ? 'Circle or mark areas of damage on the LPN photo.'
+            : 'Tap the camera icon to add an LPN photo, then mark damage.';
+          return;
+        }
         damagePadHint.textContent = damagePadHasBackground()
           ? 'Circle or mark areas of damage on your photo.'
           : 'Tap the camera icon to add a photo, then mark damage.';
@@ -3435,6 +3469,7 @@
 
     function resetDamagePadState() {
       revokeDamagePadUserPhoto();
+      currentDamagePadSearchType = null;
       damagePadMode = 'stock';
       damagePadStockKey = 'container';
       setDamagePadBackgroundImage(null);
@@ -3445,11 +3480,13 @@
       damagePadWrapper.style.height = '';
       damagePadCssWidth = 0;
       damagePadCssHeight = 0;
+      if (damagePadLabel) damagePadLabel.textContent = 'Damage Diagram';
       updateDamagePadHint();
       updateDamagePadWrapperState();
     }
 
     function configureDamagePad(searchType) {
+      currentDamagePadSearchType = searchType;
       const padConfig = checklistsConfig?.checklists?.[searchType]?.damagePad || { mode: 'stock', defaultImage: 'container' };
       revokeDamagePadUserPhoto();
       clearDamagePadMarks();
@@ -3457,6 +3494,7 @@
 
       if (damagePadMode === 'photo') {
         setDamagePadBackgroundImage(null);
+        updateDamagePadLabels();
         updateDamagePadControls();
         requestAnimationFrame(() => applyDamagePadSize());
         return;
@@ -3464,6 +3502,7 @@
 
       const defaultImage = padConfig.defaultImage || 'container';
       damagePadStockKey = DAMAGE_STOCK_IMAGES[defaultImage] ? defaultImage : 'container';
+      updateDamagePadLabels();
       updateDamagePadControls();
       loadDamagePadStockImage(damagePadStockKey)
         .then(() => applyDamagePadSize())
