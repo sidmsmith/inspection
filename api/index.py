@@ -558,6 +558,114 @@ def condition_codes():
         return jsonify({"success": False, "error": str(e)})
 
 
+def _dcinventory_headers(token, org):
+    return {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "selectedOrganization": org,
+        "selectedLocation": f"{org}-DM1",
+    }
+
+
+@app.route('/api/ilpn_condition_codes', methods=['POST'])
+def ilpn_condition_codes():
+    """Fetch inventory/LPN condition codes (dcinventory — not trailer yard-management codes)."""
+    org = request.json.get('org')
+    token = request.json.get('token')
+    if not all([org, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+
+    url = f"https://{API_HOST}/dcinventory/api/dcinventory/conditionCode?size=50"
+    try:
+        r = requests.get(url, headers=_dcinventory_headers(token, org), timeout=30, verify=False)
+        if not r.ok:
+            return jsonify({"success": False, "error": f"HTTP {r.status_code}: {r.text[:500]}"})
+        items = r.json().get("data") or []
+        codes = [
+            {"ConditionCodeId": x.get("ConditionCodeId"), "Description": x.get("Description")}
+            for x in items
+            if x.get("ConditionCodeId")
+        ]
+        codes.sort(key=lambda c: (c.get("ConditionCodeId") or "").lower())
+        return jsonify({"success": True, "codes": codes})
+    except Exception as e:
+        print(f"[IlpnConditionCodes] Exception: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/api/lock_ilpn', methods=['POST'])
+def lock_ilpn():
+    """Lock an iLPN with a condition code after inspection upload succeeds."""
+    org = request.json.get('org')
+    token = request.json.get('token')
+    ilpn_id = (request.json.get('ilpn_id') or '').strip()
+    condition_code = (request.json.get('condition_code') or '').strip()
+    if not all([org, token, ilpn_id, condition_code]):
+        return jsonify({"success": False, "error": "Missing data"})
+
+    headers = _dcinventory_headers(token, org)
+    admin_user = f"{USERNAME_BASE}{org.lower()}"
+
+    try:
+        search_res = requests.post(
+            f"https://{API_HOST}/dcinventory/api/dcinventory/inventory/search",
+            json={"Query": f"InventoryContainerId = '{ilpn_id}'", "Size": 1, "Page": 0},
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+        if not search_res.ok:
+            return jsonify({"success": False, "error": f"Inventory search failed: HTTP {search_res.status_code}"})
+        if (search_res.json().get("header") or {}).get("totalCount", 0) <= 0:
+            return jsonify({"success": False, "error": "LPN does not exist"})
+
+        current_res = requests.post(
+            f"https://{API_HOST}/dcinventory/api/dcinventory/containerCondition/search",
+            json={
+                "Query": f"InventoryContainerId = {ilpn_id} and InventoryContainerTypeId = ILPN",
+                "Page": 0,
+            },
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+        if not current_res.ok:
+            return jsonify({"success": False, "error": f"Condition search failed: HTTP {current_res.status_code}"})
+        existing = current_res.json().get("data") or []
+        if any(x.get("ConditionCode") == condition_code for x in existing):
+            return jsonify({
+                "success": False,
+                "error": f"Already locked with {condition_code}",
+                "already_locked": True,
+            })
+
+        lock_res = requests.post(
+            f"https://{API_HOST}/dcinventory/api/dcinventory/containerCondition/save",
+            json={
+                "InventoryContainerTypeId": "ILPN",
+                "CreatedBy": admin_user,
+                "ConditionCode": condition_code,
+                "OrgId": org,
+                "FacilityId": f"{org}-DM1",
+                "UpdatedBy": admin_user,
+                "InventoryContainerId": ilpn_id,
+            },
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+        if not lock_res.ok:
+            return jsonify({"success": False, "error": f"Lock failed: HTTP {lock_res.status_code}: {lock_res.text[:300]}"})
+        lock_body = lock_res.json()
+        if lock_body.get("success") is False:
+            return jsonify({"success": False, "error": lock_body.get("message") or "Lock request rejected"})
+        return jsonify({"success": True, "condition_code": condition_code, "ilpn_id": ilpn_id})
+    except Exception as e:
+        print(f"[LockIlpn] Exception: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)})
+
+
 @app.route('/api/equipment_types', methods=['POST'])
 def equipment_types():
     """Fetch trailer equipment types"""

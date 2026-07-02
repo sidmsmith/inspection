@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 11,
   "checklists": {
     "trailer": {
       "damagePad": {
@@ -355,14 +355,10 @@
           "default": "OnTime"
         },
         {
-          "id": "status_updated_system",
-          "label": "Status Updated In System",
-          "type": "segmented",
-          "options": [
-            "Yes",
-            "No"
-          ],
-          "default": "Yes"
+          "id": "condition_code",
+          "label": "Condition Code",
+          "type": "dropdown",
+          "dataSource": "ilpn_condition_codes"
         }
       ]
     },
