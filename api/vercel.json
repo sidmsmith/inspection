@@ -19,6 +19,7 @@
           "js/**",
           "config/**",
           "public/**",
+          "samples/**",
           "*.png",
           "*.jpg",
           "*.jpeg",
@@ -36,27 +37,7 @@
       "destination": "/api/index.py"
     },
     {
-      "source": "/admin.html",
-      "destination": "/admin.html"
-    },
-    {
-      "source": "/css/(.*)",
-      "destination": "/css/$1"
-    },
-    {
-      "source": "/js/(.*)",
-      "destination": "/js/$1"
-    },
-    {
-      "source": "/config/(.*)",
-      "destination": "/config/$1"
-    },
-    {
-      "source": "/samples/(.*)",
-      "destination": "/samples/$1"
-    },
-    {
-      "source": "/",
+      "source": "/(.*)",
       "destination": "/server.js"
     }
   ],
