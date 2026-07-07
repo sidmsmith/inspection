@@ -619,7 +619,6 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
     const opts = optionsForTypeKey(selectedTypeKey, options);
     if (!opts.includes(defaultValue)) {
       defaultValue = null;
-      mountDefaultPicker();
     }
   }
 
@@ -645,6 +644,7 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
       options = next;
       working.options = [...options];
       validateDefaultValue();
+      mountDefaultPicker();
       updateSaveState();
     }, updateSaveState);
   }
