@@ -66,9 +66,30 @@ app.get(/\.(png|jpg|jpeg|gif|svg|ico|webp)$/i, (req, res, next) => {
   });
 });
 
+function sendRootFile(res, relativePath) {
+  const filePath = path.join(__dirname, relativePath);
+  if (fs.existsSync(filePath)) {
+    return res.sendFile(filePath);
+  }
+  return false;
+}
+
+// Admin UI and other HTML pages (before SPA catch-all)
+app.get('/admin.html', (req, res) => {
+  if (!sendRootFile(res, 'admin.html')) {
+    res.status(404).send('admin.html not found');
+  }
+});
+
 // Catch-all for SPA routing (must be last)
 // Use regex pattern instead of '*' to avoid path-to-regexp errors on Vercel/Express 5
 app.get(/^(?!\/api).*$/, (req, res) => {
+  if (req.path === '/admin.html') {
+    if (sendRootFile(res, 'admin.html')) return;
+  }
+  if (/\.\w+$/.test(req.path) && sendRootFile(res, req.path.replace(/^\//, ''))) {
+    return;
+  }
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
