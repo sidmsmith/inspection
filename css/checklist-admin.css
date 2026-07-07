@@ -850,3 +850,112 @@
   color: #93c5fd;
   border: 1px solid var(--primary);
 }
+
+.section-row-off {
+  opacity: 0.55;
+}
+
+.section-row-off .q-label {
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 255, 255, 0.25);
+}
+
+.section-setting-block {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+  background: var(--input-bg);
+}
+
+.preview-form-section {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.preview-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.preview-section-head label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-secondary, var(--text));
+}
+
+.preview-mock-btn {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+}
+
+.preview-signature-pad {
+  height: 4.5rem;
+  border: 2px dashed var(--input-border, var(--border));
+  border-radius: 6px;
+  background: var(--input-bg);
+}
+
+.preview-damage-pad {
+  min-height: 5.5rem;
+  border: 1px solid var(--input-border, var(--border));
+  border-radius: 6px;
+  background: var(--input-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.preview-damage-pad img {
+  width: 100%;
+  height: auto;
+  max-height: 6rem;
+  object-fit: contain;
+}
+
+.preview-damage-empty {
+  flex-direction: column;
+  gap: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.preview-damage-empty i {
+  font-size: 1rem;
+}
+
+.preview-damage-stock-toggle {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.preview-damage-stock-toggle .preview-seg {
+  font-size: 0.62rem;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+}
+
+.preview-damage-stock-toggle .preview-seg.on {
+  background: var(--success, #28a745);
+  border-color: var(--success, #28a745);
+  color: #fff;
+}
+
+.preview-photos-hint .preview-photos-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}

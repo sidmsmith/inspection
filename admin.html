@@ -8,8 +8,8 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>Checklist Config v0.1.1</title>
-  <!-- v0.1.1: import/export org checklist JSON from toolbar -->
+  <title>Checklist Config v0.1.2</title>
+  <!-- v0.1.2: configurable form sections (signature, photos, markup) with layout order -->
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
 
@@ -29,7 +29,7 @@
 
       <div class="header-body">
         <h1>Checklist Config</h1>
-        <div class="subtitle">v0.1.1</div>
+        <div class="subtitle">v0.1.2</div>
       </div>
 
     </header>
@@ -184,9 +184,9 @@
 
   <script>
 
-    const ADMIN_VERSION = '0.1.1';
+    const ADMIN_VERSION = '0.1.2';
 
-    const INSPECTION_VERSION = '0.0.15';
+    const INSPECTION_VERSION = '0.0.16';
 
 
 
@@ -204,7 +204,13 @@
 
     let fields = [];
 
+    let sections = getDefaultSectionsForType('po');
+
+    let layout = [];
+
     let selectedIdx = -1;
+
+    let selectedSectionKey = null;
 
     let previewThemeScope = null;
 
@@ -306,17 +312,25 @@
 
     function syncCurrentFieldsToDraft() {
 
-      syncFieldsToOrgDraft(orgDraft, defaultConfig, objectType, fields, checklistsConfig);
+      syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, { fields, sections, layout }, checklistsConfig);
 
     }
 
 
 
-    function loadFieldsForObjectType() {
+    function loadChecklistStateForType() {
 
-      fields = cloneChecklistFields(checklistsConfig, objectType);
+      const state = loadChecklistState(checklistsConfig, objectType);
+
+      fields = state.fields;
+
+      sections = state.sections;
+
+      layout = state.layout;
 
       selectedIdx = -1;
+
+      selectedSectionKey = null;
 
       editorHost.innerHTML = '';
 
@@ -326,11 +340,27 @@
 
 
 
+    function loadFieldsForObjectType() {
+
+      loadChecklistStateForType();
+
+    }
+
+
+
     function loadFieldsFromDefault() {
 
-      fields = cloneChecklistFields(defaultConfig, objectType);
+      const state = loadChecklistState(defaultConfig, objectType);
+
+      fields = state.fields;
+
+      sections = state.sections;
+
+      layout = state.layout;
 
       selectedIdx = -1;
+
+      selectedSectionKey = null;
 
       editorHost.innerHTML = '';
 
@@ -362,6 +392,10 @@
 
         objectType,
 
+        sections,
+
+        layout,
+
         inspectionVersion: INSPECTION_VERSION,
 
         previewApiData: previewApiData,
@@ -386,111 +420,105 @@
 
     function renderList() {
 
-      listHost.innerHTML = '';
+      renderChecklistAdminList(listHost, {
 
-      if (!fields.length) {
+        layout,
 
-        const empty = document.createElement('div');
+        fields,
 
-        empty.className = 'empty-state';
+        sections,
 
-        empty.innerHTML = '<i class="fa-solid fa-inbox fa-2x mb-2"></i><p>No questions — add one or reset from default.</p>';
+        selectedFieldIdx: selectedSectionKey ? -1 : selectedIdx,
 
-        listHost.appendChild(empty);
+        selectedSectionKey,
 
-      } else {
+        onEditField: idx => openEditor(idx),
 
-        const inner = document.createElement('div');
+        onEditSection: key => openSectionEditor(key),
 
-        inner.className = 'question-list-inner';
+        onDeleteField: idx => {
 
-        inner.innerHTML = fields.map((f, i) => {
+          const removed = fields[idx];
 
-          const editable = isAdminEditableField(f);
+          fields.splice(idx, 1);
 
-          const systemBadge = editable ? '' : ' <span class="badge-system">System</span>';
+          if (removed?.id) layout = removeFieldFromLayout(layout, removed.id);
 
-          return `
+          fields = fieldsFromLayout(layout, fields);
 
-          <div class="question-row draggable-item${i === selectedIdx ? ' selected' : ''}${editable ? '' : ' system-field'}" data-idx="${i}">
+          selectedIdx = -1;
 
-            <span class="grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
+          selectedSectionKey = null;
 
-            <div class="q-label">${escapeHtml(f.label)}${f.required ? ' <span class="required-asterisk">*</span>' : ''}${systemBadge}</div>
+          editorHost.innerHTML = '';
 
-            <span class="badge-type">${escapeHtml(typeLabelForField(f))}</span>
+          refresh();
 
-            <div class="q-actions">
+        },
 
-              <button type="button" class="btn btn-outline-light btn-icon edit-btn" title="Edit"><i class="fa-solid fa-pen"></i></button>
+        onLayoutReorder: (from, to, nextLayout) => {
 
-              <button type="button" class="btn btn-outline-danger btn-icon del-btn${editable ? '' : ' del-btn-hidden'}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+          layout = nextLayout;
 
-            </div>
+          fields = fieldsFromLayout(layout, fields);
 
-          </div>`;
+          selectedIdx = -1;
 
-        }).join('');
+          selectedSectionKey = null;
 
-        listHost.appendChild(inner);
+          refresh();
 
+        },
 
+        onAddQuestion: () => openEditor(-1)
 
-        bindDragReorder(inner, {
+      });
 
-          fields,
-
-          onReorder: (from, to) => {
-
-            selectedIdx = adjustIndexAfterReorder(selectedIdx, from, to);
-
-            refresh();
-
-          }
-
-        });
+    }
 
 
 
-        inner.querySelectorAll('.question-row').forEach(row => {
+    function openSectionEditor(sectionKey) {
 
-          const idx = +row.dataset.idx;
+      selectedSectionKey = sectionKey;
 
-          row.querySelector('.edit-btn').onclick = e => { e.stopPropagation(); openEditor(idx); };
+      selectedIdx = -1;
 
-          const delBtn = row.querySelector('.del-btn');
+      editorHost.innerHTML = '';
 
-          if (!delBtn.classList.contains('del-btn-hidden')) {
+      const form = createSectionEditorForm({
 
-            delBtn.onclick = e => {
+        sectionKey,
 
-              e.stopPropagation();
+        sections,
 
-              fields.splice(idx, 1);
+        objectType,
 
-              selectedIdx = -1;
+        onSave: () => {
 
-              editorHost.innerHTML = '';
+          selectedSectionKey = null;
 
-              refresh();
+          editorHost.innerHTML = '';
 
-            };
+          refresh();
 
-          }
+        },
 
-          row.onclick = e => {
+        onCancel: () => {
 
-            if (e.target.closest('.grip') || e.target.closest('.q-actions')) return;
+          selectedSectionKey = null;
 
-            openEditor(idx);
+          editorHost.innerHTML = '';
 
-          };
+          renderList();
 
-        });
+        }
 
-      }
+      });
 
-      appendAddQuestionButton(listHost, () => openEditor(-1));
+      editorHost.appendChild(form);
+
+      renderList();
 
     }
 
@@ -514,11 +542,21 @@
 
           if (idx >= 0) fields[idx] = saved;
 
-          else fields.push(saved);
+          else {
+
+            fields.push(saved);
+
+            layout = addFieldToLayout(layout, saved.id);
+
+          }
+
+          fields = fieldsFromLayout(layout, fields);
 
           setPreviewFromField(saved);
 
           selectedIdx = -1;
+
+          selectedSectionKey = null;
 
           editorHost.innerHTML = '';
 
@@ -529,6 +567,8 @@
         onCancel: () => {
 
           selectedIdx = -1;
+
+          selectedSectionKey = null;
 
           editorHost.innerHTML = '';
 
@@ -541,6 +581,8 @@
       form.addEventListener('admin-close', () => {
 
         selectedIdx = -1;
+
+        selectedSectionKey = null;
 
         editorHost.innerHTML = '';
 
@@ -716,6 +758,10 @@
 
         fields,
 
+        sections,
+
+        layout,
+
         checklistsConfig,
 
         api,
@@ -775,6 +821,8 @@
           checklistsConfig = nextConfig;
 
           selectedIdx = -1;
+
+          selectedSectionKey = null;
 
           editorHost.innerHTML = '';
 

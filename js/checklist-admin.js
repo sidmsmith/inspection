@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.1) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.2) */
 
 const FIELD_TYPES = [
   { key: 'yes_no', label: 'Yes / No', icon: 'fa-toggle-on', type: 'segmented', options: ['Yes', 'No'] },
@@ -101,6 +101,50 @@ function appendAddQuestionButton(container, onClick) {
   btn.onclick = onClick;
   wrap.appendChild(btn);
   container.appendChild(wrap);
+}
+
+function bindLayoutDragReorder(listEl, { layout, onReorder, itemSelector = '.draggable-item', gripSelector = '.grip' }) {
+  if (!listEl) return;
+  let dragFrom = null;
+
+  listEl.querySelectorAll(itemSelector).forEach(item => {
+    const grip = item.querySelector(gripSelector);
+    if (!grip) return;
+
+    grip.draggable = true;
+    grip.addEventListener('dragstart', e => {
+      dragFrom = +item.dataset.idx;
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(dragFrom));
+      e.stopPropagation();
+    });
+    grip.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      listEl.querySelectorAll(itemSelector).forEach(i => i.classList.remove('drag-over'));
+      dragFrom = null;
+    });
+
+    item.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      item.classList.add('drag-over');
+    });
+    item.addEventListener('dragleave', e => {
+      if (!item.contains(e.relatedTarget)) item.classList.remove('drag-over');
+    });
+    item.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      item.classList.remove('drag-over');
+      const to = +item.dataset.idx;
+      if (dragFrom == null || dragFrom === to) return;
+      const next = [...layout];
+      const [moved] = next.splice(dragFrom, 1);
+      next.splice(to, 0, moved);
+      onReorder(dragFrom, to, next);
+    });
+  });
 }
 
 function bindDragReorder(listEl, { fields, onReorder, itemSelector = '.draggable-item', gripSelector = '.grip' }) {
@@ -396,19 +440,17 @@ function appendPreviewControl(group, field, apiData) {
 function renderPreview(fields, container, options = {}) {
   const objectLabel = options.objectLabel || 'Object';
   const objectType = options.objectType || 'po';
+  const sections = options.sections || getDefaultSectionsForType(objectType);
+  const layout = options.layout || buildDefaultLayout(fields, sections);
   const apiData = options.previewApiData || previewApiData;
   const inspectionVersion = options.inspectionVersion || '0.0.15';
-
-  const fixed = `
-    <div class="preview-fixed">
-      <i class="fa-solid fa-lock me-1"></i>
-      Always included: damage diagram, inspection photos, signature pad
-    </div>`;
 
   prunePreviewState(fields);
   fields.forEach(f => {
     if (f.id && !(f.id in previewState)) setPreviewFromField(f);
   });
+
+  const fieldById = new Map(fields.filter(f => f.id).map(f => [f.id, f]));
 
   container.innerHTML = `
     <p class="preview-interactive-hint">Moto G4 · 360×640 — try toggles and dropdowns inside the device</p>
@@ -433,24 +475,29 @@ function renderPreview(fields, container, options = {}) {
         </div>
         <div class="device-home-btn"></div>
       </div>
-    </div>
-    ${fixed}`;
+    </div>`;
 
   const root = container.querySelector('#previewFormRoot');
   const themeScope = container.querySelector('#previewThemeScope');
   const deviceLogo = container.querySelector('#previewDeviceLogo');
 
-  if (!fields.length) {
+  if (!layout.length && !fields.length) {
     root.innerHTML = `<p class="text-muted mb-0 device-empty-msg">No questions yet — add one to preview the ${escapeHtml(objectLabel)} form.</p>`;
   } else {
-    fields.forEach(field => {
-      const group = document.createElement('div');
-      group.className = 'form-group';
-      const label = document.createElement('label');
-      label.innerHTML = `${escapeHtml(field.label)}${field.required ? ' <span class="required-asterisk">*</span>' : ''}`;
-      group.appendChild(label);
-      appendPreviewControl(group, field, apiData);
-      root.appendChild(group);
+    layout.forEach(item => {
+      if (item.type === 'field') {
+        const field = fieldById.get(item.id);
+        if (!field) return;
+        const group = document.createElement('div');
+        group.className = 'form-group';
+        const label = document.createElement('label');
+        label.innerHTML = `${escapeHtml(field.label)}${field.required ? ' <span class="required-asterisk">*</span>' : ''}`;
+        group.appendChild(label);
+        appendPreviewControl(group, field, apiData);
+        root.appendChild(group);
+      } else if (item.type === 'section') {
+        appendPreviewSectionBlock(root, item.key, sections, objectType);
+      }
     });
   }
 
@@ -459,6 +506,264 @@ function renderPreview(fields, container, options = {}) {
   }
 
   return { themeScope, deviceLogo };
+}
+
+function appendPreviewSectionBlock(root, sectionKey, sections, objectType) {
+  const sec = sections?.[sectionKey];
+  if (!sec?.enabled) return;
+
+  if (sectionKey === 'photos') {
+    const photos = document.createElement('div');
+    photos.className = 'preview-form-section preview-photos-hint';
+    photos.innerHTML = `
+      <div class="preview-photos-chip"><i class="fas fa-camera"></i> ${escapeHtml(sec.label || DEFAULT_SECTION_LABELS.photos)}${sec.required ? ' <span class="required-asterisk">*</span>' : ''}</div>`;
+    root.appendChild(photos);
+    return;
+  }
+
+  if (sectionKey === 'signature') {
+    const sig = document.createElement('div');
+    sig.className = 'preview-form-section preview-signature-section';
+    sig.innerHTML = `
+      <div class="preview-section-head">
+        <label>${escapeHtml(sec.label || DEFAULT_SECTION_LABELS.signature)}${sec.required ? ' <span class="required-asterisk">*</span>' : ''}</label>
+        <span class="preview-mock-btn">Clear</span>
+      </div>
+      <div class="preview-signature-pad" aria-hidden="true"></div>`;
+    root.appendChild(sig);
+    return;
+  }
+
+  if (sectionKey === 'damagePad') {
+    const dp = sec;
+    const title = dp.label || DEFAULT_SECTION_LABELS.damagePad;
+    const block = document.createElement('div');
+    block.className = 'preview-form-section preview-damage-section';
+    if (dp.mode === 'photo') {
+      block.innerHTML = `
+        <div class="preview-section-head">
+          <label>${escapeHtml(title)}${dp.required ? ' <span class="required-asterisk">*</span>' : ''}</label>
+          <span class="preview-mock-btn"><i class="fas fa-camera"></i></span>
+        </div>
+        <div class="preview-damage-pad preview-damage-empty">
+          <i class="fas fa-plus"></i>
+          <span>${objectType === 'ilpn' || objectType === 'olpn' ? 'Tap camera to add LPN photo' : 'Add photo to mark up'}</span>
+        </div>`;
+    } else {
+      const imgKey = dp.defaultImage || 'container';
+      block.innerHTML = `
+        <div class="preview-section-head">
+          <label>${escapeHtml(title)}${dp.required ? ' <span class="required-asterisk">*</span>' : ''}</label>
+          <div class="preview-damage-stock-toggle">
+            <span class="preview-seg${imgKey === 'container' ? ' on' : ''}">Container</span>
+            <span class="preview-seg${imgKey === 'trailer' ? ' on' : ''}">Trailer</span>
+          </div>
+        </div>
+        <div class="preview-damage-pad preview-damage-stock">
+          <img src="/${imgKey === 'trailer' ? 'trailer' : 'container'}.png" alt="" />
+        </div>
+        <small class="text-muted">Circle or mark areas of damage on the diagram</small>`;
+    }
+    root.appendChild(block);
+  }
+}
+
+function createSectionEditorForm({ sectionKey, sections, objectType, onSave, onCancel }) {
+  const wrap = document.createElement('div');
+  wrap.className = 'editor-panel';
+  const working = JSON.parse(JSON.stringify(sections[sectionKey] || {}));
+  const titles = {
+    signature: 'Signature section',
+    photos: 'Inspection photos',
+    damagePad: 'Damage / markup pad'
+  };
+
+  let bodyHtml = `
+    <div class="mb-3">
+      <label class="form-label" for="secLabel">Display label</label>
+      <input type="text" class="form-control" id="secLabel" value="${escapeHtml(working.label || DEFAULT_SECTION_LABELS[sectionKey] || '')}" />
+    </div>
+    <div class="mb-3 form-check form-switch">
+      <input class="form-check-input" type="checkbox" id="secEnabled" ${working.enabled !== false ? 'checked' : ''} />
+      <label class="form-check-label" for="secEnabled">Show in inspection form</label>
+    </div>
+    <div class="mb-3 form-check" id="secRequiredWrap">
+      <input class="form-check-input" type="checkbox" id="secRequired" ${working.required ? 'checked' : ''} />
+      <label class="form-check-label" for="secRequired">Required</label>
+    </div>`;
+
+  if (sectionKey === 'damagePad') {
+    bodyHtml += `
+    <div class="mb-3" id="secDamageModeWrap">
+      <label class="form-label" for="secDamageMode">Markup mode</label>
+      <select class="form-select form-select-sm" id="secDamageMode">
+        <option value="stock">Stock diagram (container / trailer)</option>
+        <option value="photo">Camera photo (mark up captured image)</option>
+      </select>
+    </div>
+    <div class="mb-3" id="secDamageStockWrap">
+      <label class="form-label" for="secDamageDefault">Default diagram</label>
+      <select class="form-select form-select-sm" id="secDamageDefault">
+        <option value="container">Container</option>
+        <option value="trailer">Trailer</option>
+      </select>
+    </div>`;
+  }
+
+  wrap.innerHTML = `
+    <h3>${escapeHtml(titles[sectionKey] || 'Form section')}</h3>
+    ${bodyHtml}
+    <div class="d-flex gap-2 flex-wrap">
+      <button type="button" class="btn btn-primary" id="secSave">Save</button>
+      <button type="button" class="btn btn-secondary" id="secCancel">Cancel</button>
+    </div>`;
+
+  const enabledEl = wrap.querySelector('#secEnabled');
+  const requiredWrap = wrap.querySelector('#secRequiredWrap');
+  const modeWrap = wrap.querySelector('#secDamageModeWrap');
+  const stockWrap = wrap.querySelector('#secDamageStockWrap');
+
+  function syncSectionEditorVisibility() {
+    const on = enabledEl.checked;
+    if (requiredWrap) requiredWrap.style.display = on ? '' : 'none';
+    if (modeWrap) modeWrap.style.opacity = on ? '1' : '0.45';
+    if (stockWrap) {
+      const stock = on && wrap.querySelector('#secDamageMode')?.value === 'stock';
+      stockWrap.style.display = stock ? '' : 'none';
+    }
+  }
+
+  if (sectionKey === 'damagePad') {
+    wrap.querySelector('#secDamageMode').value = working.mode === 'photo' ? 'photo' : 'stock';
+    wrap.querySelector('#secDamageDefault').value = working.defaultImage || 'container';
+    wrap.querySelector('#secDamageMode').addEventListener('change', syncSectionEditorVisibility);
+  }
+  enabledEl.addEventListener('change', syncSectionEditorVisibility);
+  syncSectionEditorVisibility();
+
+  wrap.querySelector('#secSave').onclick = () => {
+    working.label = wrap.querySelector('#secLabel').value.trim() || DEFAULT_SECTION_LABELS[sectionKey];
+    working.enabled = enabledEl.checked;
+    working.required = wrap.querySelector('#secRequired').checked;
+    if (sectionKey === 'damagePad') {
+      working.mode = wrap.querySelector('#secDamageMode').value;
+      if (working.mode === 'stock') {
+        working.defaultImage = wrap.querySelector('#secDamageDefault').value;
+        working.images = ['container', 'trailer'];
+      } else {
+        delete working.defaultImage;
+        delete working.images;
+      }
+    }
+    sections[sectionKey] = working;
+    onSave(working);
+  };
+  wrap.querySelector('#secCancel').onclick = onCancel;
+  return wrap;
+}
+
+function renderChecklistAdminList(listHost, {
+  layout,
+  fields,
+  sections,
+  selectedFieldIdx,
+  selectedSectionKey,
+  onEditField,
+  onEditSection,
+  onDeleteField,
+  onLayoutReorder,
+  onAddQuestion
+}) {
+  listHost.innerHTML = '';
+  const fieldById = new Map(fields.filter(f => f.id).map(f => [f.id, f]));
+  const rows = [];
+
+  (layout || []).forEach(item => {
+    if (item.type === 'field' && fieldById.has(item.id)) {
+      rows.push({ kind: 'field', field: fieldById.get(item.id), fieldId: item.id });
+    } else if (item.type === 'section' && FORM_SECTION_KEYS.includes(item.key)) {
+      rows.push({ kind: 'section', sectionKey: item.key });
+    }
+  });
+
+  if (!rows.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.innerHTML = '<i class="fa-solid fa-inbox fa-2x mb-2"></i><p>No items — add a question or reset from default.</p>';
+    listHost.appendChild(empty);
+    appendAddQuestionButton(listHost, onAddQuestion);
+    return;
+  }
+
+  const inner = document.createElement('div');
+  inner.className = 'question-list-inner';
+  inner.innerHTML = rows.map((row, i) => {
+    if (row.kind === 'field') {
+      const f = row.field;
+      const editable = isAdminEditableField(f);
+      const systemBadge = editable ? '' : ' <span class="badge-system">System</span>';
+      const selected = i === selectedFieldIdx && !selectedSectionKey;
+      return `
+        <div class="question-row draggable-item${selected ? ' selected' : ''}${editable ? '' : ' system-field'}" data-idx="${i}" data-kind="field">
+          <span class="grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
+          <div class="q-label">${escapeHtml(f.label)}${f.required ? ' <span class="required-asterisk">*</span>' : ''}${systemBadge}</div>
+          <span class="badge-type">${escapeHtml(typeLabelForField(f))}</span>
+          <div class="q-actions">
+            <button type="button" class="btn btn-outline-light btn-icon edit-btn" title="Edit"><i class="fa-solid fa-pen"></i></button>
+            <button type="button" class="btn btn-outline-danger btn-icon del-btn${editable ? '' : ' del-btn-hidden'}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        </div>`;
+    }
+    const key = row.sectionKey;
+    const sec = sections[key] || {};
+    const selected = selectedSectionKey === key;
+    const offClass = sec.enabled === false ? ' section-row-off' : '';
+    return `
+      <div class="question-row draggable-item section-config-row system-field${selected ? ' selected' : ''}${offClass}" data-idx="${i}" data-kind="section" data-section-key="${key}">
+        <span class="grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
+        <div class="q-label">${escapeHtml(sec.label || DEFAULT_SECTION_LABELS[key])}${sec.required ? ' <span class="required-asterisk">*</span>' : ''} <span class="badge-system">Section</span></div>
+        <span class="badge-type">${escapeHtml(sectionSummaryLabel(key, sections))}</span>
+        <div class="q-actions">
+          <button type="button" class="btn btn-outline-light btn-icon edit-btn" title="Edit"><i class="fa-solid fa-pen"></i></button>
+          <button type="button" class="btn btn-outline-danger btn-icon del-btn del-btn-hidden" title="Delete"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>`;
+  }).join('');
+
+  listHost.appendChild(inner);
+
+  bindLayoutDragReorder(inner, {
+    layout: rows.map(row => (
+      row.kind === 'field'
+        ? { type: 'field', id: row.fieldId }
+        : { type: 'section', key: row.sectionKey }
+    )),
+    onReorder: (from, to, nextLayout) => onLayoutReorder(from, to, nextLayout)
+  });
+
+  inner.querySelectorAll('.question-row').forEach(row => {
+    const idx = +row.dataset.idx;
+    const kind = row.dataset.kind;
+    row.querySelector('.edit-btn').onclick = e => {
+      e.stopPropagation();
+      if (kind === 'section') onEditSection(row.dataset.sectionKey);
+      else onEditField(fields.indexOf(rows[idx].field));
+    };
+    const delBtn = row.querySelector('.del-btn');
+    if (!delBtn.classList.contains('del-btn-hidden')) {
+      delBtn.onclick = e => {
+        e.stopPropagation();
+        onDeleteField(fields.indexOf(rows[idx].field));
+      };
+    }
+    row.onclick = e => {
+      if (e.target.closest('.grip') || e.target.closest('.q-actions')) return;
+      if (kind === 'section') onEditSection(row.dataset.sectionKey);
+      else onEditField(fields.indexOf(rows[idx].field));
+    };
+  });
+
+  appendAddQuestionButton(listHost, onAddQuestion);
 }
 
 function createReadOnlyFieldPanel(field) {
@@ -713,13 +1018,15 @@ function adminSaveStub(statusEl) {
   }, 4000);
 }
 
-async function adminSaveDeploy({ org, token, orgDraft, defaultConfig, objectType, fields, checklistsConfig, api, setStatus, saveBtn }) {
+async function adminSaveDeploy({
+  org, token, orgDraft, defaultConfig, objectType, fields, sections, layout, checklistsConfig, api, setStatus, saveBtn
+}) {
   if (!org || !token) {
     setStatus('Authenticate before saving', 'danger');
     return { success: false };
   }
 
-  syncFieldsToOrgDraft(orgDraft, defaultConfig, objectType, fields, checklistsConfig);
+  syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, { fields, sections, layout }, checklistsConfig);
   const payload = buildOrgSavePayload(org, orgDraft);
 
   if (!Object.keys(payload.checklists).length) {
