@@ -1,6 +1,6 @@
 {
   "org": "SC-DEMO",
-  "updatedAt": "2026-07-07T19:27:48.584Z",
+  "updatedAt": "2026-07-07T19:32:12.265Z",
   "checklists": {
     "po": {
       "fields": [
@@ -37,6 +37,16 @@
           "default": "Delayed"
         },
         {
+          "label": "Trailer Door Not Dented?",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "id": "trailer_door_not_dented",
+          "required": false
+        },
+        {
           "id": "special_instructions_met",
           "label": "Special Instructions Met",
           "type": "segmented",
@@ -52,6 +62,88 @@
           "type": "freeform",
           "placeholder": "None / Details here...",
           "default": "None"
+        }
+      ]
+    },
+    "ilpn": {
+      "fields": [
+        {
+          "id": "condition_code",
+          "label": "Condition Code",
+          "type": "dropdown",
+          "dataSource": "ilpn_condition_codes",
+          "required": false,
+          "default": "Destroy"
+        },
+        {
+          "id": "label_present_legible",
+          "label": "Label Present & Legible",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Yes"
+        },
+        {
+          "id": "contents_match_system",
+          "label": "Contents Match System",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "No"
+        },
+        {
+          "id": "visible_damage",
+          "label": "Visible Damage",
+          "type": "segmented",
+          "options": [
+            "None",
+            "Yes (describe)"
+          ]
+        },
+        {
+          "id": "storage_conditions_ok",
+          "label": "Storage Conditions OK",
+          "type": "dropdown",
+          "options": [
+            "Good",
+            "Improper Stacking",
+            "Temperature Issue"
+          ],
+          "required": true,
+          "default": "Good"
+        },
+        {
+          "id": "location_correct",
+          "label": "Location Correct",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Pass"
+        },
+        {
+          "id": "seal_tag_intact",
+          "label": "Seal / Tag Intact",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "id": "weight_dims_accurate",
+          "label": "Weight & Dims Accurate",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "OnTime"
         }
       ]
     }
