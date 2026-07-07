@@ -5,7 +5,7 @@ const FORM_SECTION_KEYS = ['signature', 'photos', 'damagePad'];
 const DEFAULT_SECTION_LABELS = {
   signature: "Inspector's Signature",
   photos: 'Inspection Photos',
-  damagePad: 'Damage Diagram'
+  damagePad: 'Markup Pad'
 };
 
 function mergeChecklistConfigs(base, orgOverlay) {

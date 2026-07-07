@@ -891,7 +891,7 @@
           <!-- Damage diagram pad -->
           <div class="damage-pad-section" id="damagePadSection">
             <div class="damage-pad-header">
-              <label id="damagePadLabel" style="margin:0;">Damage Diagram</label>
+              <label id="damagePadLabel" style="margin:0;">Markup Pad</label>
               <div class="damage-pad-controls">
                 <div id="damagePadStockToggle" class="damage-pad-stock-toggle" aria-label="Diagram image">
                   <button type="button" class="segment-btn" data-image="container">Container</button>
@@ -3935,7 +3935,7 @@
       const normalized = searchType ? getNormalizedChecklist(searchType) : null;
       const label = normalized?.sections?.damagePad?.label;
       if (label) return label;
-      return isLpnDamagePadType(searchType) ? 'LPN Photo for Markup' : 'Damage Diagram';
+      return isLpnDamagePadType(searchType) ? 'LPN Photo for Markup' : 'Markup Pad';
     }
 
     function updateDamagePadLabels() {
@@ -4140,7 +4140,7 @@
       damagePadWrapper.classList.remove('show-empty-placeholder', 'lpn-photo-compact');
       damagePadCssWidth = 0;
       damagePadCssHeight = 0;
-      if (damagePadLabel) damagePadLabel.textContent = 'Damage Diagram';
+      if (damagePadLabel) damagePadLabel.textContent = 'Markup Pad';
       updateDamagePadHint();
       updateDamagePadWrapperState();
     }
