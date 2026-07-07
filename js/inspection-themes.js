@@ -254,8 +254,7 @@
           '--logo-display': 'block'
         },
         logo: '/nissan_logo.png',
-        logoMaxHeight: '100px',
-        logoThumbBg: '#0D47A1'
+        logoMaxHeight: '100px'
       },
       'kendrascott': {
         name: 'Kendra Scott',
@@ -365,11 +364,10 @@
     return themeKey;
   }
 
+  /** Same surface as the preview device header (where logos render). */
   function themePickerThumbBackground(theme) {
-    if (theme.logoThumbBg) return theme.logoThumbBg;
     const colors = theme.colors || {};
-    if (theme.logo) return colors['--card-bg'] || '#ffffff';
-    return colors['--bg-dark'] || colors['--card-bg'] || '#f8f9fa';
+    return colors['--card-bg'] || colors['--bg-dark'] || '#f8f9fa';
   }
 
   function renderPreviewThemeList(themeList, themeModal, { scopeEl, logoEl, storageKey = 'adminPreviewTheme', currentKey }) {
