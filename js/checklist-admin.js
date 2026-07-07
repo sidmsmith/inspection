@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.0.1) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.0.2) */
 
 const FIELD_TYPES = [
   { key: 'yes_no', label: 'Yes / No', icon: 'fa-toggle-on', type: 'segmented', options: ['Yes', 'No'] },
