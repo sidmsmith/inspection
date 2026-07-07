@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en" class="theme-manhattan">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Section config — Panel approach (sample)</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <link href="../../css/flowthrough-shared.css" rel="stylesheet" />
+  <link href="../../css/checklist-admin.css" rel="stylesheet" />
+  <link href="checklist-admin.css" rel="stylesheet" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="header-body">
+        <h1>Checklist Config</h1>
+        <div class="subtitle">
+          <span class="sample-tag">Sample A</span> Form sections — settings panel
+        </div>
+      </div>
+    </header>
+
+    <div class="app-status text-info" id="status">Mock auth — switch object type to compare PO vs iLPN section defaults</div>
+
+    <div id="mainUI">
+      <div class="config-toolbar">
+        <div class="field-grow">
+          <label class="form-label" for="objectType">Object type</label>
+          <select id="objectType" class="form-select">
+            <option value="po">PO</option>
+            <option value="ilpn">iLPN</option>
+            <option value="trailer">Trailer</option>
+          </select>
+        </div>
+        <div class="toolbar-actions">
+          <a class="btn btn-outline-secondary btn-sm" href="variant-sections-list.html"><i class="fa-solid fa-list"></i> Try sample B</a>
+          <a class="btn btn-outline-secondary btn-sm" href="variant-a-split.html">Original editor</a>
+        </div>
+      </div>
+
+      <div class="config-layout-split">
+        <div>
+          <div id="sectionSettingsHost"></div>
+          <div id="editorHost"></div>
+          <div id="listHost"></div>
+        </div>
+        <div class="preview-panel">
+          <div class="preview-panel-header">
+            <div class="preview-panel-titles">
+              <h2><i class="fa-solid fa-eye"></i> Live preview</h2>
+              <p class="preview-note">Signature &amp; damage sections appear below questions when enabled</p>
+            </div>
+          </div>
+          <div id="previewHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="mock-po-config.js"></script>
+  <script src="mock-checklist-sections.js"></script>
+  <script src="shared-samples.js"></script>
+  <script src="section-samples.js"></script>
+  <script>
+    let objectType = 'po';
+    let fields = cloneFieldsForType(objectType);
+    let sections = cloneSectionsForType(objectType);
+    let selectedIdx = -1;
+
+    const objectTypeSelect = document.getElementById('objectType');
+    const sectionSettingsHost = document.getElementById('sectionSettingsHost');
+    const listHost = document.getElementById('listHost');
+    const editorHost = document.getElementById('editorHost');
+    const previewHost = document.getElementById('previewHost');
+
+    function objectLabel() {
+      return SAMPLE_SECTION_OBJECT_TYPES.find(t => t.key === objectType)?.label || objectType;
+    }
+
+    function refresh() {
+      renderSectionSettingsPanel(sectionSettingsHost, sections, objectType, () => refreshPreview());
+      renderList();
+      refreshPreview();
+    }
+
+    function refreshPreview() {
+      renderDevicePreviewWithSections({
+        fields,
+        sections,
+        objectType,
+        objectLabel: objectLabel(),
+        container: previewHost
+      });
+    }
+
+    function renderList() {
+      listHost.innerHTML = '';
+      const inner = document.createElement('div');
+      inner.className = 'question-list-inner';
+      inner.innerHTML = fields.map((f, i) => `
+        <div class="question-row draggable-item${i === selectedIdx ? ' selected' : ''}" data-idx="${i}">
+          <span class="grip"><i class="fa-solid fa-grip-vertical"></i></span>
+          <div class="q-label">${escapeHtml(f.label)}</div>
+          <span class="badge-type">${escapeHtml(typeLabelForField(f))}</span>
+        </div>`).join('');
+      listHost.appendChild(inner);
+      appendAddQuestionButton(listHost, () => {});
+      listHost.querySelector('.add-question-inline-btn').style.visibility = 'hidden';
+    }
+
+    objectTypeSelect.onchange = () => {
+      objectType = objectTypeSelect.value;
+      fields = cloneFieldsForType(objectType);
+      sections = cloneSectionsForType(objectType);
+      selectedIdx = -1;
+      editorHost.innerHTML = '';
+      clearPreviewState();
+      refresh();
+    };
+
+    refresh();
+  </script>
+</body>
+</html>
