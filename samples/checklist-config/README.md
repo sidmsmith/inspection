@@ -52,7 +52,7 @@ Open [http://localhost:3000/samples/checklist-config/](http://localhost:3000/sam
 
 - Answer types: Yes/No, Pass/Fail, Pick one (option chips), Text
 
-- Required toggle, Clear PO, Add question
+- Required toggle, Clear PO, inline **+** below the question list to add questions
 
 - Save & Deploy commits per-ORG overrides to `config/orgs/{ORG}.json` via GitHub API (requires `GITHUB_TOKEN` on Vercel)
 

@@ -40,7 +40,6 @@
         </div>
         <div class="toolbar-actions">
           <button type="button" class="btn btn-outline-warning btn-sm" id="clearBtn"><i class="fa-solid fa-eraser"></i> Clear PO</button>
-          <button type="button" class="btn btn-primary btn-sm" id="addBtn"><i class="fa-solid fa-plus"></i> Add question</button>
           <button type="button" class="btn btn-success" id="saveBtn"><i class="fa-solid fa-cloud-arrow-up"></i> Save &amp; Deploy</button>
         </div>
       </div>
@@ -162,7 +161,6 @@
       renderList();
     }
 
-    document.getElementById('addBtn').onclick = () => openEditor(-1);
     document.getElementById('clearBtn').onclick = () => {
       if (confirmClear()) {
         fields = [];
