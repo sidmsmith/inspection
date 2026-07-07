@@ -85,6 +85,18 @@
   margin-bottom: 0;
 }
 
+.preview-interactive-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin: 0 0 0.65rem;
+  font-style: italic;
+}
+
+.default-answer-hint {
+  display: block;
+  margin-top: 0.25rem;
+}
+
 /* Matches inspection app .theme-selector-btn — production wires theme modal here */
 .preview-theme-gear.theme-selector-btn {
   position: static;
@@ -137,6 +149,14 @@
   background: var(--input-bg);
   font-size: 0.8rem;
   color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.preview-segmented .seg:hover {
+  border-color: var(--primary);
+  color: var(--text);
 }
 
 .preview-segmented .seg.on {
@@ -312,13 +332,34 @@
 .option-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.5rem 0.25rem 0.65rem;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem 0.25rem 0.35rem;
   border-radius: 999px;
   background: rgba(59, 130, 246, 0.2);
   border: 1px solid var(--primary);
   color: #e8eaed;
   font-size: 0.8rem;
+  cursor: default;
+}
+
+.option-chip.dragging { opacity: 0.45; }
+
+.option-chip.drag-over {
+  box-shadow: 0 0 0 2px var(--success);
+}
+
+.option-chip .chip-grip {
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  padding: 0 0.1rem;
+  line-height: 1;
+}
+
+.option-chip .chip-grip:active { cursor: grabbing; }
+
+.option-chip .chip-label {
+  user-select: none;
 }
 
 .option-chip .chip-remove {

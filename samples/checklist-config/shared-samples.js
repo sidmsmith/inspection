@@ -41,6 +41,7 @@ function applyFieldType(field, typeKey) {
   const def = FIELD_TYPES.find(t => t.key === typeKey);
   if (!def) return;
   field.type = def.type;
+  delete field.default;
   if (def.type === 'freeform') {
     delete field.options;
     field.placeholder = field.placeholder || '';
@@ -50,6 +51,31 @@ function applyFieldType(field, typeKey) {
     field.options = [...def.options];
     delete field.placeholder;
   }
+}
+
+/** Live preview selections — persists while editing; reset on clear/auth. */
+const previewState = {};
+
+function clearPreviewState() {
+  Object.keys(previewState).forEach(k => delete previewState[k]);
+}
+
+function setPreviewFromField(field) {
+  if (!field?.id) return;
+  previewState[field.id] =
+    field.default != null && field.default !== '' ? String(field.default) : '';
+}
+
+function prunePreviewState(fields) {
+  const ids = new Set(fields.map(f => f.id).filter(Boolean));
+  Object.keys(previewState).forEach(id => {
+    if (!ids.has(id)) delete previewState[id];
+  });
+}
+
+function optionsForTypeKey(typeKey, dropdownOptions) {
+  if (typeKey === 'dropdown') return dropdownOptions || [];
+  return FIELD_TYPES.find(t => t.key === typeKey)?.options || [];
 }
 
 function bindAuth({ orgInput, authBtn, orgSection, mainUI, statusEl, onAuth }) {
@@ -153,6 +179,49 @@ function bindDragReorder(listEl, { fields, onReorder, itemSelector = '.draggable
   });
 }
 
+function bindChipReorder(wrap, options, onReorder) {
+  if (!wrap) return;
+  let dragFrom = null;
+
+  wrap.querySelectorAll('.option-chip').forEach(chip => {
+    const grip = chip.querySelector('.chip-grip');
+    if (!grip) return;
+
+    grip.draggable = true;
+    grip.addEventListener('dragstart', e => {
+      dragFrom = +chip.dataset.idx;
+      chip.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(dragFrom));
+      e.stopPropagation();
+    });
+    grip.addEventListener('dragend', () => {
+      chip.classList.remove('dragging');
+      wrap.querySelectorAll('.option-chip').forEach(c => c.classList.remove('drag-over'));
+      dragFrom = null;
+    });
+
+    chip.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      chip.classList.add('drag-over');
+    });
+    chip.addEventListener('dragleave', e => {
+      if (!chip.contains(e.relatedTarget)) chip.classList.remove('drag-over');
+    });
+    chip.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      chip.classList.remove('drag-over');
+      const to = +chip.dataset.idx;
+      if (dragFrom == null || dragFrom === to) return;
+      const [moved] = options.splice(dragFrom, 1);
+      options.splice(to, 0, moved);
+      onReorder();
+    });
+  });
+}
+
 function renderOptionChips(container, options, onChange, onValidationChange) {
   container.innerHTML = '';
   const wrap = document.createElement('div');
@@ -173,7 +242,11 @@ function renderOptionChips(container, options, onChange, onValidationChange) {
     options.forEach((opt, idx) => {
       const chip = document.createElement('span');
       chip.className = 'option-chip';
-      chip.innerHTML = `${escapeHtml(opt)} <button type="button" class="chip-remove" aria-label="Remove">×</button>`;
+      chip.dataset.idx = String(idx);
+      chip.innerHTML = `
+        <span class="chip-grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
+        <span class="chip-label">${escapeHtml(opt)}</span>
+        <button type="button" class="chip-remove" aria-label="Remove">×</button>`;
       chip.querySelector('.chip-remove').onclick = e => {
         e.stopPropagation();
         options.splice(idx, 1);
@@ -181,6 +254,10 @@ function renderOptionChips(container, options, onChange, onValidationChange) {
         renderChips();
       };
       wrap.insertBefore(chip, input);
+    });
+    bindChipReorder(wrap, options, () => {
+      emit();
+      renderChips();
     });
   }
 
@@ -214,12 +291,54 @@ function renderTypePicker(container, selectedKey, onSelect) {
   });
 }
 
+function renderDefaultPicker(container, { typeKey, options, value, onChange }) {
+  container.innerHTML = '';
+  if (!typeKey) {
+    container.style.display = 'none';
+    return;
+  }
+  container.style.display = 'block';
+
+  if (typeKey === 'text') {
+    container.innerHTML = `
+      <label class="form-label">Default answer</label>
+      <input type="text" class="form-control form-control-sm" id="edDefaultInput"
+        placeholder="Leave blank for no default"
+        value="${escapeHtml(value || '')}" />
+      <small class="text-muted default-answer-hint">Optional pre-filled value in the inspection form.</small>`;
+    container.querySelector('#edDefaultInput').addEventListener('input', e => {
+      const v = e.target.value.trim();
+      onChange(v || null);
+    });
+    return;
+  }
+
+  const opts = optionsForTypeKey(typeKey, options);
+  container.innerHTML = `
+    <label class="form-label">Default answer</label>
+    <select class="form-select form-select-sm" id="edDefaultSelect">
+      <option value="">No default</option>
+      ${opts.map(o => `
+        <option value="${escapeHtml(o)}"${o === value ? ' selected' : ''}>${escapeHtml(o)}</option>
+      `).join('')}
+    </select>
+    <small class="text-muted default-answer-hint">Pre-selected when inspectors open this question.</small>`;
+  container.querySelector('#edDefaultSelect').addEventListener('change', e => {
+    onChange(e.target.value || null);
+  });
+}
+
 function renderPreview(fields, container) {
   const fixed = `
     <div class="preview-fixed">
       <i class="fa-solid fa-lock me-1"></i>
       Always included: damage diagram, inspection photos, signature pad
     </div>`;
+
+  prunePreviewState(fields);
+  fields.forEach(f => {
+    if (f.id && !(f.id in previewState)) setPreviewFromField(f);
+  });
 
   if (!fields.length) {
     container.innerHTML = `
@@ -230,24 +349,78 @@ function renderPreview(fields, container) {
     return;
   }
 
-  const html = fields.map(field => {
-    const req = field.required ? '<span class="required-asterisk">*</span>' : '';
-    let control = '';
-    if (field.type === 'segmented') {
-      control = `<div class="preview-segmented">${(field.options || []).map((o, i) =>
-        `<span class="seg${i === 0 ? ' on' : ''}">${escapeHtml(o)}</span>`
-      ).join('')}</div>`;
-    } else if (field.type === 'dropdown') {
-      control = `<select class="form-select form-select-sm" disabled><option>${escapeHtml(field.options?.[0] || '')}</option></select>`;
-    } else if (field.type === 'freeform') {
-      control = `<input type="text" class="form-control form-control-sm" disabled placeholder="${escapeHtml(field.placeholder || '')}" />`;
-    } else {
-      control = `<p class="text-muted small mb-0">—</p>`;
-    }
-    return `<div class="form-group"><label>${escapeHtml(field.label)}${req}</label>${control}</div>`;
-  }).join('');
+  container.innerHTML = `
+    <p class="preview-interactive-hint">Try the form — click toggles, change dropdowns, type in text fields.</p>
+    <div class="preview-form preview-form-theme-wrap" id="previewFormRoot"></div>
+    ${fixed}`;
+  const root = container.querySelector('#previewFormRoot');
 
-  container.innerHTML = `<div class="preview-form preview-form-theme-wrap">${html}${fixed}</div>`;
+  fields.forEach(field => {
+    const group = document.createElement('div');
+    group.className = 'form-group';
+
+    const label = document.createElement('label');
+    label.innerHTML = `${escapeHtml(field.label)}${field.required ? ' <span class="required-asterisk">*</span>' : ''}`;
+    group.appendChild(label);
+
+    const current = field.id ? (previewState[field.id] ?? '') : '';
+
+    if (field.type === 'segmented') {
+      const segWrap = document.createElement('div');
+      segWrap.className = 'preview-segmented';
+      (field.options || []).forEach(option => {
+        const seg = document.createElement('span');
+        seg.className = 'seg' + (current === option ? ' on' : '');
+        seg.dataset.option = option;
+        seg.textContent = option;
+        seg.onclick = () => {
+          const active = previewState[field.id] ?? '';
+          const next = active === option ? '' : option;
+          previewState[field.id] = next;
+          segWrap.querySelectorAll('.seg').forEach(s => {
+            s.classList.toggle('on', s.dataset.option === next);
+          });
+        };
+        segWrap.appendChild(seg);
+      });
+      group.appendChild(segWrap);
+    } else if (field.type === 'dropdown') {
+      const select = document.createElement('select');
+      select.className = 'form-select form-select-sm';
+      const blank = document.createElement('option');
+      blank.value = '';
+      blank.textContent = '— Select —';
+      select.appendChild(blank);
+      (field.options || []).forEach(option => {
+        const opt = document.createElement('option');
+        opt.value = option;
+        opt.textContent = option;
+        if (current === option) opt.selected = true;
+        select.appendChild(opt);
+      });
+      select.onchange = () => {
+        previewState[field.id] = select.value;
+      };
+      group.appendChild(select);
+    } else if (field.type === 'freeform') {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'form-control form-control-sm';
+      input.placeholder = field.placeholder || '';
+      input.value = current;
+      input.oninput = () => {
+        previewState[field.id] = input.value;
+      };
+      group.appendChild(input);
+    } else {
+      const p = document.createElement('p');
+      p.className = 'text-muted small mb-0';
+      p.textContent = '—';
+      group.appendChild(p);
+    }
+
+    root.appendChild(group);
+  });
 }
 
 function createEditorForm({ field, isNew, onSave, onCancel }) {
@@ -257,6 +430,7 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   const working = JSON.parse(JSON.stringify(field));
   let selectedTypeKey = creating ? null : typeKeyForField(working);
   let options = working.type === 'dropdown' && working.options ? [...working.options] : [];
+  let defaultValue = working.default ?? null;
 
   wrap.innerHTML = `
     <h3>${creating ? 'Add question' : 'Edit question'}</h3>
@@ -271,8 +445,9 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
     <div class="mb-3" id="edOptionsWrap">
       <label class="form-label">Options</label>
       <div id="edOptions"></div>
-      <small class="text-muted" id="edOptionsHint">Add at least one option before saving.</small>
+      <small class="text-muted" id="edOptionsHint">Add at least one option. Drag chips to reorder.</small>
     </div>
+    <div class="mb-3" id="edDefaultHost"></div>
     <div class="mb-3 form-check">
       <input type="checkbox" class="form-check-input" id="edRequired" ${working.required ? 'checked' : ''} />
       <label class="form-check-label" for="edRequired">Required</label>
@@ -286,11 +461,30 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   const typePicker = wrap.querySelector('#edTypePicker');
   const optionsWrap = wrap.querySelector('#edOptionsWrap');
   const optionsHost = wrap.querySelector('#edOptions');
+  const defaultHost = wrap.querySelector('#edDefaultHost');
   const saveBtn = wrap.querySelector('#edSave');
   const labelInput = wrap.querySelector('#edLabel');
 
   function syncOptionsVisibility() {
     optionsWrap.style.display = selectedTypeKey === 'dropdown' ? 'block' : 'none';
+  }
+
+  function validateDefaultValue() {
+    if (!defaultValue || selectedTypeKey === 'text') return;
+    const opts = optionsForTypeKey(selectedTypeKey, options);
+    if (!opts.includes(defaultValue)) {
+      defaultValue = null;
+      mountDefaultPicker();
+    }
+  }
+
+  function mountDefaultPicker() {
+    renderDefaultPicker(defaultHost, {
+      typeKey: selectedTypeKey,
+      options,
+      value: defaultValue,
+      onChange: v => { defaultValue = v; }
+    });
   }
 
   function updateSaveState() {
@@ -307,6 +501,7 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
     renderOptionChips(optionsHost, options, next => {
       options = next;
       working.options = [...options];
+      validateDefaultValue();
       updateSaveState();
     }, updateSaveState);
   }
@@ -315,6 +510,7 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
     renderTypePicker(typePicker, selectedTypeKey, key => {
       selectedTypeKey = key;
       applyFieldType(working, key);
+      defaultValue = null;
       if (key === 'dropdown') {
         if (!creating && working.options?.length) {
           options = [...working.options];
@@ -325,6 +521,7 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
         mountOptionChips();
       }
       syncOptionsVisibility();
+      mountDefaultPicker();
       refreshTypePicker();
       updateSaveState();
     });
@@ -333,6 +530,7 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   refreshTypePicker();
   if (selectedTypeKey === 'dropdown') mountOptionChips();
   syncOptionsVisibility();
+  mountDefaultPicker();
   labelInput.addEventListener('input', updateSaveState);
   updateSaveState();
 
@@ -343,6 +541,8 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
     working.id = working.id || slugifyId(label);
     working.required = wrap.querySelector('#edRequired').checked;
     if (working.type === 'dropdown') working.options = [...options];
+    if (defaultValue) working.default = defaultValue;
+    else delete working.default;
     onSave(working);
   };
   wrap.querySelector('#edCancel').onclick = onCancel;
