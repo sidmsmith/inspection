@@ -40,6 +40,7 @@
         </div>
         <div class="toolbar-actions">
           <button type="button" class="btn btn-outline-warning btn-sm" id="clearBtn"><i class="fa-solid fa-eraser"></i> Clear PO</button>
+          <button type="button" class="btn btn-primary btn-sm" id="addBtn"><i class="fa-solid fa-plus"></i> Add question</button>
           <button type="button" class="btn btn-success" id="saveBtn"><i class="fa-solid fa-cloud-arrow-up"></i> Save &amp; Deploy</button>
         </div>
       </div>
@@ -71,7 +72,6 @@
   <script>
     let fields = clonePoFields();
     let selectedIdx = -1;
-    let insertAt = null;
     let currentOrg = '';
 
     const orgInput = document.getElementById('org');
@@ -89,23 +89,17 @@
     }
 
     function renderList() {
-      mountQuestionListWithInsertSlots(listHost, {
-        fields,
-        selectedIdx,
-        onInsertAt: at => openEditor(-1, at),
-        onEdit: idx => openEditor(idx),
-        onDelete: idx => {
-          fields.splice(idx, 1);
-          selectedIdx = -1;
-          editorHost.innerHTML = '';
-          refresh();
-        },
-        onReorder: (from, to) => {
-          selectedIdx = adjustIndexAfterReorder(selectedIdx, from, to);
-          refresh();
-        },
-        rowHtmlForField: (f, i, sel) => `
-          <div class="question-row draggable-item${i === sel ? ' selected' : ''}" data-idx="${i}">
+      listHost.innerHTML = '';
+      if (!fields.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.innerHTML = '<i class="fa-solid fa-inbox fa-2x mb-2"></i><p>No questions — add one or reset from default.</p>';
+        listHost.appendChild(empty);
+      } else {
+        const inner = document.createElement('div');
+        inner.className = 'question-list-inner';
+        inner.innerHTML = fields.map((f, i) => `
+          <div class="question-row draggable-item${i === selectedIdx ? ' selected' : ''}" data-idx="${i}">
             <span class="grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
             <div class="q-label">${escapeHtml(f.label)}${f.required ? ' <span class="required-asterisk">*</span>' : ''}</div>
             <span class="badge-type">${escapeHtml(typeLabelForField(f))}</span>
@@ -113,13 +107,39 @@
               <button type="button" class="btn btn-outline-light btn-icon edit-btn" title="Edit"><i class="fa-solid fa-pen"></i></button>
               <button type="button" class="btn btn-outline-danger btn-icon del-btn" title="Delete"><i class="fa-solid fa-trash"></i></button>
             </div>
-          </div>`
-      });
+          </div>
+        `).join('');
+        listHost.appendChild(inner);
+
+        bindDragReorder(inner, {
+          fields,
+          onReorder: (from, to) => {
+            selectedIdx = adjustIndexAfterReorder(selectedIdx, from, to);
+            refresh();
+          }
+        });
+
+        inner.querySelectorAll('.question-row').forEach(row => {
+          const idx = +row.dataset.idx;
+          row.querySelector('.edit-btn').onclick = e => { e.stopPropagation(); openEditor(idx); };
+          row.querySelector('.del-btn').onclick = e => {
+            e.stopPropagation();
+            fields.splice(idx, 1);
+            selectedIdx = -1;
+            editorHost.innerHTML = '';
+            refresh();
+          };
+          row.onclick = e => {
+            if (e.target.closest('.grip') || e.target.closest('.q-actions')) return;
+            openEditor(idx);
+          };
+        });
+      }
+      appendAddQuestionButton(listHost, () => openEditor(-1));
     }
 
-    function openEditor(idx, at = null) {
+    function openEditor(idx) {
       selectedIdx = idx;
-      insertAt = idx < 0 ? (at != null ? at : fields.length) : null;
       const field = idx >= 0 ? fields[idx] : newEmptyField();
       editorHost.innerHTML = '';
       editorHost.appendChild(createEditorForm({
@@ -127,16 +147,14 @@
         isNew: idx < 0,
         onSave: saved => {
           if (idx >= 0) fields[idx] = saved;
-          else fields.splice(insertAt ?? fields.length, 0, saved);
+          else fields.push(saved);
           setPreviewFromField(saved);
           selectedIdx = -1;
-          insertAt = null;
           editorHost.innerHTML = '';
           refresh();
         },
         onCancel: () => {
           selectedIdx = -1;
-          insertAt = null;
           editorHost.innerHTML = '';
           renderList();
         }
@@ -144,6 +162,7 @@
       renderList();
     }
 
+    document.getElementById('addBtn').onclick = () => openEditor(-1);
     document.getElementById('clearBtn').onclick = () => {
       if (confirmClear()) {
         fields = [];
