@@ -304,7 +304,7 @@ function sectionSummaryLabel(key, sections) {
 function sectionTypeBadge(key) {
   if (key === 'signature') return 'Signature';
   if (key === 'photos') return 'Photos';
-  if (key === 'damagePad') return 'Markup pad';
+  if (key === 'damagePad') return 'Markup Pad';
   return 'Section';
 }
 

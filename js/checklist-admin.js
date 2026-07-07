@@ -575,7 +575,7 @@ function createSectionEditorForm({ sectionKey, sections, objectType, onSave, onC
   const titles = {
     signature: 'Signature section',
     photos: 'Inspection photos',
-    damagePad: 'Damage / markup pad'
+    damagePad: 'Markup Pad'
   };
 
   let bodyHtml = `
@@ -626,7 +626,7 @@ function createSectionEditorForm({ sectionKey, sections, objectType, onSave, onC
   function syncSectionEditorVisibility() {
     const on = enabledEl.checked;
     if (requiredWrap) requiredWrap.style.display = on ? '' : 'none';
-    if (modeWrap) modeWrap.style.opacity = on ? '1' : '0.45';
+    if (modeWrap) modeWrap.style.display = on ? '' : 'none';
     if (stockWrap) {
       const stock = on && wrap.querySelector('#secDamageMode')?.value === 'stock';
       stockWrap.style.display = stock ? '' : 'none';
