@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" class="theme-manhattan">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checklist Config — Variant B (Cards)</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <link href="shared.css" rel="stylesheet" />
+  <link href="checklist-admin.css" rel="stylesheet" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="header-body">
+        <h1><i class="fa-solid fa-layer-group"></i> Checklist Config</h1>
+        <div class="subtitle">
+          Variant B — expandable cards ·
+          <span class="sample-tag">PO</span> ·
+          <a href="index.html" class="text-muted">all samples</a>
+        </div>
+      </div>
+    </header>
+
+    <div id="orgSection" class="auth-section">
+      <label class="form-label" for="org">ORG:</label>
+      <div class="auth-row">
+        <input type="text" id="org" class="form-control" placeholder="SS-DEMO" maxlength="20" value="SS-DEMO" />
+        <button id="authBtn" class="btn btn-success px-4" type="button">Authenticate</button>
+      </div>
+      <small class="text-muted">Press Enter to authenticate</small>
+    </div>
+
+    <div class="app-status" id="status">Enter ORG and authenticate</div>
+
+    <div id="mainUI" style="display: none;">
+      <div class="config-toolbar">
+        <div class="field-grow">
+          <label class="form-label">Object type</label>
+          <input type="text" class="form-control" value="PO" readonly />
+        </div>
+        <div class="toolbar-actions">
+          <button type="button" class="btn btn-outline-warning btn-sm" id="clearBtn"><i class="fa-solid fa-eraser"></i> Clear PO</button>
+          <button type="button" class="btn btn-primary btn-sm" id="addBtn"><i class="fa-solid fa-plus"></i> Add question</button>
+          <button type="button" class="btn btn-success" id="saveBtn"><i class="fa-solid fa-cloud-arrow-up"></i> Save &amp; Deploy</button>
+        </div>
+      </div>
+
+      <div class="config-layout-cards">
+        <div id="cardsHost"></div>
+        <div class="preview-panel">
+          <h2><i class="fa-solid fa-eye"></i> Live preview</h2>
+          <p class="preview-note">Sticky preview while you edit cards</p>
+          <div id="previewHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="mock-po-config.js"></script>
+  <script src="shared-samples.js"></script>
+  <script>
+    let fields = clonePoFields();
+    let expandedIdx = -1;
+
+    const orgInput = document.getElementById('org');
+    const authBtn = document.getElementById('authBtn');
+    const orgSection = document.getElementById('orgSection');
+    const mainUI = document.getElementById('mainUI');
+    const statusEl = document.getElementById('status');
+    const cardsHost = document.getElementById('cardsHost');
+    const previewHost = document.getElementById('previewHost');
+
+    function refresh() {
+      renderPreview(fields, previewHost);
+      renderCards();
+    }
+
+    function renderCards() {
+      if (!fields.length) {
+        cardsHost.innerHTML = '<div class="empty-state"><p>No questions yet.</p><button type="button" class="btn btn-primary btn-sm" id="emptyAdd">Add first question</button></div>';
+        document.getElementById('emptyAdd')?.addEventListener('click', () => addNew());
+        return;
+      }
+
+      cardsHost.innerHTML = fields.map((f, i) => `
+        <div class="card-panel question-card${expandedIdx === i ? '' : ' collapsed'}" data-idx="${i}">
+          <div class="card-header-row">
+            <span class="grip text-muted"><i class="fa-solid fa-grip-vertical"></i></span>
+            <h3>${escapeHtml(f.label)}${f.required ? ' <span class="required-asterisk">*</span>' : ''}</h3>
+            <span class="badge-type">${escapeHtml(typeLabelForField(f))}</span>
+            <button type="button" class="btn btn-outline-danger btn-sm del-btn"><i class="fa-solid fa-trash"></i></button>
+            <i class="fa-solid fa-chevron-down text-muted expand-icon"></i>
+          </div>
+          <div class="card-body-inner mt-3" id="cardBody${i}"></div>
+        </div>
+      `).join('');
+
+      cardsHost.querySelectorAll('.question-card').forEach(card => {
+        const idx = +card.dataset.idx;
+        const header = card.querySelector('.card-header-row');
+        header.onclick = e => {
+          if (e.target.closest('.del-btn')) return;
+          expandedIdx = expandedIdx === idx ? -1 : idx;
+          renderCards();
+        };
+        card.querySelector('.del-btn').onclick = e => {
+          e.stopPropagation();
+          fields.splice(idx, 1);
+          expandedIdx = -1;
+          refresh();
+        };
+        if (expandedIdx === idx) {
+          const body = card.querySelector(`#cardBody${idx}`);
+          body.appendChild(createInlineEditor(fields[idx], idx));
+        }
+      });
+    }
+
+    function createInlineEditor(field, idx) {
+      const shell = document.createElement('div');
+      shell.appendChild(createEditorForm({
+        field,
+        onSave: saved => {
+          fields[idx] = saved;
+          expandedIdx = -1;
+          refresh();
+        },
+        onCancel: () => {
+          expandedIdx = -1;
+          renderCards();
+        }
+      }));
+      return shell;
+    }
+
+    function addNew() {
+      fields.push({
+        id: 'new_question',
+        label: 'New question',
+        type: 'segmented',
+        options: ['Yes', 'No']
+      });
+      expandedIdx = fields.length - 1;
+      refresh();
+    }
+
+    document.getElementById('addBtn').onclick = addNew;
+    document.getElementById('clearBtn').onclick = () => {
+      if (confirmClear()) {
+        fields = [];
+        expandedIdx = -1;
+        refresh();
+      }
+    };
+    document.getElementById('saveBtn').onclick = () => mockSaveDeploy(statusEl);
+
+    bindAuth({
+      orgInput, authBtn, orgSection, mainUI, statusEl,
+      onAuth: () => {
+        fields = clonePoFields();
+        expandedIdx = -1;
+        refresh();
+      }
+    });
+  </script>
+</body>
+</html>

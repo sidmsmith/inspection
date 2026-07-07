@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" class="theme-manhattan">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checklist Config — Variant A (Split)</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <link href="shared.css" rel="stylesheet" />
+  <link href="checklist-admin.css" rel="stylesheet" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="header-body">
+        <h1><i class="fa-solid fa-columns"></i> Checklist Config</h1>
+        <div class="subtitle">
+          Variant A — split editor + live preview ·
+          <span class="sample-tag">PO</span> ·
+          <a href="index.html" class="text-muted">all samples</a>
+        </div>
+      </div>
+    </header>
+
+    <div id="orgSection" class="auth-section">
+      <label class="form-label" for="org">ORG:</label>
+      <div class="auth-row">
+        <input type="text" id="org" class="form-control" placeholder="SS-DEMO" maxlength="20" value="SS-DEMO" />
+        <button id="authBtn" class="btn btn-success px-4" type="button">Authenticate</button>
+      </div>
+      <small class="text-muted">Press Enter to authenticate</small>
+    </div>
+
+    <div class="app-status" id="status">Enter ORG and authenticate</div>
+
+    <div id="mainUI" style="display: none;">
+      <div class="config-toolbar">
+        <div class="field-grow">
+          <label class="form-label">Object type</label>
+          <input type="text" class="form-control" value="PO" readonly />
+        </div>
+        <div class="toolbar-actions">
+          <button type="button" class="btn btn-outline-warning btn-sm" id="clearBtn"><i class="fa-solid fa-eraser"></i> Clear PO</button>
+          <button type="button" class="btn btn-primary btn-sm" id="addBtn"><i class="fa-solid fa-plus"></i> Add question</button>
+          <button type="button" class="btn btn-success" id="saveBtn"><i class="fa-solid fa-cloud-arrow-up"></i> Save &amp; Deploy</button>
+        </div>
+      </div>
+
+      <div class="config-layout-split">
+        <div>
+          <div id="editorHost"></div>
+          <div id="listHost"></div>
+        </div>
+        <div class="preview-panel">
+          <h2><i class="fa-solid fa-eye"></i> Live preview</h2>
+          <p class="preview-note">How inspectors will see the PO checklist</p>
+          <div id="previewHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="mock-po-config.js"></script>
+  <script src="shared-samples.js"></script>
+  <script>
+    let fields = clonePoFields();
+    let selectedIdx = -1;
+    let currentOrg = '';
+
+    const orgInput = document.getElementById('org');
+    const authBtn = document.getElementById('authBtn');
+    const orgSection = document.getElementById('orgSection');
+    const mainUI = document.getElementById('mainUI');
+    const statusEl = document.getElementById('status');
+    const listHost = document.getElementById('listHost');
+    const editorHost = document.getElementById('editorHost');
+    const previewHost = document.getElementById('previewHost');
+
+    function refresh() {
+      renderPreview(fields, previewHost);
+      renderList();
+    }
+
+    function renderList() {
+      if (!fields.length) {
+        listHost.innerHTML = '<div class="empty-state"><i class="fa-solid fa-inbox fa-2x mb-2"></i><p>No questions — add one or reset from default.</p></div>';
+        return;
+      }
+      listHost.innerHTML = fields.map((f, i) => `
+        <div class="question-row${i === selectedIdx ? ' selected' : ''}" data-idx="${i}">
+          <span class="grip"><i class="fa-solid fa-grip-vertical"></i></span>
+          <div class="q-label">${escapeHtml(f.label)}${f.required ? ' <span class="required-asterisk">*</span>' : ''}</div>
+          <span class="badge-type">${escapeHtml(typeLabelForField(f))}</span>
+          <div class="q-actions">
+            <button type="button" class="btn btn-outline-light btn-icon edit-btn" title="Edit"><i class="fa-solid fa-pen"></i></button>
+            <button type="button" class="btn btn-outline-danger btn-icon del-btn" title="Delete"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        </div>
+      `).join('');
+
+      listHost.querySelectorAll('.question-row').forEach(row => {
+        const idx = +row.dataset.idx;
+        row.querySelector('.edit-btn').onclick = e => { e.stopPropagation(); openEditor(idx); };
+        row.querySelector('.del-btn').onclick = e => {
+          e.stopPropagation();
+          fields.splice(idx, 1);
+          selectedIdx = -1;
+          editorHost.innerHTML = '';
+          refresh();
+        };
+        row.onclick = () => openEditor(idx);
+      });
+    }
+
+    function openEditor(idx) {
+      selectedIdx = idx;
+      const field = idx >= 0 ? fields[idx] : { label: '', type: 'segmented', options: ['Yes', 'No'] };
+      editorHost.innerHTML = '';
+      editorHost.appendChild(createEditorForm({
+        field,
+        onSave: saved => {
+          if (idx >= 0) fields[idx] = saved;
+          else fields.push(saved);
+          selectedIdx = -1;
+          editorHost.innerHTML = '';
+          refresh();
+        },
+        onCancel: () => {
+          selectedIdx = -1;
+          editorHost.innerHTML = '';
+          renderList();
+        }
+      }));
+      renderList();
+    }
+
+    document.getElementById('addBtn').onclick = () => openEditor(-1);
+    document.getElementById('clearBtn').onclick = () => {
+      if (confirmClear()) {
+        fields = [];
+        selectedIdx = -1;
+        editorHost.innerHTML = '';
+        refresh();
+      }
+    };
+    document.getElementById('saveBtn').onclick = () => mockSaveDeploy(statusEl);
+
+    bindAuth({
+      orgInput, authBtn, orgSection, mainUI, statusEl,
+      onAuth: org => {
+        currentOrg = org;
+        fields = clonePoFields();
+        refresh();
+      }
+    });
+  </script>
+</body>
+</html>
