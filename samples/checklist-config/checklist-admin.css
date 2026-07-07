@@ -211,6 +211,57 @@
   box-shadow: 0 -2px 0 var(--success);
 }
 
+/* Insert-slot UX (sample): hover gutters + drag-reveal */
+.question-list-insert-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.question-insert-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 1.35rem;
+  margin: 0.1rem 0;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  opacity: 0.2;
+  cursor: pointer;
+  transition: opacity 0.15s, color 0.15s, background 0.15s, height 0.15s;
+}
+
+.question-list-insert-mode:hover .question-insert-slot {
+  opacity: 0.55;
+}
+
+.question-list-insert-mode.list-dragging .question-insert-slot {
+  opacity: 0.35;
+}
+
+.question-insert-slot:hover,
+.question-insert-slot.insert-slot-hover,
+.question-insert-slot.insert-slot-flash {
+  opacity: 1;
+  height: 1.75rem;
+  color: var(--success);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.question-insert-slot.insert-slot-flash {
+  animation: insert-slot-pulse 0.55s ease-in-out 3;
+}
+
+@keyframes insert-slot-pulse {
+  0%, 100% { background: rgba(34, 197, 94, 0.08); }
+  50% { background: rgba(34, 197, 94, 0.22); }
+}
+
 .add-question-row {
   display: flex;
   justify-content: center;

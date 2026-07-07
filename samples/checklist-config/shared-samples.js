@@ -136,7 +136,117 @@ function appendAddQuestionButton(container, onClick) {
   container.appendChild(wrap);
 }
 
-function bindDragReorder(listEl, { fields, onReorder, itemSelector = '.draggable-item', gripSelector = '.grip' }) {
+/**
+ * Insert-slot question list (sample UX — two complementary patterns):
+ * 1) Hover gutters: faint + between rows; brightens when hovering a row or the list.
+ * 2) Drag affordance: while dragging / briefly after drop, highlights + below the target row.
+ */
+function mountQuestionListWithInsertSlots(listHost, {
+  fields,
+  selectedIdx,
+  onInsertAt,
+  onEdit,
+  onDelete,
+  onReorder,
+  rowHtmlForField
+}) {
+  listHost.innerHTML = '';
+
+  if (!fields.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.innerHTML = `
+      <i class="fa-solid fa-inbox fa-2x mb-2"></i>
+      <p>No questions yet.</p>
+      <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="emptyInsertBtn">
+        <i class="fa-solid fa-plus"></i> Add first question
+      </button>`;
+    empty.querySelector('#emptyInsertBtn').onclick = () => onInsertAt(0);
+    listHost.appendChild(empty);
+    return;
+  }
+
+  const inner = document.createElement('div');
+  inner.className = 'question-list-inner question-list-insert-mode';
+
+  const parts = [];
+  parts.push(`
+    <button type="button" class="question-insert-slot" data-insert-at="0" title="Insert question here" aria-label="Insert question at top">
+      <i class="fa-solid fa-plus"></i>
+    </button>`);
+  fields.forEach((f, i) => {
+    parts.push(rowHtmlForField(f, i, selectedIdx));
+    parts.push(`
+      <button type="button" class="question-insert-slot" data-insert-at="${i + 1}" title="Insert question here" aria-label="Insert question after row ${i + 1}">
+        <i class="fa-solid fa-plus"></i>
+      </button>`);
+  });
+  inner.innerHTML = parts.join('');
+  listHost.appendChild(inner);
+
+  inner.querySelectorAll('.question-insert-slot').forEach(btn => {
+    btn.onclick = e => {
+      e.stopPropagation();
+      onInsertAt(+btn.dataset.insertAt);
+    };
+  });
+
+  inner.querySelectorAll('.question-row').forEach(row => {
+    const idx = +row.dataset.idx;
+    const editBtn = row.querySelector('.edit-btn');
+    const delBtn = row.querySelector('.del-btn');
+    if (editBtn) editBtn.onclick = e => { e.stopPropagation(); onEdit(idx); };
+    if (delBtn) delBtn.onclick = e => {
+      e.stopPropagation();
+      onDelete(idx);
+    };
+    row.onclick = e => {
+      if (e.target.closest('.grip') || e.target.closest('.q-actions') || e.target.closest('.question-insert-slot')) return;
+      onEdit(idx);
+    };
+    row.addEventListener('mouseenter', () => highlightInsertSlot(inner, idx + 1));
+    row.addEventListener('mouseleave', () => clearInsertSlotHighlight(inner));
+  });
+
+  bindDragReorder(inner, {
+    fields,
+    onReorder,
+    onDragStateChange: active => {
+      inner.classList.toggle('list-dragging', active);
+      if (!active) clearInsertSlotHighlight(inner);
+    },
+    onDragHover: toIdx => highlightInsertSlot(inner, toIdx + 1),
+    onDragComplete: toIdx => flashInsertSlot(inner, toIdx + 1)
+  });
+}
+
+function highlightInsertSlot(listEl, insertAt) {
+  if (!listEl) return;
+  listEl.querySelectorAll('.question-insert-slot').forEach(s => {
+    s.classList.toggle('insert-slot-hover', +s.dataset.insertAt === insertAt);
+  });
+}
+
+function clearInsertSlotHighlight(listEl) {
+  listEl?.querySelectorAll('.question-insert-slot').forEach(s => s.classList.remove('insert-slot-hover'));
+}
+
+function flashInsertSlot(listEl, insertAt) {
+  const slot = listEl?.querySelector(`.question-insert-slot[data-insert-at="${insertAt}"]`);
+  if (!slot) return;
+  slot.classList.add('insert-slot-flash');
+  setTimeout(() => slot.classList.remove('insert-slot-flash'), 2200);
+}
+
+function bindDragReorder(listEl, {
+  fields,
+  onReorder,
+  itemSelector = '.draggable-item',
+  gripSelector = '.grip',
+  onDragStateChange,
+  onDragHover,
+  onDragComplete
+}) {
   if (!listEl) return;
   let dragFrom = null;
 
@@ -148,6 +258,7 @@ function bindDragReorder(listEl, { fields, onReorder, itemSelector = '.draggable
     grip.addEventListener('dragstart', e => {
       dragFrom = +item.dataset.idx;
       item.classList.add('dragging');
+      onDragStateChange?.(true);
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', String(dragFrom));
       e.stopPropagation();
@@ -155,6 +266,7 @@ function bindDragReorder(listEl, { fields, onReorder, itemSelector = '.draggable
     grip.addEventListener('dragend', () => {
       item.classList.remove('dragging');
       listEl.querySelectorAll(itemSelector).forEach(i => i.classList.remove('drag-over'));
+      onDragStateChange?.(false);
       dragFrom = null;
     });
 
@@ -162,6 +274,7 @@ function bindDragReorder(listEl, { fields, onReorder, itemSelector = '.draggable
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       item.classList.add('drag-over');
+      onDragHover?.(+item.dataset.idx);
     });
     item.addEventListener('dragleave', e => {
       if (!item.contains(e.relatedTarget)) item.classList.remove('drag-over');
@@ -175,6 +288,7 @@ function bindDragReorder(listEl, { fields, onReorder, itemSelector = '.draggable
       const [moved] = fields.splice(dragFrom, 1);
       fields.splice(to, 0, moved);
       onReorder(dragFrom, to);
+      onDragComplete?.(to);
     });
   });
 }
