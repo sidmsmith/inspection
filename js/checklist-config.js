@@ -56,3 +56,42 @@ function isAdminEditableField(field) {
   if (field.type === 'toggle_pair') return false;
   return field.type === 'segmented' || field.type === 'dropdown' || field.type === 'freeform';
 }
+
+function fieldsEqual(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+async function loadOrgDraftForOrg(org) {
+  const normalizedOrg = org ? String(org).trim().toUpperCase() : '';
+  if (!normalizedOrg) return { checklists: {} };
+  try {
+    const raw = await fetchChecklistJson(`/config/orgs/${encodeURIComponent(normalizedOrg)}.json`);
+    return {
+      checklists: raw.checklists ? JSON.parse(JSON.stringify(raw.checklists)) : {}
+    };
+  } catch {
+    return { checklists: {} };
+  }
+}
+
+function syncFieldsToOrgDraft(orgDraft, defaultConfig, objectType, fields, checklistsConfig) {
+  if (!orgDraft.checklists) orgDraft.checklists = {};
+  const defaultFields = cloneChecklistFields(defaultConfig, objectType);
+  const nextFields = JSON.parse(JSON.stringify(fields));
+  if (fieldsEqual(nextFields, defaultFields)) {
+    delete orgDraft.checklists[objectType];
+  } else {
+    orgDraft.checklists[objectType] = { fields: nextFields };
+  }
+  if (!checklistsConfig.checklists) checklistsConfig.checklists = {};
+  if (!checklistsConfig.checklists[objectType]) checklistsConfig.checklists[objectType] = {};
+  checklistsConfig.checklists[objectType].fields = nextFields;
+}
+
+function buildOrgSavePayload(org, orgDraft) {
+  return {
+    org: String(org || '').trim().toUpperCase(),
+    updatedAt: new Date().toISOString(),
+    checklists: orgDraft?.checklists || {}
+  };
+}

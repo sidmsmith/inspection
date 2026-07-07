@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.0.2) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.0) */
 
 const FIELD_TYPES = [
   { key: 'yes_no', label: 'Yes / No', icon: 'fa-toggle-on', type: 'segmented', options: ['Yes', 'No'] },
@@ -711,4 +711,38 @@ function adminSaveStub(statusEl) {
     statusEl.textContent = 'Ready — edits are local until Save & Deploy is enabled';
     statusEl.className = 'app-status';
   }, 4000);
+}
+
+async function adminSaveDeploy({ org, token, orgDraft, defaultConfig, objectType, fields, checklistsConfig, api, setStatus, saveBtn }) {
+  if (!org || !token) {
+    setStatus('Authenticate before saving', 'danger');
+    return { success: false };
+  }
+
+  syncFieldsToOrgDraft(orgDraft, defaultConfig, objectType, fields, checklistsConfig);
+  const payload = buildOrgSavePayload(org, orgDraft);
+
+  if (!Object.keys(payload.checklists).length) {
+    const proceed = window.confirm(
+      `No customizations for ${org} — save will remove the org override file if one exists. Continue?`
+    );
+    if (!proceed) return { success: false, cancelled: true };
+  }
+
+  saveBtn.disabled = true;
+  setStatus('Saving to GitHub...');
+  try {
+    const res = await api('save_checklist_config', { org, token, config: payload });
+    if (!res.success) {
+      setStatus(res.error || 'Save failed', 'danger');
+      return res;
+    }
+    setStatus(res.message || `Saved ${org} — Vercel will redeploy shortly`, 'success');
+    return res;
+  } catch (err) {
+    setStatus(err.message || 'Save failed', 'danger');
+    return { success: false, error: err.message };
+  } finally {
+    saveBtn.disabled = false;
+  }
 }

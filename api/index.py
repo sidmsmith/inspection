@@ -1,7 +1,7 @@
 # api/index.py — Inspection v0.0.5
 # Major updates: container damage diagram pad, JPEG form capture/upload 413 fixes, diagram in form screenshot
 from flask import Flask, request, jsonify, send_from_directory
-import json, re, os, traceback
+import json, re, os, traceback, base64
 from datetime import datetime
 import requests
 from requests.auth import HTTPBasicAuth
@@ -21,6 +21,10 @@ USERNAME_BASE = os.getenv("MANHATTAN_USERNAME_BASE", "sdtadmin@")
 PASSWORD = os.getenv("MANHATTAN_PASSWORD")
 CLIENT_ID = os.getenv("MANHATTAN_CLIENT_ID", "omnicomponent.1.0.0")
 CLIENT_SECRET = os.getenv("MANHATTAN_SECRET")
+
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "").strip()
+GITHUB_REPO = os.getenv("GITHUB_REPO", "sidmsmith/inspection").strip()
+GITHUB_REF = os.getenv("GITHUB_REF", "main").strip()
 
 # Critical: Fail fast if secrets missing
 if not PASSWORD or not CLIENT_SECRET:
@@ -174,6 +178,38 @@ def manhattan_api_headers(org, token):
         "selectedOrganization": org,
         "selectedLocation": f"{org}-DM1"
     }
+
+def verify_manhattan_token(org, token):
+    """Confirm the session token is still valid before writing to GitHub."""
+    if not org or not token:
+        return False
+    url = f"https://{API_HOST}/dcinventory/api/dcinventory/conditionCode/search"
+    payload = {"Query": "", "Template": {"ConditionCodeId": None}, "Size": 1, "Page": 0}
+    try:
+        r = requests.post(
+            url,
+            json=payload,
+            headers=manhattan_api_headers(org, token),
+            timeout=20,
+            verify=False,
+        )
+        return r.ok
+    except Exception:
+        return False
+
+def github_api_headers():
+    return {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+def github_contents_url(file_path):
+    parts = GITHUB_REPO.split("/", 1)
+    if len(parts) != 2:
+        raise ValueError("GITHUB_REPO must be owner/repo")
+    owner, repo = parts
+    return f"https://api.github.com/repos/{owner}/{repo}/contents/{file_path}"
 
 def extract_record_id(record, id_field):
     """Extract a string ID from a Manhattan search result row."""
@@ -796,6 +832,112 @@ def upload_signature():
             return jsonify({"success": False, "error": f"Upload failed (HTTP {r.status_code})"})
     except Exception as e:
         print(f"[DOCUMENT UPLOAD] Exception: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/api/save_checklist_config', methods=['POST'])
+def save_checklist_config():
+    """Commit per-ORG checklist overrides to GitHub (config/orgs/{ORG}.json)."""
+    body = request.json or {}
+    org = str(body.get("org", "")).strip().upper()
+    token = body.get("token")
+    config = body.get("config")
+
+    if not org or not token:
+        return jsonify({"success": False, "error": "Missing org or token"})
+    if not isinstance(config, dict):
+        return jsonify({"success": False, "error": "Missing config"})
+    if not GITHUB_TOKEN:
+        return jsonify({
+            "success": False,
+            "error": "Save not configured — set GITHUB_TOKEN on the server (Vercel env)"
+        })
+    if not verify_manhattan_token(org, token):
+        return jsonify({"success": False, "error": "Session expired — authenticate again"})
+
+    file_path = f"config/orgs/{org}.json"
+    checklists = config.get("checklists") if isinstance(config.get("checklists"), dict) else {}
+    commit_message = f"Checklist config: update {org} (admin v0.1)"
+
+    try:
+        gh_headers = github_api_headers()
+        get_url = f"{github_contents_url(file_path)}?ref={GITHUB_REF}"
+        existing_sha = None
+        gr = requests.get(get_url, headers=gh_headers, timeout=30)
+        if gr.status_code == 200:
+            existing_sha = gr.json().get("sha")
+        elif gr.status_code != 404:
+            return jsonify({
+                "success": False,
+                "error": f"GitHub read failed (HTTP {gr.status_code})"
+            })
+
+        if not checklists:
+            if not existing_sha:
+                return jsonify({
+                    "success": True,
+                    "message": f"No overrides for {org} — nothing to save",
+                    "deleted": False,
+                })
+            dr = requests.delete(
+                github_contents_url(file_path),
+                headers=gh_headers,
+                json={
+                    "message": f"Checklist config: remove {org} overrides (admin v0.1)",
+                    "sha": existing_sha,
+                    "branch": GITHUB_REF,
+                },
+                timeout=30,
+            )
+            if not dr.ok:
+                return jsonify({
+                    "success": False,
+                    "error": f"GitHub delete failed (HTTP {dr.status_code})"
+                })
+            return jsonify({
+                "success": True,
+                "message": f"Removed {org} overrides — Vercel will redeploy shortly",
+                "deleted": True,
+            })
+
+        save_doc = {
+            "org": org,
+            "updatedAt": config.get("updatedAt") or datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+            "checklists": checklists,
+        }
+        content_text = json.dumps(save_doc, indent=2, ensure_ascii=False) + "\n"
+        payload = {
+            "message": commit_message,
+            "content": base64.b64encode(content_text.encode("utf-8")).decode("ascii"),
+            "branch": GITHUB_REF,
+        }
+        if existing_sha:
+            payload["sha"] = existing_sha
+
+        pr = requests.put(
+            github_contents_url(file_path),
+            headers=gh_headers,
+            json=payload,
+            timeout=30,
+        )
+        if not pr.ok:
+            detail = pr.text.replace("\n", " ").strip()[:200]
+            return jsonify({
+                "success": False,
+                "error": f"GitHub save failed (HTTP {pr.status_code}): {detail}"
+            })
+
+        commit_sha = pr.json().get("commit", {}).get("sha")
+        return jsonify({
+            "success": True,
+            "message": f"Saved {org} checklist config — Vercel will redeploy shortly",
+            "commit": commit_sha,
+            "path": file_path,
+        })
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)})
+    except Exception as e:
+        print(f"[CHECKLIST SAVE] Exception: {traceback.format_exc()}")
         return jsonify({"success": False, "error": str(e)})
 
 
