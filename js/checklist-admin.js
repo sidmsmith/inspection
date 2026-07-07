@@ -464,15 +464,102 @@ function createReadOnlyFieldPanel(field) {
     <p class="text-muted mb-2">${escapeHtml(field.label)}</p>
     <p class="small mb-3">
       <i class="fa-solid fa-lock me-1"></i>
-      This question type (<strong>${escapeHtml(typeLabelForField(field))}</strong>) is managed in the default configuration
-      and cannot be edited in Checklist Config v0.0.1. You can reorder it in the list.
+      This question type (<strong>${escapeHtml(typeLabelForField(field))}</strong>) cannot be edited here.
+      You can reorder it in the list.
     </p>
     <button type="button" class="btn btn-secondary" id="edClose">Close</button>`;
   wrap.querySelector('#edClose').onclick = () => wrap.dispatchEvent(new CustomEvent('admin-close', { bubbles: true }));
   return wrap;
 }
 
+function systemDefaultUiValue(field) {
+  if (!Object.prototype.hasOwnProperty.call(field, 'default')) return '__none__';
+  if (field.default === '' || field.default === null) return '__blank__';
+  return String(field.default);
+}
+
+function mountSystemDefaultPicker(container, field, uiValue, onChange) {
+  const codes = field.dataSource === 'ilpn_condition_codes'
+    ? previewApiData.ilpn_condition_codes
+    : previewApiData.condition_codes;
+  const sorted = [...(codes || [])].sort((a, b) =>
+    (a.Description || a.ConditionCodeId || '').localeCompare(b.Description || b.ConditionCodeId || '')
+  );
+
+  container.innerHTML = `
+    <label class="form-label">Default answer</label>
+    <select class="form-select form-select-sm" id="sysDefaultSelect">
+      <option value="__none__">No default</option>
+      <option value="__blank__">— (blank) —</option>
+      ${sorted.map(c => {
+        const id = escapeHtml(c.ConditionCodeId);
+        const label = escapeHtml(c.Description || c.ConditionCodeId);
+        return `<option value="${id}"${uiValue === c.ConditionCodeId ? ' selected' : ''}>${label}</option>`;
+      }).join('')}
+    </select>
+    <small class="text-muted default-answer-hint">Options loaded from API after authenticate.</small>`;
+
+  const select = container.querySelector('#sysDefaultSelect');
+  if (uiValue === '__none__' || uiValue === '__blank__') {
+    select.value = uiValue;
+  }
+
+  select.addEventListener('change', () => {
+    const v = select.value;
+    if (v === '__none__') onChange(null);
+    else if (v === '__blank__') onChange('');
+    else onChange(v);
+  });
+}
+
+function createSystemFieldEditor({ field, onSave, onCancel }) {
+  const working = JSON.parse(JSON.stringify(field));
+  let defaultValue = systemDefaultUiValue(working);
+  let defaultPayload = !Object.prototype.hasOwnProperty.call(working, 'default')
+    ? null
+    : (working.default === '' || working.default === null ? '' : String(working.default));
+
+  const wrap = document.createElement('div');
+  wrap.className = 'editor-panel';
+  wrap.innerHTML = `
+    <h3>Configure system question</h3>
+    <p class="mb-1 fw-semibold">${escapeHtml(field.label)}</p>
+    <p class="small text-muted mb-3">
+      <i class="fa-solid fa-lock me-1"></i>
+      ${escapeHtml(typeLabelForField(field))} — options come from the API. Set required and default below.
+    </p>
+    <div class="mb-3" id="sysDefaultHost"></div>
+    <div class="mb-3 form-check">
+      <input type="checkbox" class="form-check-input" id="sysRequired" ${working.required ? 'checked' : ''} />
+      <label class="form-check-label" for="sysRequired">Required</label>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <button type="button" class="btn btn-primary" id="sysSave">Save</button>
+      <button type="button" class="btn btn-secondary" id="sysCancel">Cancel</button>
+    </div>
+  `;
+
+  mountSystemDefaultPicker(
+    wrap.querySelector('#sysDefaultHost'),
+    field,
+    defaultValue,
+    v => { defaultPayload = v; }
+  );
+
+  wrap.querySelector('#sysSave').onclick = () => {
+    working.required = wrap.querySelector('#sysRequired').checked;
+    if (defaultPayload === null) delete working.default;
+    else working.default = defaultPayload;
+    onSave(working);
+  };
+  wrap.querySelector('#sysCancel').onclick = onCancel;
+  return wrap;
+}
+
 function createEditorForm({ field, isNew, onSave, onCancel }) {
+  if (!isNew && field.dataSource) {
+    return createSystemFieldEditor({ field, onSave, onCancel });
+  }
   if (!isNew && !isAdminEditableField(field)) {
     return createReadOnlyFieldPanel(field);
   }
