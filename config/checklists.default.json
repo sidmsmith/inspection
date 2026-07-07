@@ -1,0 +1,550 @@
+{
+  "version": 13,
+  "checklists": {
+    "trailer": {
+      "damagePad": {
+        "mode": "stock",
+        "defaultImage": "container",
+        "images": [
+          "container",
+          "trailer"
+        ]
+      },
+      "fields": [
+        {
+          "id": "exterior_damage_buttons",
+          "label": "Visible Exterior Damage?",
+          "type": "segmented",
+          "options": [
+            "Pass",
+            "Fail"
+          ]
+        },
+        {
+          "id": "exterior_damage_toggles",
+          "label": "Visible Exterior Damage?",
+          "type": "toggle_pair",
+          "options": [
+            "Pass",
+            "Fail"
+          ]
+        },
+        {
+          "id": "floor_condition",
+          "label": "Floor Condition",
+          "type": "dropdown",
+          "options": [
+            "Clean & Dry",
+            "Damaged",
+            "Minor Debris",
+            "Wet"
+          ],
+          "required": true
+        },
+        {
+          "id": "door_seals_locks",
+          "label": "Door Seals & Locks",
+          "type": "segmented",
+          "options": [
+            "Pass",
+            "Fail"
+          ]
+        },
+        {
+          "id": "interior_cleanliness",
+          "label": "Interior Cleanliness",
+          "type": "dropdown",
+          "options": [
+            "Acceptable",
+            "Clean",
+            "Needs Cleaning"
+          ]
+        },
+        {
+          "id": "temperature_reefer",
+          "label": "Temperature",
+          "type": "freeform",
+          "placeholder": ""
+        },
+        {
+          "id": "tires_brakes",
+          "label": "Tires & Brakes",
+          "type": "segmented",
+          "options": [
+            "Pass",
+            "Fail"
+          ]
+        },
+        {
+          "id": "lighting_reflectors",
+          "label": "Lighting & Reflectors",
+          "type": "segmented",
+          "options": [
+            "Pass",
+            "Fail"
+          ]
+        },
+        {
+          "id": "securement_equipment",
+          "label": "Securement Equipment",
+          "type": "dropdown",
+          "options": [
+            "Available & Good",
+            "Damaged",
+            "Missing"
+          ],
+          "required": true
+        },
+        {
+          "id": "trailer_docs_match",
+          "label": "Trailer # & Docs Match",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "id": "trailer_condition_code",
+          "label": "Trailer Condition Code",
+          "type": "dropdown",
+          "dataSource": "condition_codes",
+          "required": true
+        }
+      ]
+    },
+    "po": {
+      "damagePad": {
+        "mode": "stock",
+        "defaultImage": "container",
+        "images": [
+          "container",
+          "trailer"
+        ]
+      },
+      "fields": [
+        {
+          "id": "po_details_match",
+          "label": "PO # And Details Match",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Yes"
+        },
+        {
+          "id": "items_skus_correct",
+          "label": "Items / SKUs Correct",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "No"
+        },
+        {
+          "id": "quantities_match",
+          "label": "Quantities Match",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "id": "delivery_date_on_track",
+          "label": "Delivery Date On Track",
+          "type": "dropdown",
+          "options": [
+            "Delayed",
+            "Early",
+            "On Time"
+          ],
+          "required": true,
+          "default": "Delayed"
+        },
+        {
+          "id": "special_instructions_met",
+          "label": "Special Instructions Met",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Pass"
+        },
+        {
+          "id": "approvals_complete",
+          "label": "Approvals Complete",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "id": "compliance_requirements",
+          "label": "Compliance Requirements",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "OnTime"
+        },
+        {
+          "id": "amendments_noted",
+          "label": "Amendments Noted",
+          "type": "freeform",
+          "placeholder": "None / Details here...",
+          "default": "None"
+        }
+      ]
+    },
+    "asn": {
+      "damagePad": {
+        "mode": "stock",
+        "defaultImage": "trailer",
+        "images": [
+          "container",
+          "trailer"
+        ]
+      },
+      "fields": [
+        {
+          "id": "asn_matches_po",
+          "label": "ASN # Matches PO",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Yes"
+        },
+        {
+          "id": "items_quantities_match",
+          "label": "Items / Quantities Match",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "No"
+        },
+        {
+          "id": "shipment_date_carrier_ok",
+          "label": "Shipment Date & Carrier OK",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "id": "packaging_details_correct",
+          "label": "Packaging Details Correct",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Yes"
+        },
+        {
+          "id": "special_handling_noted",
+          "label": "Special Handling Noted",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Pass"
+        },
+        {
+          "id": "supporting_docs_attached",
+          "label": "Supporting Docs Attached",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "id": "discrepancies_found",
+          "label": "Discrepancies Found",
+          "type": "freeform",
+          "placeholder": "None / List discrepancies...",
+          "default": "None"
+        }
+      ]
+    },
+    "ilpn": {
+      "damagePad": {
+        "mode": "photo"
+      },
+      "fields": [
+        {
+          "id": "label_present_legible",
+          "label": "Label Present & Legible",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Yes"
+        },
+        {
+          "id": "contents_match_system",
+          "label": "Contents Match System",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "No"
+        },
+        {
+          "id": "visible_damage",
+          "label": "Visible Damage",
+          "type": "segmented",
+          "options": [
+            "None",
+            "Yes (describe)"
+          ]
+        },
+        {
+          "id": "storage_conditions_ok",
+          "label": "Storage Conditions OK",
+          "type": "dropdown",
+          "options": [
+            "Good",
+            "Improper Stacking",
+            "Temperature Issue"
+          ],
+          "required": true,
+          "default": "Good"
+        },
+        {
+          "id": "location_correct",
+          "label": "Location Correct",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Pass"
+        },
+        {
+          "id": "seal_tag_intact",
+          "label": "Seal / Tag Intact",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "id": "weight_dims_accurate",
+          "label": "Weight & Dims Accurate",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "OnTime"
+        },
+        {
+          "id": "condition_code",
+          "label": "Condition Code",
+          "type": "dropdown",
+          "dataSource": "ilpn_condition_codes"
+        }
+      ]
+    },
+    "olpn": {
+      "damagePad": {
+        "mode": "photo"
+      },
+      "fields": [
+        {
+          "id": "label_present_legible",
+          "label": "Label Present & Legible",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Yes"
+        },
+        {
+          "id": "contents_match_order",
+          "label": "Contents Match Order",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "No"
+        },
+        {
+          "id": "packaging_secure",
+          "label": "Packaging Secure",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "id": "shipping_labels_correct",
+          "label": "Shipping Labels Correct",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Yes"
+        },
+        {
+          "id": "special_markings_applied",
+          "label": "Special Markings Applied",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Fail"
+        },
+        {
+          "id": "weight_dims_accurate",
+          "label": "Weight & Dims Accurate",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "id": "stacking_securement_ok",
+          "label": "Stacking / Securement OK",
+          "type": "dropdown",
+          "options": [
+            "Good",
+            "Needs Adjustment"
+          ],
+          "required": true,
+          "default": "Needs Adjustment"
+        },
+        {
+          "id": "status_updated_system",
+          "label": "Status Updated In System",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Maybe"
+        }
+      ]
+    },
+    "shipment": {
+      "damagePad": {
+        "mode": "stock",
+        "defaultImage": "trailer",
+        "images": [
+          "container",
+          "trailer"
+        ]
+      },
+      "fields": [
+        {
+          "id": "documents_complete_matching",
+          "label": "Documents Complete & Matching",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Yes"
+        },
+        {
+          "id": "total_quantity_matches",
+          "label": "Total Quantity Matches",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "No"
+        },
+        {
+          "id": "visible_damage_load",
+          "label": "Visible Damage To Load",
+          "type": "segmented",
+          "options": [
+            "None",
+            "Yes"
+          ]
+        },
+        {
+          "id": "cargo_properly_secured",
+          "label": "Cargo Properly Secured",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Yes"
+        },
+        {
+          "id": "carrier_tracking_correct",
+          "label": "Carrier & Tracking Correct",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Pass"
+        },
+        {
+          "id": "temperature_conditions_ok",
+          "label": "Temperature / Conditions OK",
+          "type": "dropdown",
+          "options": [
+            "Out of Range",
+            "Within Range"
+          ],
+          "required": true,
+          "default": "Within Range"
+        },
+        {
+          "id": "seal_numbers_recorded",
+          "label": "Seal Numbers Recorded",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "id": "regulatory_compliance",
+          "label": "Regulatory Compliance",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "OnTime"
+        },
+        {
+          "id": "exceptions_notes",
+          "label": "Exceptions / Notes",
+          "type": "freeform",
+          "placeholder": "None / Details...",
+          "default": "None"
+        }
+      ]
+    }
+  }
+}

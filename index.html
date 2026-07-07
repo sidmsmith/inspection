@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Inspection v0.0.14</title>
-  <!-- v0.0.14: Last release before checklist configuration admin UI -->
+  <title>Inspection v0.0.15</title>
+  <!-- v0.0.15: Checklist Config admin UI (admin.html v0.0.1); per-ORG checklist loading -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -746,7 +746,7 @@
     </button>
     <div class="header-with-logo">
       <img id="themeLogo" class="theme-logo" alt="Theme Logo" />
-      <h2 class="text-center mb-2" style="font-size:1.3rem;">Inspection v0.0.14</h2>
+      <h2 class="text-center mb-2" style="font-size:1.3rem;">Inspection v0.0.15</h2>
     </div>
 
     <!-- ORG -->
@@ -1006,6 +1006,7 @@
     </div>
   </div>
 
+  <script src="js/checklist-config.js"></script>
   <script>
     const orgInput = document.getElementById('org');
     const mainUI = document.getElementById('mainUI');
@@ -1907,6 +1908,8 @@
       
       token = res.token;
       status('Authenticated – loading inspections...', 'success');
+
+      await loadChecklistsConfig(org);
       
       // Track auth success
       trackEvent('auth_success', {
@@ -2419,11 +2422,9 @@
       return CHECKLIST_FORM_TYPES.includes(searchType);
     }
 
-    async function loadChecklistsConfig() {
+    async function loadChecklistsConfig(org) {
       try {
-        const res = await fetch('/config/checklists.json', { cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        checklistsConfig = await res.json();
+        checklistsConfig = await loadChecklistsForOrg(org || null);
       } catch (err) {
         console.error('[CHECKLIST] Failed to load config:', err);
         checklistsConfig = { checklists: {} };

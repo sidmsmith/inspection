@@ -1,0 +1,564 @@
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.0.1) */
+
+const FIELD_TYPES = [
+  { key: 'yes_no', label: 'Yes / No', icon: 'fa-toggle-on', type: 'segmented', options: ['Yes', 'No'] },
+  { key: 'pass_fail', label: 'Pass / Fail', icon: 'fa-check-double', type: 'segmented', options: ['Pass', 'Fail'] },
+  { key: 'dropdown', label: 'Pick one', icon: 'fa-list', type: 'dropdown', options: [] },
+  { key: 'text', label: 'Text', icon: 'fa-font', type: 'freeform', options: [] }
+];
+
+const previewState = {};
+
+function escapeHtml(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/"/g, '&quot;');
+}
+
+function slugifyId(label) {
+  return String(label || 'question')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+    .slice(0, 48) || 'question';
+}
+
+function typeKeyForField(field) {
+  if (!field?.type) return null;
+  if (field.type === 'freeform') return 'text';
+  if (field.type === 'dropdown' && !field.dataSource) return 'dropdown';
+  if (field.type === 'segmented' && field.options?.join(',') === 'Pass,Fail') return 'pass_fail';
+  if (field.type === 'segmented') return 'yes_no';
+  return null;
+}
+
+function typeLabelForField(field) {
+  if (field?.dataSource === 'condition_codes') return 'Condition codes';
+  if (field?.dataSource === 'ilpn_condition_codes') return 'iLPN condition';
+  if (field?.type === 'toggle_pair') return 'Toggle pair';
+  const key = typeKeyForField(field);
+  if (!key) return field?.type || 'Not set';
+  return FIELD_TYPES.find(t => t.key === key)?.label || field.type;
+}
+
+function applyFieldType(field, typeKey) {
+  const def = FIELD_TYPES.find(t => t.key === typeKey);
+  if (!def) return;
+  field.type = def.type;
+  delete field.dataSource;
+  delete field.default;
+  if (def.type === 'freeform') {
+    delete field.options;
+    field.placeholder = field.placeholder || '';
+  } else if (def.type === 'dropdown') {
+    field.options = field.options ? [...field.options] : [];
+  } else {
+    field.options = [...def.options];
+    delete field.placeholder;
+  }
+}
+
+function clearPreviewState() {
+  Object.keys(previewState).forEach(k => delete previewState[k]);
+}
+
+function setPreviewFromField(field) {
+  if (!field?.id) return;
+  previewState[field.id] =
+    field.default != null && field.default !== '' ? String(field.default) : '';
+}
+
+function prunePreviewState(fields) {
+  const ids = new Set(fields.map(f => f.id).filter(Boolean));
+  Object.keys(previewState).forEach(id => {
+    if (!ids.has(id)) delete previewState[id];
+  });
+}
+
+function optionsForTypeKey(typeKey, dropdownOptions) {
+  if (typeKey === 'dropdown') return dropdownOptions || [];
+  return FIELD_TYPES.find(t => t.key === typeKey)?.options || [];
+}
+
+function appendAddQuestionButton(container, onClick) {
+  const wrap = document.createElement('div');
+  wrap.className = 'add-question-row';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'add-question-inline-btn';
+  btn.title = 'Add question';
+  btn.setAttribute('aria-label', 'Add question');
+  btn.innerHTML = '<i class="fa-solid fa-plus"></i>';
+  btn.onclick = onClick;
+  wrap.appendChild(btn);
+  container.appendChild(wrap);
+}
+
+function bindDragReorder(listEl, { fields, onReorder, itemSelector = '.draggable-item', gripSelector = '.grip' }) {
+  if (!listEl) return;
+  let dragFrom = null;
+
+  listEl.querySelectorAll(itemSelector).forEach(item => {
+    const grip = item.querySelector(gripSelector);
+    if (!grip) return;
+
+    grip.draggable = true;
+    grip.addEventListener('dragstart', e => {
+      dragFrom = +item.dataset.idx;
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(dragFrom));
+      e.stopPropagation();
+    });
+    grip.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      listEl.querySelectorAll(itemSelector).forEach(i => i.classList.remove('drag-over'));
+      dragFrom = null;
+    });
+
+    item.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      item.classList.add('drag-over');
+    });
+    item.addEventListener('dragleave', e => {
+      if (!item.contains(e.relatedTarget)) item.classList.remove('drag-over');
+    });
+    item.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      item.classList.remove('drag-over');
+      const to = +item.dataset.idx;
+      if (dragFrom == null || dragFrom === to) return;
+      const [moved] = fields.splice(dragFrom, 1);
+      fields.splice(to, 0, moved);
+      onReorder(dragFrom, to);
+    });
+  });
+}
+
+function bindChipReorder(wrap, options, onReorder) {
+  if (!wrap) return;
+  let dragFrom = null;
+
+  wrap.querySelectorAll('.option-chip').forEach(chip => {
+    const grip = chip.querySelector('.chip-grip');
+    if (!grip) return;
+
+    grip.draggable = true;
+    grip.addEventListener('dragstart', e => {
+      dragFrom = +chip.dataset.idx;
+      chip.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.stopPropagation();
+    });
+    grip.addEventListener('dragend', () => {
+      chip.classList.remove('dragging');
+      wrap.querySelectorAll('.option-chip').forEach(c => c.classList.remove('drag-over'));
+      dragFrom = null;
+    });
+
+    chip.addEventListener('dragover', e => {
+      e.preventDefault();
+      chip.classList.add('drag-over');
+    });
+    chip.addEventListener('dragleave', e => {
+      if (!chip.contains(e.relatedTarget)) chip.classList.remove('drag-over');
+    });
+    chip.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      chip.classList.remove('drag-over');
+      const to = +chip.dataset.idx;
+      if (dragFrom == null || dragFrom === to) return;
+      const [moved] = options.splice(dragFrom, 1);
+      options.splice(to, 0, moved);
+      onReorder();
+    });
+  });
+}
+
+function renderOptionChips(container, options, onChange, onValidationChange) {
+  container.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'option-chips';
+
+  function emit() {
+    onChange([...options]);
+    onValidationChange?.();
+  }
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'chip-add-input';
+  input.placeholder = '+ Add option';
+
+  function renderChips() {
+    wrap.querySelectorAll('.option-chip').forEach(el => el.remove());
+    options.forEach((opt, idx) => {
+      const chip = document.createElement('span');
+      chip.className = 'option-chip';
+      chip.dataset.idx = String(idx);
+      chip.innerHTML = `
+        <span class="chip-grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
+        <span class="chip-label">${escapeHtml(opt)}</span>
+        <button type="button" class="chip-remove" aria-label="Remove">×</button>`;
+      chip.querySelector('.chip-remove').onclick = e => {
+        e.stopPropagation();
+        options.splice(idx, 1);
+        emit();
+        renderChips();
+      };
+      wrap.insertBefore(chip, input);
+    });
+    bindChipReorder(wrap, options, () => {
+      emit();
+      renderChips();
+    });
+  }
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = input.value.trim();
+      if (val && !options.includes(val)) {
+        options.push(val);
+        input.value = '';
+        emit();
+        renderChips();
+      }
+    }
+  });
+
+  wrap.appendChild(input);
+  container.appendChild(wrap);
+  renderChips();
+}
+
+function renderTypePicker(container, selectedKey, onSelect) {
+  container.innerHTML = FIELD_TYPES.map(t => `
+    <button type="button" class="type-btn${t.key === selectedKey ? ' active' : ''}" data-key="${t.key}">
+      <i class="fa-solid ${t.icon}"></i>
+      <span>${escapeHtml(t.label)}</span>
+    </button>
+  `).join('');
+  container.querySelectorAll('.type-btn').forEach(btn => {
+    btn.onclick = () => onSelect(btn.dataset.key);
+  });
+}
+
+function renderDefaultPicker(container, { typeKey, options, value, onChange }) {
+  container.innerHTML = '';
+  if (!typeKey) {
+    container.style.display = 'none';
+    return;
+  }
+  container.style.display = 'block';
+
+  if (typeKey === 'text') {
+    container.innerHTML = `
+      <label class="form-label">Default answer</label>
+      <input type="text" class="form-control form-control-sm" id="edDefaultInput"
+        placeholder="Leave blank for no default"
+        value="${escapeHtml(value || '')}" />
+      <small class="text-muted default-answer-hint">Optional pre-filled value in the inspection form.</small>`;
+    container.querySelector('#edDefaultInput').addEventListener('input', e => {
+      onChange(e.target.value.trim() || null);
+    });
+    return;
+  }
+
+  const opts = optionsForTypeKey(typeKey, options);
+  container.innerHTML = `
+    <label class="form-label">Default answer</label>
+    <select class="form-select form-select-sm" id="edDefaultSelect">
+      <option value="">No default</option>
+      ${opts.map(o => `
+        <option value="${escapeHtml(o)}"${o === value ? ' selected' : ''}>${escapeHtml(o)}</option>
+      `).join('')}
+    </select>
+    <small class="text-muted default-answer-hint">Pre-selected when inspectors open this question.</small>`;
+  container.querySelector('#edDefaultSelect').addEventListener('change', e => {
+    onChange(e.target.value || null);
+  });
+}
+
+function appendPreviewControl(group, field) {
+  const current = field.id ? (previewState[field.id] ?? '') : '';
+
+  if (field.type === 'segmented' || field.type === 'toggle_pair') {
+    const segWrap = document.createElement('div');
+    segWrap.className = 'preview-segmented';
+    (field.options || []).forEach(option => {
+      const seg = document.createElement('span');
+      seg.className = 'seg' + (current === option ? ' on' : '');
+      seg.dataset.option = option;
+      seg.textContent = option;
+      if (field.id) {
+        seg.onclick = () => {
+          const active = previewState[field.id] ?? '';
+          const next = active === option ? '' : option;
+          previewState[field.id] = next;
+          segWrap.querySelectorAll('.seg').forEach(s => {
+            s.classList.toggle('on', s.dataset.option === next);
+          });
+        };
+      }
+      segWrap.appendChild(seg);
+    });
+    group.appendChild(segWrap);
+    return;
+  }
+
+  if (field.type === 'dropdown') {
+    const select = document.createElement('select');
+    select.className = 'form-select form-select-sm';
+    if (field.dataSource) {
+      select.disabled = true;
+      const opt = document.createElement('option');
+      opt.textContent = field.dataSource === 'ilpn_condition_codes'
+        ? 'iLPN condition codes (from API)'
+        : 'Condition codes (from API)';
+      select.appendChild(opt);
+    } else {
+      const blank = document.createElement('option');
+      blank.value = '';
+      blank.textContent = '— Select —';
+      select.appendChild(blank);
+      (field.options || []).forEach(option => {
+        const opt = document.createElement('option');
+        opt.value = option;
+        opt.textContent = option;
+        if (current === option) opt.selected = true;
+        select.appendChild(opt);
+      });
+      if (field.id) {
+        select.onchange = () => { previewState[field.id] = select.value; };
+      }
+    }
+    group.appendChild(select);
+    return;
+  }
+
+  if (field.type === 'freeform') {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'form-control form-control-sm';
+    input.placeholder = field.placeholder || '';
+    input.value = current;
+    if (field.id) {
+      input.oninput = () => { previewState[field.id] = input.value; };
+    }
+    group.appendChild(input);
+    return;
+  }
+
+  const p = document.createElement('p');
+  p.className = 'text-muted small mb-0';
+  p.textContent = '—';
+  group.appendChild(p);
+}
+
+function renderPreview(fields, container, objectLabel) {
+  const fixed = `
+    <div class="preview-fixed">
+      <i class="fa-solid fa-lock me-1"></i>
+      Always included: damage diagram, inspection photos, signature pad
+    </div>`;
+
+  prunePreviewState(fields);
+  fields.forEach(f => {
+    if (f.id && !(f.id in previewState)) setPreviewFromField(f);
+  });
+
+  if (!fields.length) {
+    container.innerHTML = `
+      <div class="preview-form preview-form-theme-wrap">
+        <p class="text-muted mb-0">No questions yet — add one to preview the ${escapeHtml(objectLabel)} form.</p>
+        ${fixed}
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <p class="preview-interactive-hint">Try the form — click toggles, change dropdowns, type in text fields.</p>
+    <div class="preview-form preview-form-theme-wrap" id="previewFormRoot"></div>
+    ${fixed}`;
+  const root = container.querySelector('#previewFormRoot');
+
+  fields.forEach(field => {
+    const group = document.createElement('div');
+    group.className = 'form-group';
+    const label = document.createElement('label');
+    label.innerHTML = `${escapeHtml(field.label)}${field.required ? ' <span class="required-asterisk">*</span>' : ''}`;
+    group.appendChild(label);
+    appendPreviewControl(group, field);
+    root.appendChild(group);
+  });
+}
+
+function createReadOnlyFieldPanel(field) {
+  const wrap = document.createElement('div');
+  wrap.className = 'editor-panel';
+  wrap.innerHTML = `
+    <h3>System question</h3>
+    <p class="text-muted mb-2">${escapeHtml(field.label)}</p>
+    <p class="small mb-3">
+      <i class="fa-solid fa-lock me-1"></i>
+      This question type (<strong>${escapeHtml(typeLabelForField(field))}</strong>) is managed in the default configuration
+      and cannot be edited in Checklist Config v0.0.1. You can reorder it in the list.
+    </p>
+    <button type="button" class="btn btn-secondary" id="edClose">Close</button>`;
+  wrap.querySelector('#edClose').onclick = () => wrap.dispatchEvent(new CustomEvent('admin-close', { bubbles: true }));
+  return wrap;
+}
+
+function createEditorForm({ field, isNew, onSave, onCancel }) {
+  if (!isNew && !isAdminEditableField(field)) {
+    return createReadOnlyFieldPanel(field);
+  }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'editor-panel';
+  const creating = isNew ?? !field.id;
+  const working = JSON.parse(JSON.stringify(field));
+  let selectedTypeKey = creating ? null : typeKeyForField(working);
+  let options = working.type === 'dropdown' && working.options ? [...working.options] : [];
+  let defaultValue = working.default ?? null;
+
+  wrap.innerHTML = `
+    <h3>${creating ? 'Add question' : 'Edit question'}</h3>
+    <div class="mb-3">
+      <label class="form-label">Question</label>
+      <input type="text" class="form-control" id="edLabel" value="${escapeHtml(working.label || '')}" placeholder="e.g. Quantities Match" />
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Answer type</label>
+      <div id="edTypePicker" class="type-picker"></div>
+    </div>
+    <div class="mb-3" id="edOptionsWrap">
+      <label class="form-label">Options</label>
+      <div id="edOptions"></div>
+      <small class="text-muted" id="edOptionsHint">Add at least one option. Drag chips to reorder.</small>
+    </div>
+    <div class="mb-3" id="edDefaultHost"></div>
+    <div class="mb-3 form-check">
+      <input type="checkbox" class="form-check-input" id="edRequired" ${working.required ? 'checked' : ''} />
+      <label class="form-check-label" for="edRequired">Required</label>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <button type="button" class="btn btn-primary" id="edSave" disabled>${creating ? 'Add' : 'Save'}</button>
+      <button type="button" class="btn btn-secondary" id="edCancel">Cancel</button>
+    </div>
+  `;
+
+  const typePicker = wrap.querySelector('#edTypePicker');
+  const optionsWrap = wrap.querySelector('#edOptionsWrap');
+  const optionsHost = wrap.querySelector('#edOptions');
+  const defaultHost = wrap.querySelector('#edDefaultHost');
+  const saveBtn = wrap.querySelector('#edSave');
+  const labelInput = wrap.querySelector('#edLabel');
+
+  function syncOptionsVisibility() {
+    optionsWrap.style.display = selectedTypeKey === 'dropdown' ? 'block' : 'none';
+  }
+
+  function validateDefaultValue() {
+    if (!defaultValue || selectedTypeKey === 'text') return;
+    const opts = optionsForTypeKey(selectedTypeKey, options);
+    if (!opts.includes(defaultValue)) {
+      defaultValue = null;
+      mountDefaultPicker();
+    }
+  }
+
+  function mountDefaultPicker() {
+    renderDefaultPicker(defaultHost, {
+      typeKey: selectedTypeKey,
+      options,
+      value: defaultValue,
+      onChange: v => { defaultValue = v; }
+    });
+  }
+
+  function updateSaveState() {
+    const label = labelInput.value.trim();
+    const hasType = selectedTypeKey != null;
+    let valid = !!label && hasType;
+    if (valid && selectedTypeKey === 'dropdown') valid = options.length >= 1;
+    saveBtn.disabled = !valid;
+  }
+
+  function mountOptionChips() {
+    renderOptionChips(optionsHost, options, next => {
+      options = next;
+      working.options = [...options];
+      validateDefaultValue();
+      updateSaveState();
+    }, updateSaveState);
+  }
+
+  function refreshTypePicker() {
+    renderTypePicker(typePicker, selectedTypeKey, key => {
+      selectedTypeKey = key;
+      applyFieldType(working, key);
+      defaultValue = null;
+      if (key === 'dropdown') {
+        options = !creating && working.options?.length ? [...working.options] : [];
+        working.options = [...options];
+        mountOptionChips();
+      }
+      syncOptionsVisibility();
+      mountDefaultPicker();
+      refreshTypePicker();
+      updateSaveState();
+    });
+  }
+
+  refreshTypePicker();
+  if (selectedTypeKey === 'dropdown') mountOptionChips();
+  syncOptionsVisibility();
+  mountDefaultPicker();
+  labelInput.addEventListener('input', updateSaveState);
+  updateSaveState();
+
+  saveBtn.onclick = () => {
+    if (saveBtn.disabled) return;
+    working.label = labelInput.value.trim();
+    working.id = working.id || slugifyId(working.label);
+    working.required = wrap.querySelector('#edRequired').checked;
+    if (working.type === 'dropdown') working.options = [...options];
+    if (defaultValue) working.default = defaultValue;
+    else delete working.default;
+    onSave(working);
+  };
+  wrap.querySelector('#edCancel').onclick = onCancel;
+
+  return wrap;
+}
+
+function newEmptyField() {
+  return { label: '' };
+}
+
+function adjustIndexAfterReorder(index, from, to) {
+  if (index < 0) return index;
+  if (index === from) return to;
+  if (from < index && to >= index) return index - 1;
+  if (from > index && to <= index) return index + 1;
+  return index;
+}
+
+function confirmClearObjectType(objectLabel) {
+  return window.confirm(`Reset all ${objectLabel} questions to the default configuration?`);
+}
+
+function adminSaveStub(statusEl) {
+  statusEl.textContent = 'Save & Deploy — coming in Checklist Config v0.1 (changes are local for now)';
+  statusEl.className = 'admin-status text-success';
+  setTimeout(() => {
+    statusEl.textContent = 'Ready — edits are local until Save & Deploy is enabled';
+    statusEl.className = 'admin-status';
+  }, 4000);
+}
