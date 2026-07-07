@@ -1,351 +1,348 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Checklist Config v0.0.1</title>
-  <!-- Checklist Config admin v0.0.1 — local edits only; Save & Deploy in v0.1 -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
-  <link href="css/checklist-admin.css" rel="stylesheet" />
-  <style>
-    .theme-selector-btn {
-      background: none;
-      border: none;
-      color: var(--text);
-      padding: 0;
-      cursor: pointer;
-      font-size: 1.35rem;
-      transition: opacity 0.2s;
-    }
-    .theme-selector-btn:hover { opacity: 0.7; }
-    .theme-logo { max-height: 48px; margin-bottom: 0.5rem; }
-    .form-control, .form-select {
-      background: var(--input-bg);
-      border-color: var(--border);
-      color: var(--text);
-    }
-    .form-control:focus, .form-select:focus {
-      background: var(--input-focus-bg, var(--input-bg));
-      border-color: var(--input-focus-border, var(--primary));
-      color: var(--text);
-      box-shadow: 0 0 0 0.2rem var(--input-focus-shadow, rgba(13, 110, 253, 0.25));
-    }
-    .form-label { color: var(--text-secondary, var(--text)); }
-    .required-asterisk { color: var(--red-text, #ef4444); }
-  </style>
-</head>
-<body class="admin-app">
-  <div class="admin-shell">
-    <header class="admin-header">
-      <button type="button" class="theme-selector-btn" id="pageThemeBtn" title="Select theme" aria-label="Select theme">
-        <i class="fas fa-cog"></i>
-      </button>
-      <img id="themeLogo" class="theme-logo" alt="" style="display: none;" />
-      <h1>
-        <i class="fa-solid fa-clipboard-list"></i> Checklist Config
-        <span class="admin-version-tag">v0.0.1</span>
-      </h1>
-      <div class="subtitle">Per-ORG inspection question editor · Inspection app v0.0.15</div>
-    </header>
-
-    <div id="orgSection" class="auth-section">
-      <label class="form-label" for="org">ORG:</label>
-      <div class="auth-row">
-        <input type="text" id="org" class="form-control" placeholder="SS-DEMO" maxlength="20" />
-        <button id="authBtn" class="btn btn-success px-4" type="button">Authenticate</button>
-      </div>
-      <small class="text-muted">Press Enter to authenticate</small>
-    </div>
-
-    <div class="admin-status" id="status">Enter ORG and authenticate</div>
-
-    <div id="mainUI" style="display: none;">
-      <div class="config-toolbar">
-        <div class="field-grow">
-          <label class="form-label" for="objectType">Object type</label>
-          <select id="objectType" class="form-select"></select>
-        </div>
-        <div class="toolbar-actions">
-          <button type="button" class="btn btn-outline-warning btn-sm" id="clearBtn">
-            <i class="fa-solid fa-eraser"></i> Reset to default
-          </button>
-          <button type="button" class="btn btn-primary btn-sm" id="addBtn">
-            <i class="fa-solid fa-plus"></i> Add question
-          </button>
-          <button type="button" class="btn btn-success" id="saveBtn" disabled title="Save & Deploy coming in v0.1">
-            <i class="fa-solid fa-cloud-arrow-up"></i> Save &amp; Deploy
-          </button>
-        </div>
-      </div>
-
-      <div class="config-layout-split">
-        <div>
-          <div id="editorHost"></div>
-          <div id="listHost"></div>
-        </div>
-        <div class="preview-panel">
-          <div class="preview-panel-header">
-            <div class="preview-panel-titles">
-              <h2><i class="fa-solid fa-eye"></i> Live preview</h2>
-              <p class="preview-note">Interactive preview — use theme gear to match customer branding</p>
-            </div>
-            <button type="button" class="preview-theme-gear theme-selector-btn" id="previewThemeBtn" title="Select preview theme" aria-label="Select preview theme">
-              <i class="fas fa-cog"></i>
-            </button>
-          </div>
-          <div id="previewHost"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal fade" id="themeModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content" style="background: var(--card-bg); color: var(--text); border-color: var(--border);">
-        <div class="modal-header" style="border-color: var(--border);">
-          <h5 class="modal-title">Select Theme</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="list-group" id="themeList"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="js/inspection-themes.js"></script>
-  <script src="js/checklist-config.js"></script>
-  <script src="js/checklist-admin.js"></script>
-  <script>
-    const ADMIN_VERSION = '0.0.1';
-
-    let token = null;
-    let currentOrg = '';
-    let checklistsConfig = null;
-    let defaultConfig = null;
-    let objectType = 'po';
-    let fields = [];
-    let selectedIdx = -1;
-
-    const orgInput = document.getElementById('org');
-    const authBtn = document.getElementById('authBtn');
-    const orgSection = document.getElementById('orgSection');
-    const mainUI = document.getElementById('mainUI');
-    const statusEl = document.getElementById('status');
-    const objectTypeSelect = document.getElementById('objectType');
-    const listHost = document.getElementById('listHost');
-    const editorHost = document.getElementById('editorHost');
-    const previewHost = document.getElementById('previewHost');
-    const themeModal = new bootstrap.Modal(document.getElementById('themeModal'));
-    const themeList = document.getElementById('themeList');
-    const themeLogo = document.getElementById('themeLogo');
-
-    function objectMeta() {
-      return CHECKLIST_OBJECT_TYPES.find(t => t.key === objectType) || { key: objectType, label: objectType };
-    }
-
-    function setStatus(text, type) {
-      statusEl.textContent = text;
-      statusEl.className = 'admin-status' + (type ? ` text-${type}` : '');
-    }
-
-    async function api(action, data = {}) {
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(`/api/${action}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(data)
-      });
-      return res.json();
-    }
-
-    function loadFieldsForObjectType() {
-      fields = cloneChecklistFields(checklistsConfig, objectType);
-      selectedIdx = -1;
-      editorHost.innerHTML = '';
-      clearPreviewState();
-    }
-
-    function loadFieldsFromDefault() {
-      fields = cloneChecklistFields(defaultConfig, objectType);
-      selectedIdx = -1;
-      editorHost.innerHTML = '';
-      clearPreviewState();
-    }
-
-    function refresh() {
-      const meta = objectMeta();
-      renderPreview(fields, previewHost, meta.label);
-      renderList();
-    }
-
-    function renderList() {
-      listHost.innerHTML = '';
-      if (!fields.length) {
-        const empty = document.createElement('div');
-        empty.className = 'empty-state';
-        empty.innerHTML = '<i class="fa-solid fa-inbox fa-2x mb-2"></i><p>No questions — add one or reset from default.</p>';
-        listHost.appendChild(empty);
-      } else {
-        const inner = document.createElement('div');
-        inner.className = 'question-list-inner';
-        inner.innerHTML = fields.map((f, i) => {
-          const editable = isAdminEditableField(f);
-          const systemBadge = editable ? '' : ' <span class="badge-system">System</span>';
-          return `
-          <div class="question-row draggable-item${i === selectedIdx ? ' selected' : ''}${editable ? '' : ' system-field'}" data-idx="${i}">
-            <span class="grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
-            <div class="q-label">${escapeHtml(f.label)}${f.required ? ' <span class="required-asterisk">*</span>' : ''}${systemBadge}</div>
-            <span class="badge-type">${escapeHtml(typeLabelForField(f))}</span>
-            <div class="q-actions">
-              <button type="button" class="btn btn-outline-light btn-icon edit-btn" title="Edit"><i class="fa-solid fa-pen"></i></button>
-              <button type="button" class="btn btn-outline-danger btn-icon del-btn${editable ? '' : ' del-btn-hidden'}" title="Delete"><i class="fa-solid fa-trash"></i></button>
-            </div>
-          </div>`;
-        }).join('');
-        listHost.appendChild(inner);
-
-        bindDragReorder(inner, {
-          fields,
-          onReorder: (from, to) => {
-            selectedIdx = adjustIndexAfterReorder(selectedIdx, from, to);
-            refresh();
-          }
-        });
-
-        inner.querySelectorAll('.question-row').forEach(row => {
-          const idx = +row.dataset.idx;
-          row.querySelector('.edit-btn').onclick = e => { e.stopPropagation(); openEditor(idx); };
-          const delBtn = row.querySelector('.del-btn');
-          if (!delBtn.classList.contains('del-btn-hidden')) {
-            delBtn.onclick = e => {
-              e.stopPropagation();
-              fields.splice(idx, 1);
-              selectedIdx = -1;
-              editorHost.innerHTML = '';
-              refresh();
-            };
-          }
-          row.onclick = e => {
-            if (e.target.closest('.grip') || e.target.closest('.q-actions')) return;
-            openEditor(idx);
-          };
-        });
-      }
-      appendAddQuestionButton(listHost, () => openEditor(-1));
-    }
-
-    function openEditor(idx) {
-      selectedIdx = idx;
-      const field = idx >= 0 ? fields[idx] : newEmptyField();
-      editorHost.innerHTML = '';
-      const form = createEditorForm({
-        field,
-        isNew: idx < 0,
-        onSave: saved => {
-          if (idx >= 0) fields[idx] = saved;
-          else fields.push(saved);
-          setPreviewFromField(saved);
-          selectedIdx = -1;
-          editorHost.innerHTML = '';
-          refresh();
-        },
-        onCancel: () => {
-          selectedIdx = -1;
-          editorHost.innerHTML = '';
-          renderList();
-        }
-      });
-      form.addEventListener('admin-close', () => {
-        selectedIdx = -1;
-        editorHost.innerHTML = '';
-        renderList();
-      });
-      editorHost.appendChild(form);
-      renderList();
-    }
-
-    function openThemeModal() {
-      InspectionThemes.renderThemeList(themeList, themeModal, themeLogo);
-      themeModal.show();
-    }
-
-    async function authenticate(org) {
-      const normalized = String(org || '').trim().toUpperCase();
-      if (!normalized) return setStatus('ORG required', 'danger');
-
-      authBtn.disabled = true;
-      setStatus('Authenticating...');
-      const res = await api('auth', { org: normalized });
-      authBtn.disabled = false;
-
-      if (!res.success) return setStatus(res.error || 'Auth failed', 'danger');
-
-      token = res.token;
-      currentOrg = normalized;
-      orgSection.style.display = 'none';
-      mainUI.style.display = 'block';
-
-      setStatus(`Authenticated — editing ${currentOrg} checklists`, 'success');
-
-      try {
-        defaultConfig = await fetchChecklistJson('/config/checklists.default.json');
-      } catch {
-        defaultConfig = await fetchChecklistJson('/config/checklists.json');
-      }
-      checklistsConfig = await loadChecklistsForOrg(currentOrg);
-      loadFieldsForObjectType();
-      refresh();
-    }
-
-    CHECKLIST_OBJECT_TYPES.forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = t.key;
-      opt.textContent = t.label;
-      objectTypeSelect.appendChild(opt);
-    });
-
-    objectTypeSelect.onchange = () => {
-      objectType = objectTypeSelect.value;
-      loadFieldsForObjectType();
-      refresh();
-    };
-
-    document.getElementById('addBtn').onclick = () => openEditor(-1);
-    document.getElementById('clearBtn').onclick = () => {
-      const meta = objectMeta();
-      if (confirmClearObjectType(meta.label)) {
-        loadFieldsFromDefault();
-        refresh();
-      }
-    };
-    document.getElementById('saveBtn').onclick = () => adminSaveStub(statusEl);
-
-    authBtn.onclick = () => authenticate(orgInput.value);
-    orgInput.addEventListener('keypress', e => {
-      if (e.key === 'Enter') authenticate(orgInput.value);
-    });
-
-    document.getElementById('pageThemeBtn').onclick = openThemeModal;
-    document.getElementById('previewThemeBtn').onclick = openThemeModal;
-
-    InspectionThemes.wireThemePicker({
-      themeSelectorBtn: document.getElementById('pageThemeBtn'),
-      themeModal,
-      themeList,
-      themeLogo
-    });
-
-    const urlOrg = new URLSearchParams(window.location.search).get('org');
-    if (urlOrg) {
-      orgInput.value = urlOrg;
-      authenticate(urlOrg);
-    } else {
-      orgInput.focus();
-    }
-  </script>
-</body>
-</html>
+<!DOCTYPE html>
+<html lang="en" class="theme-manhattan">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checklist Config v0.0.1</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <link href="css/flowthrough-shared.css" rel="stylesheet" />
+  <link href="css/checklist-admin.css" rel="stylesheet" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="header-body">
+        <h1>
+          <i class="fa-solid fa-clipboard-list"></i> Checklist Config
+          <span class="admin-version-tag">v0.0.1</span>
+        </h1>
+        <div class="subtitle">Per-ORG inspection question editor · Inspection app v0.0.15</div>
+      </div>
+    </header>
+
+    <div id="orgSection" class="auth-section">
+      <label class="form-label" for="org">ORG:</label>
+      <div class="auth-row">
+        <input type="text" id="org" class="form-control" placeholder="SS-DEMO" maxlength="20" />
+        <button id="authBtn" class="btn btn-success px-4" type="button">Authenticate</button>
+      </div>
+      <small class="text-muted">Press Enter to authenticate</small>
+    </div>
+
+    <div class="app-status" id="status">Enter ORG and authenticate</div>
+
+    <div id="mainUI" style="display: none;">
+      <div class="config-toolbar">
+        <div class="field-grow">
+          <label class="form-label" for="objectType">Object type</label>
+          <select id="objectType" class="form-select"></select>
+        </div>
+        <div class="toolbar-actions">
+          <button type="button" class="btn btn-outline-warning btn-sm" id="clearBtn">
+            <i class="fa-solid fa-eraser"></i> Reset to default
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" id="addBtn">
+            <i class="fa-solid fa-plus"></i> Add question
+          </button>
+          <button type="button" class="btn btn-success" id="saveBtn" disabled title="Save & Deploy coming in v0.1">
+            <i class="fa-solid fa-cloud-arrow-up"></i> Save &amp; Deploy
+          </button>
+        </div>
+      </div>
+
+      <div class="config-layout-split">
+        <div>
+          <div id="editorHost"></div>
+          <div id="listHost"></div>
+        </div>
+        <div class="preview-panel">
+          <div class="preview-panel-header">
+            <div class="preview-panel-titles">
+              <h2><i class="fa-solid fa-eye"></i> Live preview</h2>
+              <p class="preview-note">Theme gear applies inside the phone frame only</p>
+            </div>
+            <button type="button" class="preview-theme-gear theme-selector-btn" id="previewThemeBtn" title="Select preview theme" aria-label="Select preview theme">
+              <i class="fas fa-cog"></i>
+            </button>
+          </div>
+          <div id="previewHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="themeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Preview theme</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="list-group" id="themeList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/inspection-themes.js"></script>
+  <script src="js/checklist-config.js"></script>
+  <script src="js/checklist-admin.js"></script>
+  <script>
+    const ADMIN_VERSION = '0.0.1';
+    const INSPECTION_VERSION = '0.0.15';
+
+    let token = null;
+    let currentOrg = '';
+    let checklistsConfig = null;
+    let defaultConfig = null;
+    let objectType = 'po';
+    let fields = [];
+    let selectedIdx = -1;
+    let previewThemeScope = null;
+    let previewDeviceLogo = null;
+
+    const orgInput = document.getElementById('org');
+    const authBtn = document.getElementById('authBtn');
+    const orgSection = document.getElementById('orgSection');
+    const mainUI = document.getElementById('mainUI');
+    const statusEl = document.getElementById('status');
+    const objectTypeSelect = document.getElementById('objectType');
+    const listHost = document.getElementById('listHost');
+    const editorHost = document.getElementById('editorHost');
+    const previewHost = document.getElementById('previewHost');
+    const themeModal = new bootstrap.Modal(document.getElementById('themeModal'));
+    const themeList = document.getElementById('themeList');
+
+    function objectMeta() {
+      return CHECKLIST_OBJECT_TYPES.find(t => t.key === objectType) || { key: objectType, label: objectType };
+    }
+
+    function setStatus(text, type) {
+      statusEl.textContent = text;
+      statusEl.className = 'app-status' + (type ? ` text-${type}` : '');
+    }
+
+    async function api(action, data = {}) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`/api/${action}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data)
+      });
+      return res.json();
+    }
+
+    function loadFieldsForObjectType() {
+      fields = cloneChecklistFields(checklistsConfig, objectType);
+      selectedIdx = -1;
+      editorHost.innerHTML = '';
+      clearPreviewState();
+    }
+
+    function loadFieldsFromDefault() {
+      fields = cloneChecklistFields(defaultConfig, objectType);
+      selectedIdx = -1;
+      editorHost.innerHTML = '';
+      clearPreviewState();
+    }
+
+    function applyPreviewTheme() {
+      if (previewThemeScope) {
+        InspectionThemes.loadPreviewTheme(previewThemeScope, previewDeviceLogo);
+      }
+    }
+
+    function refresh() {
+      const meta = objectMeta();
+      renderPreview(fields, previewHost, {
+        objectLabel: meta.label,
+        objectType,
+        inspectionVersion: INSPECTION_VERSION,
+        previewApiData: previewApiData,
+        onThemeScopeReady: (scope, logo) => {
+          previewThemeScope = scope;
+          previewDeviceLogo = logo;
+          applyPreviewTheme();
+        }
+      });
+      renderList();
+    }
+
+    function renderList() {
+      listHost.innerHTML = '';
+      if (!fields.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.innerHTML = '<i class="fa-solid fa-inbox fa-2x mb-2"></i><p>No questions — add one or reset from default.</p>';
+        listHost.appendChild(empty);
+      } else {
+        const inner = document.createElement('div');
+        inner.className = 'question-list-inner';
+        inner.innerHTML = fields.map((f, i) => {
+          const editable = isAdminEditableField(f);
+          const systemBadge = editable ? '' : ' <span class="badge-system">System</span>';
+          return `
+          <div class="question-row draggable-item${i === selectedIdx ? ' selected' : ''}${editable ? '' : ' system-field'}" data-idx="${i}">
+            <span class="grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
+            <div class="q-label">${escapeHtml(f.label)}${f.required ? ' <span class="required-asterisk">*</span>' : ''}${systemBadge}</div>
+            <span class="badge-type">${escapeHtml(typeLabelForField(f))}</span>
+            <div class="q-actions">
+              <button type="button" class="btn btn-outline-light btn-icon edit-btn" title="Edit"><i class="fa-solid fa-pen"></i></button>
+              <button type="button" class="btn btn-outline-danger btn-icon del-btn${editable ? '' : ' del-btn-hidden'}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </div>`;
+        }).join('');
+        listHost.appendChild(inner);
+
+        bindDragReorder(inner, {
+          fields,
+          onReorder: (from, to) => {
+            selectedIdx = adjustIndexAfterReorder(selectedIdx, from, to);
+            refresh();
+          }
+        });
+
+        inner.querySelectorAll('.question-row').forEach(row => {
+          const idx = +row.dataset.idx;
+          row.querySelector('.edit-btn').onclick = e => { e.stopPropagation(); openEditor(idx); };
+          const delBtn = row.querySelector('.del-btn');
+          if (!delBtn.classList.contains('del-btn-hidden')) {
+            delBtn.onclick = e => {
+              e.stopPropagation();
+              fields.splice(idx, 1);
+              selectedIdx = -1;
+              editorHost.innerHTML = '';
+              refresh();
+            };
+          }
+          row.onclick = e => {
+            if (e.target.closest('.grip') || e.target.closest('.q-actions')) return;
+            openEditor(idx);
+          };
+        });
+      }
+      appendAddQuestionButton(listHost, () => openEditor(-1));
+    }
+
+    function openEditor(idx) {
+      selectedIdx = idx;
+      const field = idx >= 0 ? fields[idx] : newEmptyField();
+      editorHost.innerHTML = '';
+      const form = createEditorForm({
+        field,
+        isNew: idx < 0,
+        onSave: saved => {
+          if (idx >= 0) fields[idx] = saved;
+          else fields.push(saved);
+          setPreviewFromField(saved);
+          selectedIdx = -1;
+          editorHost.innerHTML = '';
+          refresh();
+        },
+        onCancel: () => {
+          selectedIdx = -1;
+          editorHost.innerHTML = '';
+          renderList();
+        }
+      });
+      form.addEventListener('admin-close', () => {
+        selectedIdx = -1;
+        editorHost.innerHTML = '';
+        renderList();
+      });
+      editorHost.appendChild(form);
+      renderList();
+    }
+
+    function openPreviewThemeModal() {
+      InspectionThemes.renderPreviewThemeList(themeList, themeModal, {
+        scopeEl: previewThemeScope,
+        logoEl: previewDeviceLogo
+      });
+      themeModal.show();
+    }
+
+    async function authenticate(org) {
+      const normalized = String(org || '').trim().toUpperCase();
+      if (!normalized) return setStatus('ORG required', 'danger');
+
+      authBtn.disabled = true;
+      setStatus('Authenticating...');
+      const res = await api('auth', { org: normalized });
+      if (!res.success) {
+        authBtn.disabled = false;
+        return setStatus(res.error || 'Auth failed', 'danger');
+      }
+
+      token = res.token;
+      currentOrg = normalized;
+
+      const [condRes, ilpnCondRes] = await Promise.all([
+        api('condition_codes', { org: normalized, token }),
+        api('ilpn_condition_codes', { org: normalized, token })
+      ]);
+
+      setPreviewApiData({
+        condition_codes: condRes.success ? condRes.codes : [],
+        ilpn_condition_codes: ilpnCondRes.success ? ilpnCondRes.codes : []
+      });
+
+      authBtn.disabled = false;
+      orgSection.style.display = 'none';
+      mainUI.style.display = 'block';
+      setStatus(`Authenticated — editing ${currentOrg} checklists`, 'success');
+
+      try {
+        defaultConfig = await fetchChecklistJson('/config/checklists.default.json');
+      } catch {
+        defaultConfig = await fetchChecklistJson('/config/checklists.json');
+      }
+      checklistsConfig = await loadChecklistsForOrg(currentOrg);
+      loadFieldsForObjectType();
+      refresh();
+    }
+
+    CHECKLIST_OBJECT_TYPES.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.key;
+      opt.textContent = t.label;
+      objectTypeSelect.appendChild(opt);
+    });
+
+    objectTypeSelect.onchange = () => {
+      objectType = objectTypeSelect.value;
+      loadFieldsForObjectType();
+      refresh();
+    };
+
+    document.getElementById('addBtn').onclick = () => openEditor(-1);
+    document.getElementById('clearBtn').onclick = () => {
+      const meta = objectMeta();
+      if (confirmClearObjectType(meta.label)) {
+        loadFieldsFromDefault();
+        refresh();
+      }
+    };
+    document.getElementById('saveBtn').onclick = () => adminSaveStub(statusEl);
+
+    authBtn.onclick = () => authenticate(orgInput.value);
+    orgInput.addEventListener('keypress', e => {
+      if (e.key === 'Enter') authenticate(orgInput.value);
+    });
+
+    document.getElementById('previewThemeBtn').onclick = openPreviewThemeModal;
+
+    const urlOrg = new URLSearchParams(window.location.search).get('org');
+    if (urlOrg) {
+      orgInput.value = urlOrg;
+      authenticate(urlOrg);
+    } else {
+      orgInput.focus();
+    }
+  </script>
+</body>
+</html>

@@ -341,6 +341,57 @@
     }
   }
 
+  function applyThemeToScope(themeKey, scopeEl, logoEl) {
+    const theme = themes[themeKey];
+    if (!theme || !scopeEl) return themeKey;
+    Object.entries(theme.colors).forEach(([property, value]) => {
+      scopeEl.style.setProperty(property, value);
+    });
+    scopeEl.style.background = theme.colors['--bg-dark'] || '#121212';
+    scopeEl.style.color = theme.colors['--text'] || '#e0e0e0';
+    if (logoEl) {
+      if (theme.logo) {
+        logoEl.src = theme.logo;
+        logoEl.style.display = 'block';
+        logoEl.style.maxHeight = theme.logoMaxHeight || '40px';
+        if (theme.logoMaxWidth) logoEl.style.maxWidth = theme.logoMaxWidth;
+        else logoEl.style.removeProperty('max-width');
+      } else {
+        logoEl.style.display = 'none';
+        logoEl.removeAttribute('src');
+      }
+    }
+    return themeKey;
+  }
+
+  function renderPreviewThemeList(themeList, themeModal, { scopeEl, logoEl, storageKey = 'adminPreviewTheme', currentKey }) {
+    if (!themeList) return;
+    themeList.innerHTML = '';
+    const active = currentKey || localStorage.getItem(storageKey) || 'default';
+    Object.entries(themes)
+      .sort(([, a], [, b]) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+      .forEach(([key, theme]) => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'list-group-item list-group-item-action theme-picker-item' + (key === active ? ' active' : '');
+        const thumb = theme.logo
+          ? `<img class="theme-picker-thumb" src="${theme.logo}" alt="" />`
+          : '<span class="theme-picker-thumb theme-picker-thumb-empty"></span>';
+        item.innerHTML = `<span class="theme-picker-row">${thumb}<span>${theme.name}</span></span>`;
+        item.onclick = () => {
+          applyThemeToScope(key, scopeEl, logoEl);
+          localStorage.setItem(storageKey, key);
+          if (themeModal) themeModal.hide();
+        };
+        themeList.appendChild(item);
+      });
+  }
+
+  function loadPreviewTheme(scopeEl, logoEl, storageKey = 'adminPreviewTheme') {
+    const saved = localStorage.getItem(storageKey) || 'default';
+    return applyThemeToScope(saved, scopeEl, logoEl);
+  }
+
   function applyTheme(themeKey, themeLogo) {
     const theme = themes[themeKey];
     if (!theme) return;
@@ -401,8 +452,11 @@
   global.InspectionThemes = {
     themes,
     applyTheme,
+    applyThemeToScope,
     loadTheme,
+    loadPreviewTheme,
     renderThemeList,
+    renderPreviewThemeList,
     wireThemePicker,
     getActiveThemeKey: () => activeThemeKey
   };

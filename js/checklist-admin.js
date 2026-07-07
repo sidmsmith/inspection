@@ -8,6 +8,14 @@ const FIELD_TYPES = [
 ];
 
 const previewState = {};
+let previewApiData = { condition_codes: [], ilpn_condition_codes: [] };
+
+function setPreviewApiData(data) {
+  previewApiData = {
+    condition_codes: data?.condition_codes || [],
+    ilpn_condition_codes: data?.ilpn_condition_codes || []
+  };
+}
 
 function escapeHtml(text) {
   return String(text ?? '')
@@ -284,8 +292,9 @@ function renderDefaultPicker(container, { typeKey, options, value, onChange }) {
   });
 }
 
-function appendPreviewControl(group, field) {
+function appendPreviewControl(group, field, apiData) {
   const current = field.id ? (previewState[field.id] ?? '') : '';
+  const codes = apiData || previewApiData;
 
   if (field.type === 'segmented' || field.type === 'toggle_pair') {
     const segWrap = document.createElement('div');
@@ -314,18 +323,40 @@ function appendPreviewControl(group, field) {
   if (field.type === 'dropdown') {
     const select = document.createElement('select');
     select.className = 'form-select form-select-sm';
-    if (field.dataSource) {
-      select.disabled = true;
-      const opt = document.createElement('option');
-      opt.textContent = field.dataSource === 'ilpn_condition_codes'
-        ? 'iLPN condition codes (from API)'
-        : 'Condition codes (from API)';
-      select.appendChild(opt);
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = '— Select —';
+    select.appendChild(blank);
+
+    if (field.dataSource === 'condition_codes') {
+      const list = [...(codes.condition_codes || [])].sort((a, b) =>
+        (a.Description || '').localeCompare(b.Description || '')
+      );
+      list.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.ConditionCodeId;
+        opt.textContent = c.Description || c.ConditionCodeId;
+        if (current === c.ConditionCodeId) opt.selected = true;
+        select.appendChild(opt);
+      });
+      if (!list.length) {
+        blank.textContent = 'No condition codes loaded';
+      }
+    } else if (field.dataSource === 'ilpn_condition_codes') {
+      const list = [...(codes.ilpn_condition_codes || [])].sort((a, b) =>
+        (a.Description || a.ConditionCodeId || '').localeCompare(b.Description || b.ConditionCodeId || '')
+      );
+      list.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.ConditionCodeId;
+        opt.textContent = c.Description || c.ConditionCodeId;
+        if (current === c.ConditionCodeId) opt.selected = true;
+        select.appendChild(opt);
+      });
+      if (!list.length) {
+        blank.textContent = 'No iLPN condition codes loaded';
+      }
     } else {
-      const blank = document.createElement('option');
-      blank.value = '';
-      blank.textContent = '— Select —';
-      select.appendChild(blank);
       (field.options || []).forEach(option => {
         const opt = document.createElement('option');
         opt.value = option;
@@ -333,9 +364,10 @@ function appendPreviewControl(group, field) {
         if (current === option) opt.selected = true;
         select.appendChild(opt);
       });
-      if (field.id) {
-        select.onchange = () => { previewState[field.id] = select.value; };
-      }
+    }
+
+    if (field.id) {
+      select.onchange = () => { previewState[field.id] = select.value; };
     }
     group.appendChild(select);
     return;
@@ -360,7 +392,12 @@ function appendPreviewControl(group, field) {
   group.appendChild(p);
 }
 
-function renderPreview(fields, container, objectLabel) {
+function renderPreview(fields, container, options = {}) {
+  const objectLabel = options.objectLabel || 'Object';
+  const objectType = options.objectType || 'po';
+  const apiData = options.previewApiData || previewApiData;
+  const inspectionVersion = options.inspectionVersion || '0.0.15';
+
   const fixed = `
     <div class="preview-fixed">
       <i class="fa-solid fa-lock me-1"></i>
@@ -372,30 +409,51 @@ function renderPreview(fields, container, objectLabel) {
     if (f.id && !(f.id in previewState)) setPreviewFromField(f);
   });
 
+  container.innerHTML = `
+    <p class="preview-interactive-hint">Moto G4 · 360×640 — try toggles and dropdowns inside the device</p>
+    <div class="device-frame-wrap">
+      <div class="device-frame" aria-label="Mobile preview 360 by 640">
+        <div class="device-earpiece"></div>
+        <div class="device-screen" id="previewThemeScope">
+          <div class="device-app-chrome">
+            <span class="device-chrome-icon" aria-hidden="true"><i class="fas fa-camera"></i></span>
+            <div class="device-chrome-center">
+              <img id="previewDeviceLogo" class="device-theme-logo" alt="" />
+              <div class="device-chrome-title">Inspection v${escapeHtml(inspectionVersion)}</div>
+              <div class="device-chrome-sub">${escapeHtml(objectLabel)} preview</div>
+            </div>
+            <span class="device-chrome-icon device-chrome-spacer" aria-hidden="true"></span>
+          </div>
+          <div class="device-screen-scroll preview-form-theme-wrap" id="previewFormRoot"></div>
+        </div>
+        <div class="device-home-btn"></div>
+      </div>
+    </div>
+    ${fixed}`;
+
+  const root = container.querySelector('#previewFormRoot');
+  const themeScope = container.querySelector('#previewThemeScope');
+  const deviceLogo = container.querySelector('#previewDeviceLogo');
+
   if (!fields.length) {
-    container.innerHTML = `
-      <div class="preview-form preview-form-theme-wrap">
-        <p class="text-muted mb-0">No questions yet — add one to preview the ${escapeHtml(objectLabel)} form.</p>
-        ${fixed}
-      </div>`;
-    return;
+    root.innerHTML = `<p class="text-muted mb-0 device-empty-msg">No questions yet — add one to preview the ${escapeHtml(objectLabel)} form.</p>`;
+  } else {
+    fields.forEach(field => {
+      const group = document.createElement('div');
+      group.className = 'form-group';
+      const label = document.createElement('label');
+      label.innerHTML = `${escapeHtml(field.label)}${field.required ? ' <span class="required-asterisk">*</span>' : ''}`;
+      group.appendChild(label);
+      appendPreviewControl(group, field, apiData);
+      root.appendChild(group);
+    });
   }
 
-  container.innerHTML = `
-    <p class="preview-interactive-hint">Try the form — click toggles, change dropdowns, type in text fields.</p>
-    <div class="preview-form preview-form-theme-wrap" id="previewFormRoot"></div>
-    ${fixed}`;
-  const root = container.querySelector('#previewFormRoot');
+  if (typeof options.onThemeScopeReady === 'function') {
+    options.onThemeScopeReady(themeScope, deviceLogo);
+  }
 
-  fields.forEach(field => {
-    const group = document.createElement('div');
-    group.className = 'form-group';
-    const label = document.createElement('label');
-    label.innerHTML = `${escapeHtml(field.label)}${field.required ? ' <span class="required-asterisk">*</span>' : ''}`;
-    group.appendChild(label);
-    appendPreviewControl(group, field);
-    root.appendChild(group);
-  });
+  return { themeScope, deviceLogo };
 }
 
 function createReadOnlyFieldPanel(field) {
@@ -556,9 +614,9 @@ function confirmClearObjectType(objectLabel) {
 
 function adminSaveStub(statusEl) {
   statusEl.textContent = 'Save & Deploy — coming in Checklist Config v0.1 (changes are local for now)';
-  statusEl.className = 'admin-status text-success';
+  statusEl.className = 'app-status text-success';
   setTimeout(() => {
     statusEl.textContent = 'Ready — edits are local until Save & Deploy is enabled';
-    statusEl.className = 'admin-status';
+    statusEl.className = 'app-status';
   }, 4000);
 }

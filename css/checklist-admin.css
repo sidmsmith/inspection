@@ -1,52 +1,195 @@
-/* Checklist config admin — uses inspection theme CSS variables */
+/* Checklist config admin — extends flowthrough-shared.css */
 
-body.admin-app {
-  background: var(--bg-dark);
-  color: var(--text);
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  margin: 0;
-  min-height: 100vh;
+/* Mobile device preview (Moto G4-style, 360×640 viewport) */
+.device-frame-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 0.25rem 0 0.75rem;
 }
 
-.admin-shell {
-  max-width: 1400px;
+.device-frame {
+  width: 388px;
+  max-width: 100%;
+  background: linear-gradient(145deg, #2a2a2a 0%, #0d0d0d 100%);
+  border-radius: 28px;
+  padding: 10px 12px 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.device-earpiece {
+  width: 44px;
+  height: 5px;
+  margin: 0 auto 8px;
+  border-radius: 3px;
+  background: #1a1a1a;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.device-screen {
+  width: 360px;
+  max-width: 100%;
+  height: 640px;
   margin: 0 auto;
-  padding: 1rem 1.25rem 2rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--bg-dark, #ffffff);
+  color: var(--text, #212529);
+  border: 1px solid rgba(0, 0, 0, 0.15);
 }
 
-.admin-header {
+.device-app-chrome {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+  padding: 0.4rem 0.35rem 0.45rem;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border, #dee2e6);
+  background: var(--card-bg, #fff);
+}
+
+.device-chrome-icon {
+  width: 1.5rem;
+  flex-shrink: 0;
+  color: var(--text, #333);
+  font-size: 0.95rem;
+  line-height: 1;
+  padding-top: 0.1rem;
+}
+
+.device-chrome-spacer { visibility: hidden; }
+
+.device-chrome-center {
+  flex: 1;
   text-align: center;
-  position: relative;
-  padding: 0.5rem 0 1rem;
+  min-width: 0;
 }
 
-.admin-header .theme-selector-btn {
-  position: absolute;
-  top: 0.5rem;
-  right: 0;
+.device-theme-logo {
+  display: none;
+  max-height: 40px;
+  max-width: 160px;
+  margin: 0 auto 0.2rem;
+  object-fit: contain;
 }
 
-.admin-header h1 {
-  font-size: calc(1.2rem + 0.6vw);
-  margin: 0;
-  color: var(--text);
+.device-chrome-title {
+  font-size: 0.78rem;
   font-weight: 600;
+  color: var(--primary, #0d6efd);
+  line-height: 1.2;
 }
 
-.admin-header .subtitle {
+.device-chrome-sub {
+  font-size: 0.65rem;
+  color: var(--text-muted, #6c757d);
+  margin-top: 0.1rem;
+}
+
+.device-screen-scroll {
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0.55rem 0.65rem 0.85rem;
+  background: var(--bg-dark, #f8f9fa);
+}
+
+.device-screen-scroll .form-group {
+  margin-bottom: 0.65rem;
+}
+
+.device-screen-scroll label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary, var(--text, #495057));
+  margin-bottom: 0.3rem;
+}
+
+.device-screen-scroll .form-control,
+.device-screen-scroll .form-select {
+  background: var(--input-bg, #fff);
+  border-color: var(--input-border, var(--border, #ced4da));
+  color: var(--text, #212529);
+  font-size: 0.8rem;
+}
+
+.device-screen-scroll .preview-segmented .seg.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.device-home-btn {
+  width: 40px;
+  height: 4px;
+  margin: 10px auto 2px;
+  border-radius: 2px;
+  background: #3a3a3a;
+}
+
+.device-empty-msg {
+  font-size: 0.8rem;
   color: var(--text-muted);
-  font-size: 0.85rem;
-  margin-top: 0.35rem;
+}
+
+.theme-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.theme-picker-thumb {
+  width: 36px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.theme-picker-thumb-empty {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px dashed var(--border);
+}
+
+.theme-picker-item.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: var(--primary);
+}
+
+#themeModal .modal-content {
+  background: var(--card-bg);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+#themeModal .modal-header {
+  border-color: var(--border);
+}
+
+#themeModal .list-group-item {
+  background: var(--input-bg);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+#themeModal .list-group-item:hover {
+  background: rgba(59, 130, 246, 0.12);
 }
 
 .admin-version-tag {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 600;
-  background: rgba(13, 110, 253, 0.2);
-  color: var(--primary);
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
   border: 1px solid var(--primary);
   margin-left: 0.35rem;
 }
@@ -61,14 +204,21 @@ body.admin-app {
   font-size: 0.9rem;
 }
 
-.auth-section {
-  max-width: 420px;
-  margin: 0 auto 1rem;
+.preview-theme-gear.theme-selector-btn {
+  position: static;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 0.15rem;
+  cursor: pointer;
+  font-size: 1.35rem;
+  line-height: 1;
+  transition: opacity 0.2s;
 }
 
-.auth-row {
-  display: flex;
-  gap: 0.5rem;
+.preview-theme-gear.theme-selector-btn:hover {
+  opacity: 0.7;
 }
 
 .badge-system {
