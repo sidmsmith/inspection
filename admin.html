@@ -62,37 +62,29 @@
 
       <div class="config-toolbar">
 
-        <div class="config-toolbar-primary">
+        <div class="field-grow">
 
-          <div class="field-grow">
+          <label class="form-label" for="objectType">Object type</label>
 
-            <label class="form-label" for="objectType">Object type</label>
-
-            <select id="objectType" class="form-select"></select>
-
-          </div>
-
-          <div class="config-toolbar-io">
-
-            <button type="button" class="btn btn-outline-secondary btn-sm" id="exportBtn" title="Download org checklist config as JSON">
-
-              <i class="fa-solid fa-download"></i> Export
-
-            </button>
-
-            <label class="btn btn-outline-secondary btn-sm mb-0" id="importBtnLabel" title="Load checklist config from a JSON file">
-
-              <i class="fa-solid fa-upload"></i> Import
-
-              <input type="file" id="importFile" accept=".json,application/json" hidden />
-
-            </label>
-
-          </div>
+          <select id="objectType" class="form-select"></select>
 
         </div>
 
         <div class="toolbar-actions">
+
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="exportBtn" title="Download org checklist config as JSON">
+
+            <i class="fa-solid fa-download"></i> Export
+
+          </button>
+
+          <label class="btn btn-outline-secondary btn-sm mb-0" id="importBtnLabel" title="Load checklist config from a JSON file">
+
+            <i class="fa-solid fa-upload"></i> Import
+
+            <input type="file" id="importFile" accept=".json,application/json" hidden />
+
+          </label>
 
           <button type="button" class="btn btn-outline-warning btn-sm" id="clearBtn">
 
