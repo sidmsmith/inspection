@@ -665,18 +665,28 @@
 
 
 
-    const urlOrg = new URLSearchParams(window.location.search).get('org');
+    function parseUrlAuthParams() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const ciParams = {};
+      for (const [key, value] of urlParams.entries()) {
+        ciParams[key.toLowerCase()] = value;
+      }
+      return {
+        org: (ciParams.org || ciParams.organization || '').trim(),
+        location: (ciParams.location || '').trim(),
+        businessUnit: (ciParams.businessunit || '').trim()
+      };
+    }
 
-    if (urlOrg) {
+    const urlAuth = parseUrlAuthParams();
+    if (urlAuth.location) window._adminUrlLocation = urlAuth.location;
+    if (urlAuth.businessUnit) window._adminUrlBusinessUnit = urlAuth.businessUnit;
 
-      orgInput.value = urlOrg;
-
-      authenticate(urlOrg);
-
+    if (urlAuth.org) {
+      orgInput.value = urlAuth.org;
+      authenticate(urlAuth.org);
     } else {
-
       orgInput.focus();
-
     }
 
   </script>
