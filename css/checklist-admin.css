@@ -81,44 +81,100 @@
   line-height: 1.2;
 }
 
-.device-chrome-sub {
-  font-size: 0.65rem;
-  color: var(--text-muted, #6c757d);
-  margin-top: 0.1rem;
+.device-form-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-dark, #f8f9fa);
 }
 
 .device-screen-scroll {
   flex: 1;
+  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 0.55rem 0.65rem 0.85rem;
+  padding: 0.55rem 0.65rem 0.65rem;
   background: var(--bg-dark, #f8f9fa);
 }
 
 .device-screen-scroll .form-group {
-  margin-bottom: 0.65rem;
+  margin-bottom: 0.75rem;
 }
 
 .device-screen-scroll label {
   display: block;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-secondary, var(--text, #495057));
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.35rem;
+}
+
+.device-screen-scroll .required-asterisk {
+  color: var(--red-text, #dc3545);
 }
 
 .device-screen-scroll .form-control,
 .device-screen-scroll .form-select {
+  width: 100%;
   background: var(--input-bg, #fff);
-  border-color: var(--input-border, var(--border, #ced4da));
+  border: 1px solid var(--input-border, var(--border, #ced4da));
   color: var(--text, #212529);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
 }
 
-.device-screen-scroll .preview-segmented .seg.on {
-  background: var(--primary);
-  border-color: var(--primary);
+.device-screen .checklist-segmented {
+  display: flex;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.device-screen .checklist-segmented .segment-btn {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.85rem;
+  border: 1px solid var(--input-border, var(--border, #ced4da));
+  border-radius: 6px;
+  background: var(--input-bg, #fff);
+  color: var(--text, #212529);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  text-align: center;
+}
+
+.device-screen .checklist-segmented .segment-btn.selected {
+  background: var(--success);
+  border-color: var(--success);
   color: #fff;
+  font-weight: 600;
+}
+
+.device-form-actions {
+  flex-shrink: 0;
+  padding: 0.5rem 0.65rem 0.55rem;
+  background: var(--card-bg, #fff);
+  border-top: 1px solid var(--border, #dee2e6);
+  box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.device-screen .preview-complete-btn {
+  display: block;
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: var(--success);
+  color: #fff;
+  cursor: default;
+}
+
+.device-screen .preview-complete-btn:hover {
+  background: var(--success-hover, var(--success));
 }
 
 .device-home-btn {

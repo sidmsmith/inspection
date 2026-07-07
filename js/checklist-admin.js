@@ -298,23 +298,24 @@ function appendPreviewControl(group, field, apiData) {
 
   if (field.type === 'segmented' || field.type === 'toggle_pair') {
     const segWrap = document.createElement('div');
-    segWrap.className = 'preview-segmented';
+    segWrap.className = 'checklist-segmented';
     (field.options || []).forEach(option => {
-      const seg = document.createElement('span');
-      seg.className = 'seg' + (current === option ? ' on' : '');
-      seg.dataset.option = option;
-      seg.textContent = option;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'segment-btn' + (current === option ? ' selected' : '');
+      btn.dataset.option = option;
+      btn.textContent = option;
       if (field.id) {
-        seg.onclick = () => {
+        btn.onclick = () => {
           const active = previewState[field.id] ?? '';
           const next = active === option ? '' : option;
           previewState[field.id] = next;
-          segWrap.querySelectorAll('.seg').forEach(s => {
-            s.classList.toggle('on', s.dataset.option === next);
+          segWrap.querySelectorAll('.segment-btn').forEach(s => {
+            s.classList.toggle('selected', s.dataset.option === next);
           });
         };
       }
-      segWrap.appendChild(seg);
+      segWrap.appendChild(btn);
     });
     group.appendChild(segWrap);
     return;
@@ -420,11 +421,15 @@ function renderPreview(fields, container, options = {}) {
             <div class="device-chrome-center">
               <img id="previewDeviceLogo" class="device-theme-logo" alt="" />
               <div class="device-chrome-title">Inspection v${escapeHtml(inspectionVersion)}</div>
-              <div class="device-chrome-sub">${escapeHtml(objectLabel)} preview</div>
             </div>
             <span class="device-chrome-icon device-chrome-spacer" aria-hidden="true"></span>
           </div>
-          <div class="device-screen-scroll preview-form-theme-wrap" id="previewFormRoot"></div>
+          <div class="device-form-body">
+            <div class="device-screen-scroll preview-form-theme-wrap" id="previewFormRoot"></div>
+            <div class="device-form-actions">
+              <button type="button" class="preview-complete-btn">Complete Inspection</button>
+            </div>
+          </div>
         </div>
         <div class="device-home-btn"></div>
       </div>
