@@ -17,34 +17,6 @@
     {
       "source": "/api/(.*)",
       "destination": "/api/index.py"
-    },
-    {
-      "source": "/admin.html",
-      "destination": "/admin.html"
-    },
-    {
-      "source": "/css/(.*)",
-      "destination": "/css/$1"
-    },
-    {
-      "source": "/js/(.*)",
-      "destination": "/js/$1"
-    },
-    {
-      "source": "/config/(.*)",
-      "destination": "/config/$1"
-    },
-    {
-      "source": "/samples/(.*)",
-      "destination": "/samples/$1"
-    },
-    {
-      "source": "/(.*\\.(png|jpg|jpeg|gif|svg|ico|webp|css|js|json|html))",
-      "destination": "/$1"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/server.js"
     }
   ],
   "headers": [
