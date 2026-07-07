@@ -238,11 +238,37 @@
 
 
 
-    function setStatus(text, type) {
+    let statusClearTimer = null;
+
+
+
+    function setStatus(text, type, autoClearMs) {
+
+      if (statusClearTimer) {
+
+        clearTimeout(statusClearTimer);
+
+        statusClearTimer = null;
+
+      }
 
       statusEl.textContent = text;
 
       statusEl.className = 'app-status' + (type ? ` text-${type}` : '');
+
+      if (autoClearMs) {
+
+        statusClearTimer = setTimeout(() => {
+
+          statusEl.textContent = '';
+
+          statusEl.className = 'app-status';
+
+          statusClearTimer = null;
+
+        }, autoClearMs);
+
+      }
 
     }
 
@@ -594,7 +620,7 @@
 
       mainUI.style.display = 'block';
 
-      setStatus(`Authenticated — editing ${currentOrg} checklists`, 'success');
+      setStatus(`Authenticated — editing ${currentOrg} checklists`, 'success', 3000);
 
 
 
