@@ -54,7 +54,15 @@
         <div class="detail-editor-panel">
           <div id="detailHost"></div>
           <div class="preview-panel" style="position: static;">
-            <h2><i class="fa-solid fa-eye"></i> Preview</h2>
+            <div class="preview-panel-header">
+              <div class="preview-panel-titles">
+                <h2><i class="fa-solid fa-eye"></i> Preview</h2>
+              </div>
+              <!-- PRODUCTION: wire preview-theme-gear to inspection themeSelectorBtn / applyTheme() -->
+              <button type="button" class="preview-theme-gear theme-selector-btn" title="Select preview theme" aria-label="Select preview theme">
+                <i class="fas fa-cog"></i>
+              </button>
+            </div>
             <div id="previewHost"></div>
           </div>
         </div>
@@ -87,42 +95,66 @@
     }
 
     function renderNav() {
+      navHost.innerHTML = '';
       if (!fields.length) {
         navHost.innerHTML = '<p class="text-muted small mb-0">No questions</p>';
-        return;
+      } else {
+        const inner = document.createElement('div');
+        inner.className = 'nav-list-inner';
+        inner.innerHTML = fields.map((f, i) => `
+          <div class="question-nav-item draggable-item${i === activeIdx && !addingNew ? ' active' : ''}" data-idx="${i}">
+            <span class="grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
+            <button type="button" class="nav-item-body">
+              ${escapeHtml(f.label) || '(Untitled)'}
+              <div class="nav-sub">${escapeHtml(typeLabelForField(f))}${f.required ? ' · Required' : ''}</div>
+            </button>
+          </div>
+        `).join('');
+        navHost.appendChild(inner);
+
+        bindDragReorder(inner, {
+          fields,
+          itemSelector: '.question-nav-item',
+          onReorder: (from, to) => {
+            if (!addingNew) {
+              activeIdx = adjustIndexAfterReorder(activeIdx, from, to);
+            }
+            refresh();
+          }
+        });
+
+        inner.querySelectorAll('.question-nav-item').forEach(row => {
+          const idx = +row.dataset.idx;
+          row.querySelector('.nav-item-body').onclick = () => {
+            activeIdx = idx;
+            addingNew = false;
+            renderNav();
+            renderDetail();
+          };
+        });
       }
-      navHost.innerHTML = fields.map((f, i) => `
-        <button type="button" class="question-nav-item${i === activeIdx && !addingNew ? ' active' : ''}" data-idx="${i}">
-          ${escapeHtml(f.label)}
-          <div class="nav-sub">${escapeHtml(typeLabelForField(f))}${f.required ? ' · Required' : ''}</div>
-        </button>
-      `).join('');
-      navHost.querySelectorAll('.question-nav-item').forEach(btn => {
-        btn.onclick = () => {
-          activeIdx = +btn.dataset.idx;
-          addingNew = false;
-          renderNav();
-          renderDetail();
-        };
+      appendAddQuestionButton(navHost, () => {
+        addingNew = true;
+        renderNav();
+        renderDetail();
       });
     }
 
     function renderDetail() {
       detailHost.innerHTML = '';
       if (!fields.length && !addingNew) {
-        detailHost.innerHTML = '<div class="empty-state"><p>Select or add a question from the toolbar.</p></div>';
+        detailHost.innerHTML = '<div class="empty-state"><p>Select or add a question below the list.</p></div>';
         return;
       }
-      const field = addingNew
-        ? { label: '', type: 'segmented', options: ['Yes', 'No'] }
-        : fields[activeIdx];
-      if (!field) return;
+      const field = addingNew ? newEmptyField() : fields[activeIdx];
+      if (!field && !addingNew) return;
 
       const panel = document.createElement('div');
       panel.className = 'card-panel';
       panel.innerHTML = `<h2><i class="fa-solid fa-pen-to-square"></i> ${addingNew ? 'New question' : 'Edit question'}</h2>`;
       const editor = createEditorForm({
         field,
+        isNew: addingNew,
         onSave: saved => {
           if (addingNew) {
             fields.push(saved);
@@ -134,7 +166,7 @@
           refresh();
         },
         onCancel: () => {
-          if (addingNew) addingNew = false;
+          addingNew = false;
           renderDetail();
         }
       });

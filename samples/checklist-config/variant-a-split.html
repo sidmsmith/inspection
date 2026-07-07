@@ -52,8 +52,16 @@
           <div id="listHost"></div>
         </div>
         <div class="preview-panel">
-          <h2><i class="fa-solid fa-eye"></i> Live preview</h2>
-          <p class="preview-note">How inspectors will see the PO checklist</p>
+          <div class="preview-panel-header">
+            <div class="preview-panel-titles">
+              <h2><i class="fa-solid fa-eye"></i> Live preview</h2>
+              <p class="preview-note">How inspectors will see the PO checklist</p>
+            </div>
+            <!-- PRODUCTION: wire preview-theme-gear to inspection themeSelectorBtn / applyTheme() -->
+            <button type="button" class="preview-theme-gear theme-selector-btn" title="Select preview theme" aria-label="Select preview theme">
+              <i class="fas fa-cog"></i>
+            </button>
+          </div>
           <div id="previewHost"></div>
         </div>
       </div>
@@ -82,42 +90,62 @@
     }
 
     function renderList() {
+      listHost.innerHTML = '';
       if (!fields.length) {
-        listHost.innerHTML = '<div class="empty-state"><i class="fa-solid fa-inbox fa-2x mb-2"></i><p>No questions — add one or reset from default.</p></div>';
-        return;
-      }
-      listHost.innerHTML = fields.map((f, i) => `
-        <div class="question-row${i === selectedIdx ? ' selected' : ''}" data-idx="${i}">
-          <span class="grip"><i class="fa-solid fa-grip-vertical"></i></span>
-          <div class="q-label">${escapeHtml(f.label)}${f.required ? ' <span class="required-asterisk">*</span>' : ''}</div>
-          <span class="badge-type">${escapeHtml(typeLabelForField(f))}</span>
-          <div class="q-actions">
-            <button type="button" class="btn btn-outline-light btn-icon edit-btn" title="Edit"><i class="fa-solid fa-pen"></i></button>
-            <button type="button" class="btn btn-outline-danger btn-icon del-btn" title="Delete"><i class="fa-solid fa-trash"></i></button>
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.innerHTML = '<i class="fa-solid fa-inbox fa-2x mb-2"></i><p>No questions — add one or reset from default.</p>';
+        listHost.appendChild(empty);
+      } else {
+        const inner = document.createElement('div');
+        inner.className = 'question-list-inner';
+        inner.innerHTML = fields.map((f, i) => `
+          <div class="question-row draggable-item${i === selectedIdx ? ' selected' : ''}" data-idx="${i}">
+            <span class="grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
+            <div class="q-label">${escapeHtml(f.label)}${f.required ? ' <span class="required-asterisk">*</span>' : ''}</div>
+            <span class="badge-type">${escapeHtml(typeLabelForField(f))}</span>
+            <div class="q-actions">
+              <button type="button" class="btn btn-outline-light btn-icon edit-btn" title="Edit"><i class="fa-solid fa-pen"></i></button>
+              <button type="button" class="btn btn-outline-danger btn-icon del-btn" title="Delete"><i class="fa-solid fa-trash"></i></button>
+            </div>
           </div>
-        </div>
-      `).join('');
+        `).join('');
+        listHost.appendChild(inner);
 
-      listHost.querySelectorAll('.question-row').forEach(row => {
-        const idx = +row.dataset.idx;
-        row.querySelector('.edit-btn').onclick = e => { e.stopPropagation(); openEditor(idx); };
-        row.querySelector('.del-btn').onclick = e => {
-          e.stopPropagation();
-          fields.splice(idx, 1);
-          selectedIdx = -1;
-          editorHost.innerHTML = '';
-          refresh();
-        };
-        row.onclick = () => openEditor(idx);
-      });
+        bindDragReorder(inner, {
+          fields,
+          onReorder: (from, to) => {
+            selectedIdx = adjustIndexAfterReorder(selectedIdx, from, to);
+            refresh();
+          }
+        });
+
+        inner.querySelectorAll('.question-row').forEach(row => {
+          const idx = +row.dataset.idx;
+          row.querySelector('.edit-btn').onclick = e => { e.stopPropagation(); openEditor(idx); };
+          row.querySelector('.del-btn').onclick = e => {
+            e.stopPropagation();
+            fields.splice(idx, 1);
+            selectedIdx = -1;
+            editorHost.innerHTML = '';
+            refresh();
+          };
+          row.onclick = e => {
+            if (e.target.closest('.grip') || e.target.closest('.q-actions')) return;
+            openEditor(idx);
+          };
+        });
+      }
+      appendAddQuestionButton(listHost, () => openEditor(-1));
     }
 
     function openEditor(idx) {
       selectedIdx = idx;
-      const field = idx >= 0 ? fields[idx] : { label: '', type: 'segmented', options: ['Yes', 'No'] };
+      const field = idx >= 0 ? fields[idx] : newEmptyField();
       editorHost.innerHTML = '';
       editorHost.appendChild(createEditorForm({
         field,
+        isNew: idx < 0,
         onSave: saved => {
           if (idx >= 0) fields[idx] = saved;
           else fields.push(saved);

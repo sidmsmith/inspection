@@ -49,8 +49,16 @@
       <div class="config-layout-cards">
         <div id="cardsHost"></div>
         <div class="preview-panel">
-          <h2><i class="fa-solid fa-eye"></i> Live preview</h2>
-          <p class="preview-note">Sticky preview while you edit cards</p>
+          <div class="preview-panel-header">
+            <div class="preview-panel-titles">
+              <h2><i class="fa-solid fa-eye"></i> Live preview</h2>
+              <p class="preview-note">Sticky preview while you edit cards</p>
+            </div>
+            <!-- PRODUCTION: wire preview-theme-gear to inspection themeSelectorBtn / applyTheme() -->
+            <button type="button" class="preview-theme-gear theme-selector-btn" title="Select preview theme" aria-label="Select preview theme">
+              <i class="fas fa-cog"></i>
+            </button>
+          </div>
           <div id="previewHost"></div>
         </div>
       </div>
@@ -77,70 +85,84 @@
     }
 
     function renderCards() {
+      cardsHost.innerHTML = '';
       if (!fields.length) {
-        cardsHost.innerHTML = '<div class="empty-state"><p>No questions yet.</p><button type="button" class="btn btn-primary btn-sm" id="emptyAdd">Add first question</button></div>';
-        document.getElementById('emptyAdd')?.addEventListener('click', () => addNew());
-        return;
-      }
-
-      cardsHost.innerHTML = fields.map((f, i) => `
-        <div class="card-panel question-card${expandedIdx === i ? '' : ' collapsed'}" data-idx="${i}">
-          <div class="card-header-row">
-            <span class="grip text-muted"><i class="fa-solid fa-grip-vertical"></i></span>
-            <h3>${escapeHtml(f.label)}${f.required ? ' <span class="required-asterisk">*</span>' : ''}</h3>
-            <span class="badge-type">${escapeHtml(typeLabelForField(f))}</span>
-            <button type="button" class="btn btn-outline-danger btn-sm del-btn"><i class="fa-solid fa-trash"></i></button>
-            <i class="fa-solid fa-chevron-down text-muted expand-icon"></i>
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.innerHTML = '<p>No questions yet.</p>';
+        cardsHost.appendChild(empty);
+      } else {
+        const inner = document.createElement('div');
+        inner.className = 'cards-list-inner';
+        inner.innerHTML = fields.map((f, i) => `
+          <div class="card-panel question-card draggable-item${expandedIdx === i ? '' : ' collapsed'}" data-idx="${i}">
+            <div class="card-header-row">
+              <span class="grip text-muted" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
+              <h3>${escapeHtml(f.label)}${f.required ? ' <span class="required-asterisk">*</span>' : ''}</h3>
+              <span class="badge-type">${escapeHtml(typeLabelForField(f))}</span>
+              <button type="button" class="btn btn-outline-danger btn-sm del-btn"><i class="fa-solid fa-trash"></i></button>
+              <i class="fa-solid fa-chevron-down text-muted expand-icon"></i>
+            </div>
+            <div class="card-body-inner mt-3" id="cardBody${i}"></div>
           </div>
-          <div class="card-body-inner mt-3" id="cardBody${i}"></div>
-        </div>
-      `).join('');
+        `).join('');
+        cardsHost.appendChild(inner);
 
-      cardsHost.querySelectorAll('.question-card').forEach(card => {
-        const idx = +card.dataset.idx;
-        const header = card.querySelector('.card-header-row');
-        header.onclick = e => {
-          if (e.target.closest('.del-btn')) return;
-          expandedIdx = expandedIdx === idx ? -1 : idx;
-          renderCards();
-        };
-        card.querySelector('.del-btn').onclick = e => {
-          e.stopPropagation();
-          fields.splice(idx, 1);
-          expandedIdx = -1;
-          refresh();
-        };
-        if (expandedIdx === idx) {
-          const body = card.querySelector(`#cardBody${idx}`);
-          body.appendChild(createInlineEditor(fields[idx], idx));
-        }
-      });
+        bindDragReorder(inner, {
+          fields,
+          itemSelector: '.question-card',
+          onReorder: (from, to) => {
+            expandedIdx = adjustIndexAfterReorder(expandedIdx, from, to);
+            refresh();
+          }
+        });
+
+        inner.querySelectorAll('.question-card').forEach(card => {
+          const idx = +card.dataset.idx;
+          const header = card.querySelector('.card-header-row');
+          header.onclick = e => {
+            if (e.target.closest('.del-btn') || e.target.closest('.grip')) return;
+            expandedIdx = expandedIdx === idx ? -1 : idx;
+            renderCards();
+            renderPreview(fields, previewHost);
+          };
+          card.querySelector('.del-btn').onclick = e => {
+            e.stopPropagation();
+            fields.splice(idx, 1);
+            expandedIdx = -1;
+            refresh();
+          };
+          if (expandedIdx === idx) {
+            const body = card.querySelector(`#cardBody${idx}`);
+            body.appendChild(createInlineEditor(fields[idx], idx));
+          }
+        });
+      }
+      appendAddQuestionButton(cardsHost, () => addNew());
     }
 
     function createInlineEditor(field, idx) {
       const shell = document.createElement('div');
+      const creating = !field.id;
       shell.appendChild(createEditorForm({
         field,
+        isNew: creating,
         onSave: saved => {
           fields[idx] = saved;
           expandedIdx = -1;
           refresh();
         },
         onCancel: () => {
+          if (creating && !fields[idx]?.label) fields.splice(idx, 1);
           expandedIdx = -1;
-          renderCards();
+          refresh();
         }
       }));
       return shell;
     }
 
     function addNew() {
-      fields.push({
-        id: 'new_question',
-        label: 'New question',
-        type: 'segmented',
-        options: ['Yes', 'No']
-      });
+      fields.push(newEmptyField());
       expandedIdx = fields.length - 1;
       refresh();
     }
