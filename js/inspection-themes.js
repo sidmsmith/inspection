@@ -254,7 +254,8 @@
           '--logo-display': 'block'
         },
         logo: '/nissan_logo.png',
-        logoMaxHeight: '100px'
+        logoMaxHeight: '100px',
+        logoThumbBg: '#0D47A1'
       },
       'kendrascott': {
         name: 'Kendra Scott',
@@ -364,6 +365,13 @@
     return themeKey;
   }
 
+  function themePickerThumbBackground(theme) {
+    if (theme.logoThumbBg) return theme.logoThumbBg;
+    const colors = theme.colors || {};
+    if (theme.logo) return colors['--card-bg'] || '#ffffff';
+    return colors['--bg-dark'] || colors['--card-bg'] || '#f8f9fa';
+  }
+
   function renderPreviewThemeList(themeList, themeModal, { scopeEl, logoEl, storageKey = 'adminPreviewTheme', currentKey }) {
     if (!themeList) return;
     themeList.innerHTML = '';
@@ -374,9 +382,10 @@
         const item = document.createElement('button');
         item.type = 'button';
         item.className = 'list-group-item list-group-item-action theme-picker-item' + (key === active ? ' active' : '');
+        const thumbBg = themePickerThumbBackground(theme);
         const thumb = theme.logo
-          ? `<img class="theme-picker-thumb" src="${theme.logo}" alt="" />`
-          : '<span class="theme-picker-thumb theme-picker-thumb-empty"></span>';
+          ? `<span class="theme-picker-thumb-wrap" style="background:${thumbBg}"><img class="theme-picker-thumb" src="${theme.logo}" alt="" /></span>`
+          : `<span class="theme-picker-thumb-wrap" style="background:${thumbBg}"><span class="theme-picker-thumb-empty"></span></span>`;
         item.innerHTML = `<span class="theme-picker-row">${thumb}<span>${theme.name}</span></span>`;
         item.onclick = () => {
           applyThemeToScope(key, scopeEl, logoEl);
