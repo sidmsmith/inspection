@@ -10,13 +10,54 @@
     },
     {
       "src": "server.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "index.html",
+          "admin.html",
+          "css/**",
+          "js/**",
+          "config/**",
+          "public/**",
+          "*.png",
+          "*.jpg",
+          "*.jpeg",
+          "*.gif",
+          "*.svg",
+          "*.webp",
+          "*.ico"
+        ]
+      }
     }
   ],
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "/api/index.py"
+    },
+    {
+      "source": "/admin.html",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/css/(.*)",
+      "destination": "/css/$1"
+    },
+    {
+      "source": "/js/(.*)",
+      "destination": "/js/$1"
+    },
+    {
+      "source": "/config/(.*)",
+      "destination": "/config/$1"
+    },
+    {
+      "source": "/samples/(.*)",
+      "destination": "/samples/$1"
+    },
+    {
+      "source": "/",
+      "destination": "/server.js"
     }
   ],
   "headers": [
