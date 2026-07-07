@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.0) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.1) */
 
 const FIELD_TYPES = [
   { key: 'yes_no', label: 'Yes / No', icon: 'fa-toggle-on', type: 'segmented', options: ['Yes', 'No'] },
@@ -745,4 +745,57 @@ async function adminSaveDeploy({ org, token, orgDraft, defaultConfig, objectType
   } finally {
     saveBtn.disabled = false;
   }
+}
+
+function exportOrgConfig({ org, orgDraft, setStatus }) {
+  const payload = buildOrgSavePayload(org, orgDraft);
+  const json = JSON.stringify(payload, null, 2) + '\n';
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const safeOrg = String(org || 'org').trim().toUpperCase() || 'ORG';
+  link.href = url;
+  link.download = `${safeOrg}-checklist-config.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  const typeCount = Object.keys(payload.checklists).length;
+  setStatus(`Exported ${safeOrg} config (${typeCount} object type${typeCount === 1 ? '' : 's'})`, 'success', 3000);
+}
+
+async function importOrgConfigFromFile({ file, org, orgDraft, defaultConfig, setStatus, onApplied }) {
+  let raw;
+  try {
+    raw = JSON.parse(await file.text());
+  } catch {
+    setStatus('Import failed — invalid JSON file', 'danger');
+    return { success: false };
+  }
+
+  let imported;
+  try {
+    imported = normalizeImportedOrgConfig(raw);
+  } catch (err) {
+    setStatus(err.message || 'Import failed — invalid config file', 'danger');
+    return { success: false };
+  }
+
+  const targetOrg = String(org || '').trim().toUpperCase();
+  const fileOrg = raw.org ? String(raw.org).trim().toUpperCase() : '';
+  const typeCount = Object.keys(imported.checklists).length;
+  const typeList = Object.keys(imported.checklists).join(', ');
+
+  let message = `Import ${typeCount} object type${typeCount === 1 ? '' : 's'} (${typeList}) into ${targetOrg}?`;
+  message += '\n\nThis updates your local draft only — use Save & Deploy to publish.';
+  if (fileOrg && fileOrg !== targetOrg) {
+    message = `This file is labeled for ${fileOrg} but you are editing ${targetOrg}.\n\n${message}`;
+  }
+  if (!window.confirm(message)) {
+    return { success: false, cancelled: true };
+  }
+
+  applyOrgDraftFromImport(orgDraft, imported);
+  const nextConfig = mergeChecklistConfigs(defaultConfig, orgDraft);
+  onApplied(nextConfig);
+  setStatus(`Imported ${typeCount} object type${typeCount === 1 ? '' : 's'} — Save & Deploy when ready`, 'success', 4000);
+  return { success: true };
 }

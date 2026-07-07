@@ -95,3 +95,31 @@ function buildOrgSavePayload(org, orgDraft) {
     checklists: orgDraft?.checklists || {}
   };
 }
+
+const CHECKLIST_OBJECT_TYPE_KEYS = new Set(CHECKLIST_OBJECT_TYPES.map(t => t.key));
+
+function normalizeImportedOrgConfig(raw) {
+  if (!raw || typeof raw !== 'object') {
+    throw new Error('Invalid file — expected a JSON object');
+  }
+  const checklists = raw.checklists;
+  if (!checklists || typeof checklists !== 'object' || Array.isArray(checklists)) {
+    throw new Error('Invalid file — expected a "checklists" object');
+  }
+  const normalized = { checklists: {} };
+  for (const [typeKey, entry] of Object.entries(checklists)) {
+    if (!CHECKLIST_OBJECT_TYPE_KEYS.has(typeKey)) continue;
+    if (!entry || !Array.isArray(entry.fields)) continue;
+    normalized.checklists[typeKey] = {
+      fields: JSON.parse(JSON.stringify(entry.fields))
+    };
+  }
+  if (!Object.keys(normalized.checklists).length) {
+    throw new Error('No valid checklist types found — need at least one object type with a "fields" array');
+  }
+  return normalized;
+}
+
+function applyOrgDraftFromImport(orgDraft, imported) {
+  orgDraft.checklists = JSON.parse(JSON.stringify(imported.checklists || {}));
+}

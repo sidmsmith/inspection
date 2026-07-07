@@ -324,6 +324,25 @@
   margin-bottom: 1rem;
 }
 
+.config-toolbar-primary {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.config-toolbar-io {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.config-toolbar-io label.btn {
+  cursor: pointer;
+}
+
 .config-toolbar .field-grow { flex: 1 1 200px; min-width: 0; }
 .config-toolbar .toolbar-actions {
   display: flex;
