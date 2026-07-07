@@ -693,6 +693,10 @@
     .modal-header, .modal-footer {
       border-color: var(--border);
     }
+    .ilpn-lock-fail {
+      color: var(--red-text);
+      font-weight: 700;
+    }
     .inspection-busy-overlay {
       position: fixed;
       inset: 0;
@@ -3292,6 +3296,7 @@
         });
 
         let lockResult = null;
+        let ilpnLockFailed = false;
         const selectedConditionCode = appt._searchType === 'ilpn'
           ? (appt._checklistResponses?.condition_code || getChecklistFieldValue('condition_code'))
           : '';
@@ -3319,13 +3324,14 @@
             if (lockResult.success) {
               message += ` iLPN ${ilpnId} locked with condition code ${selectedConditionCode}.`;
             } else {
-              message += ` iLPN lock failed: ${lockResult.error || 'Unknown error'}.`;
+              ilpnLockFailed = true;
             }
           }
         }
 
         clearBusyOverlay();
-        checkinMessage.textContent = message;
+        checkinMessage.innerHTML = escapeHtml(message) +
+          (ilpnLockFailed ? '<br><strong class="ilpn-lock-fail">iLPN lock FAILED</strong>' : '');
         checkinModal.show();
 
         trackEvent('inspection_completed', {
@@ -3533,6 +3539,7 @@
         hidden.forEach(({ el, display }) => {
           el.style.display = display;
         });
+        restoreCaptureTimerPresentation();
         restoreFormAfterCapture();
       }
     }
