@@ -1,0 +1,59 @@
+{
+  "org": "SC-DEMO",
+  "updatedAt": "2026-07-07T19:27:48.584Z",
+  "checklists": {
+    "po": {
+      "fields": [
+        {
+          "id": "po_details_match",
+          "label": "PO # And Details Match",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Yes"
+        },
+        {
+          "id": "items_skus_correct",
+          "label": "Items / SKUs Correct",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "No"
+        },
+        {
+          "id": "delivery_date_on_track",
+          "label": "Delivery Date On Track",
+          "type": "dropdown",
+          "options": [
+            "Delayed",
+            "Early",
+            "On Time"
+          ],
+          "required": true,
+          "default": "Delayed"
+        },
+        {
+          "id": "special_instructions_met",
+          "label": "Special Instructions Met",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Pass"
+        },
+        {
+          "id": "amendments_noted",
+          "label": "Amendments Noted",
+          "type": "freeform",
+          "placeholder": "None / Details here...",
+          "default": "None"
+        }
+      ]
+    }
+  }
+}
