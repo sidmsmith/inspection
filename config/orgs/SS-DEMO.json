@@ -1,0 +1,87 @@
+{
+  "org": "SS-DEMO",
+  "updatedAt": "2026-07-07T19:26:00.221Z",
+  "checklists": {
+    "ilpn": {
+      "fields": [
+        {
+          "id": "label_present_legible",
+          "label": "Label Present & Legible",
+          "type": "dropdown",
+          "options": [
+            "Eligible",
+            "Present"
+          ],
+          "required": true,
+          "default": "Eligible"
+        },
+        {
+          "id": "visible_damage",
+          "label": "Visible Damage",
+          "type": "segmented",
+          "options": [
+            "None",
+            "Yes (describe)"
+          ]
+        },
+        {
+          "id": "storage_conditions_ok",
+          "label": "Storage Conditions OK",
+          "type": "dropdown",
+          "options": [
+            "Good",
+            "Improper Stacking",
+            "Temperature Issue"
+          ],
+          "required": true,
+          "default": "Good"
+        },
+        {
+          "id": "contents_match_system",
+          "label": "Contents Match System",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "No"
+        },
+        {
+          "id": "location_correct",
+          "label": "Location Correct",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Pass"
+        },
+        {
+          "id": "seal_tag_intact",
+          "label": "Seal / Tag Intact",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "id": "weight_dims_accurate",
+          "label": "Weight & Dims Accurate",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "OnTime"
+        },
+        {
+          "id": "condition_code",
+          "label": "Condition Code",
+          "type": "dropdown",
+          "dataSource": "ilpn_condition_codes"
+        }
+      ]
+    }
+  }
+}
