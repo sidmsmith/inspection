@@ -375,11 +375,11 @@ function applyOrgDraftFromImport(orgDraft, imported) {
 
 function sectionSummaryLabel(key, sections) {
   const sec = sections?.[key];
-  if (!sec?.enabled) return 'Off';
+  if (!sec?.enabled) return 'OFF';
   if (key === 'damagePad') {
     return sec.mode === 'photo' ? 'Camera photo' : 'Stock diagram';
   }
-  return 'On';
+  return 'ON';
 }
 
 function sectionTypeBadge(key) {
