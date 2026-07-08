@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.8) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.9) */
 
 const FIELD_TYPES = [
   { key: 'yes_no', label: 'Yes / No', icon: 'fa-toggle-on', type: 'segmented', options: ['Yes', 'No'] },
@@ -1098,7 +1098,7 @@ async function adminSaveDeploy({
       setStatus(res.error || 'Save failed', 'danger');
       return res;
     }
-    setStatus(res.message || `Saved ${org} checklist config — Please wait 1 minute to use checklist`, 'success');
+    setStatus(res.message || `Saved ${org} checklist config — Please wait 1 minute to use checklist`, 'success', 60000);
     return res;
   } catch (err) {
     setStatus(err.message || 'Save failed', 'danger');

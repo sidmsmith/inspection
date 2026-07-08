@@ -1,5 +1,5 @@
 {
-  "version": 13,
+  "version": 14,
   "checklists": {
     "trailer": {
       "damagePad": {
@@ -15,15 +15,6 @@
           "id": "exterior_damage_buttons",
           "label": "Visible Exterior Damage?",
           "type": "segmented",
-          "options": [
-            "Pass",
-            "Fail"
-          ]
-        },
-        {
-          "id": "exterior_damage_toggles",
-          "label": "Visible Exterior Damage?",
-          "type": "toggle_pair",
           "options": [
             "Pass",
             "Fail"

@@ -14,15 +14,6 @@
           ]
         },
         {
-          "id": "exterior_damage_toggles",
-          "label": "Visible Exterior Damage?",
-          "type": "toggle_pair",
-          "options": [
-            "Pass",
-            "Fail"
-          ]
-        },
-        {
           "id": "floor_condition",
           "label": "Floor Condition",
           "type": "dropdown",
@@ -132,10 +123,6 @@
         {
           "type": "field",
           "id": "exterior_damage_buttons"
-        },
-        {
-          "type": "field",
-          "id": "exterior_damage_toggles"
         },
         {
           "type": "field",
