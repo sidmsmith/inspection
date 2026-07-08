@@ -222,11 +222,34 @@ async function loadOrgDraftForOrg(org) {
   }
 }
 
+/** Preserve explicit section flags (e.g. required: false) from live admin state. */
+function captureSectionsFromState(stateSections, objectType) {
+  const sections = buildSectionsFromRaw({ sections: stateSections || {} }, objectType);
+  for (const key of FORM_SECTION_KEYS) {
+    const src = stateSections?.[key];
+    if (!src || typeof src !== 'object') continue;
+    if ('required' in src) sections[key].required = src.required === true;
+    if ('enabled' in src) sections[key].enabled = src.enabled !== false;
+    if (src.label != null && String(src.label).trim()) {
+      sections[key].label = String(src.label).trim();
+    }
+    if (key === 'damagePad') {
+      if (src.mode) sections[key].mode = src.mode;
+      if (src.mode === 'stock') {
+        if (src.defaultImage) sections[key].defaultImage = src.defaultImage;
+        sections[key].images = Array.isArray(src.images) ? [...src.images] : ['container', 'trailer'];
+      }
+    }
+  }
+  return sections;
+}
+
 function syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, state, checklistsConfig) {
   if (!orgDraft.checklists) orgDraft.checklists = {};
+  const sections = captureSectionsFromState(state.sections, objectType);
   const normalized = normalizeChecklistEntry({
     fields: state.fields,
-    sections: state.sections,
+    sections,
     layout: state.layout
   }, objectType);
 
@@ -245,9 +268,7 @@ function buildFullOrgChecklistsFromConfig(checklistsConfig) {
   const checklists = {};
   for (const { key } of CHECKLIST_OBJECT_TYPES) {
     const raw = checklistsConfig?.checklists?.[key];
-    const normalized = raw?.sections && raw?.layout
-      ? normalizeChecklistEntry(raw, key)
-      : normalizeChecklistEntry(raw || { fields: [] }, key);
+    const normalized = normalizeChecklistEntry(raw || { fields: [] }, key);
     checklists[key] = {
       fields: normalized.fields,
       sections: normalized.sections,
@@ -271,9 +292,11 @@ function syncFieldsToOrgDraft(orgDraft, defaultConfig, objectType, fields, check
 }
 
 function buildOrgSavePayload(org, orgDraft, checklistsConfig) {
-  const checklists = checklistsConfig
-    ? buildFullOrgChecklistsFromConfig(checklistsConfig)
-    : (orgDraft?.checklists || {});
+  const merged = { checklists: {} };
+  for (const { key } of CHECKLIST_OBJECT_TYPES) {
+    merged.checklists[key] = orgDraft?.checklists?.[key] ?? checklistsConfig?.checklists?.[key];
+  }
+  const checklists = buildFullOrgChecklistsFromConfig(merged);
   return {
     org: String(org || '').trim().toUpperCase(),
     updatedAt: new Date().toISOString(),

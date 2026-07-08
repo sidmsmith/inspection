@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.3) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.4) */
 
 const FIELD_TYPES = [
   { key: 'yes_no', label: 'Yes / No', icon: 'fa-toggle-on', type: 'segmented', options: ['Yes', 'No'] },
@@ -584,6 +584,50 @@ function bindPreviewDamageStockToggle(block) {
   });
 }
 
+function formatChecklistExportFilename(org) {
+  const safeOrg = String(org || 'org').trim().toUpperCase() || 'ORG';
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}`;
+  return `checklist-config-${safeOrg}-${stamp}.json`;
+}
+
+/** Apply open section editor values to in-memory sections (export/save without clicking Save). */
+function flushPendingSectionEditor(editorHost, sections, selectedSectionKey, objectType) {
+  if (!editorHost || !selectedSectionKey || !sections) return;
+  const enabledEl = editorHost.querySelector('#secEnabled');
+  if (!enabledEl) return;
+
+  const key = selectedSectionKey;
+  const defaults = getDefaultSectionsForType(objectType);
+  const working = JSON.parse(JSON.stringify(sections[key] || defaults[key] || {}));
+  const labelEl = editorHost.querySelector('#secLabel');
+  const requiredEl = editorHost.querySelector('#secRequired');
+
+  if (labelEl) {
+    working.label = labelEl.value.trim() || DEFAULT_SECTION_LABELS[key] || working.label;
+  }
+  working.enabled = enabledEl.checked;
+  working.required = enabledEl.checked && !!(requiredEl && requiredEl.checked);
+
+  if (key === 'damagePad') {
+    const modeEl = editorHost.querySelector('#secDamageMode');
+    const defEl = editorHost.querySelector('#secDamageDefault');
+    if (modeEl) {
+      working.mode = modeEl.value === 'photo' ? 'photo' : 'stock';
+      if (working.mode === 'stock') {
+        working.defaultImage = defEl?.value || 'container';
+        working.images = ['container', 'trailer'];
+      } else {
+        delete working.defaultImage;
+        delete working.images;
+      }
+    }
+  }
+
+  sections[key] = working;
+}
+
 function createSectionEditorForm({ sectionKey, sections, objectType, onSave, onCancel }) {
   const wrap = document.createElement('div');
   wrap.className = 'editor-panel';
@@ -660,7 +704,7 @@ function createSectionEditorForm({ sectionKey, sections, objectType, onSave, onC
   wrap.querySelector('#secSave').onclick = () => {
     working.label = wrap.querySelector('#secLabel').value.trim() || DEFAULT_SECTION_LABELS[sectionKey];
     working.enabled = enabledEl.checked;
-    working.required = wrap.querySelector('#secRequired').checked;
+    working.required = enabledEl.checked && wrap.querySelector('#secRequired').checked;
     if (sectionKey === 'damagePad') {
       working.mode = wrap.querySelector('#secDamageMode').value;
       if (working.mode === 'stock') {
@@ -1071,7 +1115,7 @@ function exportOrgConfig({ org, orgDraft, checklistsConfig, setStatus }) {
   const link = document.createElement('a');
   const safeOrg = String(org || 'org').trim().toUpperCase() || 'ORG';
   link.href = url;
-  link.download = `${safeOrg}-checklist-config.json`;
+  link.download = formatChecklistExportFilename(org);
   link.click();
   URL.revokeObjectURL(url);
   const typeCount = Object.keys(payload.checklists).length;
