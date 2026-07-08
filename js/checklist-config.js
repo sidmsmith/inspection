@@ -376,12 +376,10 @@ function applyOrgDraftFromImport(orgDraft, imported) {
 function sectionSummaryLabel(key, sections) {
   const sec = sections?.[key];
   if (!sec?.enabled) return 'Off';
-  const req = sec.required ? ' · required' : '';
   if (key === 'damagePad') {
-    const mode = sec.mode === 'photo' ? 'Camera photo' : 'Stock diagram';
-    return `${mode}${req}`;
+    return sec.mode === 'photo' ? 'Camera photo' : 'Stock diagram';
   }
-  return `On${req}`;
+  return 'On';
 }
 
 function sectionTypeBadge(key) {

@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.2.0) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.2.1) */
 
 const FIELD_TYPES = [
   { key: 'yes_no', label: 'Yes / No', icon: 'fa-toggle-on', type: 'segmented', options: ['Yes', 'No'] },
@@ -765,8 +765,9 @@ function renderChecklistAdminList(listHost, {
       const systemBadge = editable ? '' : ' <span class="badge-system">System</span>';
       const selected = i === selectedFieldIdx && !selectedSectionKey;
       const offClass = !editable && f.enabled === false ? ' section-row-off' : '';
-      const visibility = fieldVisibilityLabel(f);
-      const badgeText = visibility ? `${escapeHtml(typeLabelForField(f))} · ${visibility}` : escapeHtml(typeLabelForField(f));
+      const badgeText = isSystemField(f)
+        ? systemFieldSummaryLabel(f)
+        : escapeHtml(typeLabelForField(f));
       return `
         <div class="question-row draggable-item${selected ? ' selected' : ''}${editable ? '' : ' system-field'}${offClass}" data-idx="${i}" data-kind="field">
           <span class="grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
@@ -830,9 +831,11 @@ function renderChecklistAdminList(listHost, {
   appendAddQuestionButton(listHost, onAddQuestion);
 }
 
-function fieldVisibilityLabel(field) {
-  if (!isSystemField(field)) return '';
-  return field.enabled === false ? 'Off' : 'On';
+function systemFieldSummaryLabel(field) {
+  const onOff = field.enabled === false ? 'Off' : 'On';
+  if (field.dataSource === 'condition_codes') return `Trailer condition · ${onOff}`;
+  if (field.dataSource === 'ilpn_condition_codes') return `iLPN condition · ${onOff}`;
+  return onOff;
 }
 
 function createReadOnlyFieldPanel({ field, onSave, onCancel }) {
