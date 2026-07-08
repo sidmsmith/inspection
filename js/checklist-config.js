@@ -223,44 +223,59 @@ async function loadOrgDraftForOrg(org) {
 }
 
 /** Preserve explicit section flags (e.g. required: false) from live admin state. */
-function captureSectionsFromState(stateSections, objectType) {
-  const sections = buildSectionsFromRaw({ sections: stateSections || {} }, objectType);
+function serializeSectionsForStorage(stateSections, objectType) {
+  const defaults = getDefaultSectionsForType(objectType);
+  const out = {};
   for (const key of FORM_SECTION_KEYS) {
-    const src = stateSections?.[key];
-    if (!src || typeof src !== 'object') continue;
-    if ('required' in src) sections[key].required = src.required === true;
-    if ('enabled' in src) sections[key].enabled = src.enabled !== false;
-    if (src.label != null && String(src.label).trim()) {
-      sections[key].label = String(src.label).trim();
-    }
+    const src = stateSections?.[key] || {};
+    const base = JSON.parse(JSON.stringify(defaults[key]));
+    out[key] = { ...base, ...JSON.parse(JSON.stringify(src)) };
+    out[key].enabled = 'enabled' in src ? src.enabled !== false : base.enabled !== false;
+    out[key].required = 'required' in src ? src.required === true : base.required === true;
+    if (!String(out[key].label || '').trim()) out[key].label = base.label;
     if (key === 'damagePad') {
-      if (src.mode) sections[key].mode = src.mode;
-      if (src.mode === 'stock') {
-        if (src.defaultImage) sections[key].defaultImage = src.defaultImage;
-        sections[key].images = Array.isArray(src.images) ? [...src.images] : ['container', 'trailer'];
+      out[key].mode = src.mode || base.mode || 'stock';
+      if (out[key].mode === 'stock') {
+        out[key].defaultImage = src.defaultImage || base.defaultImage || 'container';
+        out[key].images = Array.isArray(src.images) ? [...src.images] : [...(base.images || ['container', 'trailer'])];
+      } else {
+        delete out[key].defaultImage;
+        delete out[key].images;
       }
     }
   }
-  return sections;
+  return out;
+}
+
+/** @deprecated use serializeSectionsForStorage */
+function captureSectionsFromState(stateSections, objectType) {
+  return serializeSectionsForStorage(stateSections, objectType);
+}
+
+function buildChecklistEntryFromState(state, objectType) {
+  const fields = Array.isArray(state?.fields) ? JSON.parse(JSON.stringify(state.fields)) : [];
+  const sections = serializeSectionsForStorage(state?.sections, objectType);
+  const layout = sanitizeLayout(state?.layout, fields, sections);
+  return { fields, sections, layout };
+}
+
+function cloneChecklistEntryForExport(entry, objectType) {
+  if (!entry) return buildChecklistEntryFromState({ fields: [] }, objectType);
+  return buildChecklistEntryFromState({
+    fields: entry.fields,
+    sections: entry.sections,
+    layout: entry.layout
+  }, objectType);
 }
 
 function syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, state, checklistsConfig) {
   if (!orgDraft.checklists) orgDraft.checklists = {};
-  const sections = captureSectionsFromState(state.sections, objectType);
-  const normalized = normalizeChecklistEntry({
-    fields: state.fields,
-    sections,
-    layout: state.layout
-  }, objectType);
+  const entry = JSON.parse(JSON.stringify(buildChecklistEntryFromState(state, objectType)));
 
-  orgDraft.checklists[objectType] = {
-    fields: normalized.fields,
-    sections: normalized.sections,
-    layout: normalized.layout
-  };
+  orgDraft.checklists[objectType] = entry;
 
   if (!checklistsConfig.checklists) checklistsConfig.checklists = {};
-  checklistsConfig.checklists[objectType] = normalized;
+  checklistsConfig.checklists[objectType] = JSON.parse(JSON.stringify(entry));
 }
 
 /** Build a complete per-ORG checklist map (all object types) for save/export/deploy. */
@@ -291,12 +306,26 @@ function syncFieldsToOrgDraft(orgDraft, defaultConfig, objectType, fields, check
   }, checklistsConfig);
 }
 
-function buildOrgSavePayload(org, orgDraft, checklistsConfig) {
-  const merged = { checklists: {} };
-  for (const { key } of CHECKLIST_OBJECT_TYPES) {
-    merged.checklists[key] = orgDraft?.checklists?.[key] ?? checklistsConfig?.checklists?.[key];
+function buildOrgSavePayload(org, orgDraft, checklistsConfig, liveState) {
+  if (liveState?.objectType) {
+    syncChecklistStateToOrgDraft(
+      orgDraft,
+      null,
+      liveState.objectType,
+      {
+        fields: liveState.fields,
+        sections: liveState.sections,
+        layout: liveState.layout
+      },
+      checklistsConfig
+    );
   }
-  const checklists = buildFullOrgChecklistsFromConfig(merged);
+
+  const checklists = {};
+  for (const { key } of CHECKLIST_OBJECT_TYPES) {
+    const entry = orgDraft?.checklists?.[key] ?? checklistsConfig?.checklists?.[key];
+    checklists[key] = cloneChecklistEntryForExport(entry, key);
+  }
   return {
     org: String(org || '').trim().toUpperCase(),
     updatedAt: new Date().toISOString(),

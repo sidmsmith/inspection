@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.4) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.5) */
 
 const FIELD_TYPES = [
   { key: 'yes_no', label: 'Yes / No', icon: 'fa-toggle-on', type: 'segmented', options: ['Yes', 'No'] },
@@ -588,17 +588,23 @@ function formatChecklistExportFilename(org) {
   const safeOrg = String(org || 'org').trim().toUpperCase() || 'ORG';
   const d = new Date();
   const pad = n => String(n).padStart(2, '0');
-  const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}`;
+  const offsetMin = -d.getTimezoneOffset();
+  const sign = offsetMin >= 0 ? '+' : '-';
+  const abs = Math.abs(offsetMin);
+  const offH = pad(Math.floor(abs / 60));
+  const offM = pad(abs % 60);
+  const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${sign}${offH}${offM}`;
   return `checklist-config-${safeOrg}-${stamp}.json`;
 }
 
 /** Apply open section editor values to in-memory sections (export/save without clicking Save). */
 function flushPendingSectionEditor(editorHost, sections, selectedSectionKey, objectType) {
-  if (!editorHost || !selectedSectionKey || !sections) return;
+  if (!editorHost || !sections) return;
   const enabledEl = editorHost.querySelector('#secEnabled');
   if (!enabledEl) return;
 
-  const key = selectedSectionKey;
+  const key = selectedSectionKey || editorHost.querySelector('[data-section-key]')?.dataset.sectionKey;
+  if (!key) return;
   const defaults = getDefaultSectionsForType(objectType);
   const working = JSON.parse(JSON.stringify(sections[key] || defaults[key] || {}));
   const labelEl = editorHost.querySelector('#secLabel');
@@ -631,6 +637,7 @@ function flushPendingSectionEditor(editorHost, sections, selectedSectionKey, obj
 function createSectionEditorForm({ sectionKey, sections, objectType, onSave, onCancel }) {
   const wrap = document.createElement('div');
   wrap.className = 'editor-panel';
+  wrap.dataset.sectionKey = sectionKey;
   const working = JSON.parse(JSON.stringify(sections[sectionKey] || {}));
   const titles = {
     signature: 'Signature section',
@@ -1087,7 +1094,7 @@ async function adminSaveDeploy({
   }
 
   syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, { fields, sections, layout }, checklistsConfig);
-  const payload = buildOrgSavePayload(org, orgDraft, checklistsConfig);
+  const payload = buildOrgSavePayload(org, orgDraft, checklistsConfig, { objectType, fields, sections, layout });
 
   saveBtn.disabled = true;
   setStatus('Saving to GitHub...');
@@ -1107,8 +1114,8 @@ async function adminSaveDeploy({
   }
 }
 
-function exportOrgConfig({ org, orgDraft, checklistsConfig, setStatus }) {
-  const payload = buildOrgSavePayload(org, orgDraft, checklistsConfig);
+function exportOrgConfig({ org, orgDraft, checklistsConfig, liveState, setStatus }) {
+  const payload = buildOrgSavePayload(org, orgDraft, checklistsConfig, liveState);
   const json = JSON.stringify(payload, null, 2) + '\n';
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -1119,7 +1126,11 @@ function exportOrgConfig({ org, orgDraft, checklistsConfig, setStatus }) {
   link.click();
   URL.revokeObjectURL(url);
   const typeCount = Object.keys(payload.checklists).length;
-  setStatus(`Exported ${safeOrg} config (${typeCount} object type${typeCount === 1 ? '' : 's'})`, 'success', 3000);
+  setStatus(
+    `Exported ${safeOrg} local draft (${typeCount} object type${typeCount === 1 ? '' : 's'}) — Save & Deploy not required`,
+    'success',
+    4000
+  );
 }
 
 async function importOrgConfigFromFile({ file, org, orgDraft, defaultConfig, setStatus, onApplied }) {
