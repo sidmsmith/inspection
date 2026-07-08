@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import json
+import tempfile
 from pathlib import Path
 
 from fpdf import FPDF
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "config" / "checklists.default.json"
@@ -20,6 +22,10 @@ IMAGE_CANDIDATES = [
 PAGE_W = 215.9
 PAGE_H = 279.4
 MARGIN = 14
+PAPER_RGB = (244, 236, 220)
+# Stock diagram images use magenta as a transparency key (same as the inspection app).
+CHROMA_KEY = (255, 128, 255)
+CHROMA_TOLERANCE = 36
 
 
 class VintageChecklistPDF(FPDF):
@@ -62,13 +68,31 @@ def find_container_image() -> Path | None:
     return None
 
 
+def is_chroma_pixel(r: int, g: int, b: int) -> bool:
+    return (
+        abs(r - CHROMA_KEY[0]) <= CHROMA_TOLERANCE
+        and abs(g - CHROMA_KEY[1]) <= CHROMA_TOLERANCE
+        and abs(b - CHROMA_KEY[2]) <= CHROMA_TOLERANCE
+    )
+
+
+def prepare_container_image(source: Path, paper_rgb: tuple[int, int, int] = PAPER_RGB) -> Path:
+    """Replace magenta chroma-key pixels with the paper color so the diagram blends in."""
+    img = Image.open(source).convert("RGB")
+    pixels = img.load()
+    for y in range(img.height):
+        for x in range(img.width):
+            r, g, b = pixels[x, y]
+            if is_chroma_pixel(r, g, b):
+                pixels[x, y] = paper_rgb
+    out = Path(tempfile.gettempdir()) / "trailer-checklist-container.png"
+    img.save(out, format="PNG")
+    return out
+
+
 def paper_background(pdf: VintageChecklistPDF) -> None:
-    pdf.set_fill_color(244, 236, 220)
+    pdf.set_fill_color(*PAPER_RGB)
     pdf.rect(0, 0, PAGE_W, PAGE_H, style="F")
-    pdf.set_draw_color(220, 210, 195)
-    pdf.set_line_width(0.1)
-    for y in range(20, int(PAGE_H) - 15, 7):
-        pdf.line(12, y, PAGE_W - 12, y)
     pdf.set_draw_color(190, 175, 150)
     pdf.set_line_width(0.4)
     pdf.rect(8, 8, PAGE_W - 16, PAGE_H - 16)
@@ -211,17 +235,21 @@ def draw_damage_diagram(pdf: VintageChecklistPDF, image_path: Path | None) -> No
     box_w = PAGE_W - (MARGIN * 2)
     box_h = 52
 
+    pdf.set_fill_color(*PAPER_RGB)
     pdf.set_draw_color(80, 75, 68)
     pdf.set_line_width(0.3)
-    pdf.rect(x, y, box_w, box_h)
+    pdf.rect(x, y, box_w, box_h, style="FD")
 
+    rendered = False
     if image_path:
         try:
-            pdf.image(str(image_path), x + 4, y + 3, w=box_w - 8, h=box_h - 6)
+            prepared = prepare_container_image(image_path)
+            pdf.image(str(prepared), x + 4, y + 3, w=box_w - 8, h=box_h - 6)
+            rendered = True
         except Exception:
-            image_path = None
+            rendered = False
 
-    if not image_path:
+    if not rendered:
         pdf.set_xy(x, y + box_h / 2 - 4)
         pdf.set_font("Courier", "I", 10)
         pdf.set_text_color(120, 110, 95)
