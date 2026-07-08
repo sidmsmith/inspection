@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.9) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.2.0) */
 
 const FIELD_TYPES = [
   { key: 'yes_no', label: 'Yes / No', icon: 'fa-toggle-on', type: 'segmented', options: ['Yes', 'No'] },
@@ -486,7 +486,7 @@ function renderPreview(fields, container, options = {}) {
     layout.forEach(item => {
       if (item.type === 'field') {
         const field = fieldById.get(item.id);
-        if (!field) return;
+        if (!field || !isFieldEnabledInForm(field)) return;
         const group = document.createElement('div');
         group.className = 'form-group';
         const label = document.createElement('label');
@@ -764,11 +764,14 @@ function renderChecklistAdminList(listHost, {
       const editable = isAdminEditableField(f);
       const systemBadge = editable ? '' : ' <span class="badge-system">System</span>';
       const selected = i === selectedFieldIdx && !selectedSectionKey;
+      const offClass = !editable && f.enabled === false ? ' section-row-off' : '';
+      const visibility = fieldVisibilityLabel(f);
+      const badgeText = visibility ? `${escapeHtml(typeLabelForField(f))} · ${visibility}` : escapeHtml(typeLabelForField(f));
       return `
-        <div class="question-row draggable-item${selected ? ' selected' : ''}${editable ? '' : ' system-field'}" data-idx="${i}" data-kind="field">
+        <div class="question-row draggable-item${selected ? ' selected' : ''}${editable ? '' : ' system-field'}${offClass}" data-idx="${i}" data-kind="field">
           <span class="grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
           <div class="q-label">${escapeHtml(f.label)}${f.required ? ' <span class="required-asterisk">*</span>' : ''}${systemBadge}</div>
-          <span class="badge-type">${escapeHtml(typeLabelForField(f))}</span>
+          <span class="badge-type">${badgeText}</span>
           <div class="q-actions">
             <button type="button" class="btn btn-outline-light btn-icon edit-btn" title="Edit"><i class="fa-solid fa-pen"></i></button>
             <button type="button" class="btn btn-outline-danger btn-icon del-btn${editable ? '' : ' del-btn-hidden'}" title="Delete"><i class="fa-solid fa-trash"></i></button>
@@ -827,19 +830,36 @@ function renderChecklistAdminList(listHost, {
   appendAddQuestionButton(listHost, onAddQuestion);
 }
 
-function createReadOnlyFieldPanel(field) {
+function fieldVisibilityLabel(field) {
+  if (!isSystemField(field)) return '';
+  return field.enabled === false ? 'Off' : 'On';
+}
+
+function createReadOnlyFieldPanel({ field, onSave, onCancel }) {
+  const working = JSON.parse(JSON.stringify(field));
   const wrap = document.createElement('div');
   wrap.className = 'editor-panel';
   wrap.innerHTML = `
     <h3>System question</h3>
-    <p class="text-muted mb-2">${escapeHtml(field.label)}</p>
-    <p class="small mb-3">
+    <p class="mb-1 fw-semibold">${escapeHtml(field.label)}</p>
+    <p class="small text-muted mb-3">
       <i class="fa-solid fa-lock me-1"></i>
       This question type (<strong>${escapeHtml(typeLabelForField(field))}</strong>) cannot be edited here.
-      You can reorder it in the list.
+      You can reorder it in the list and control visibility below.
     </p>
-    <button type="button" class="btn btn-secondary" id="edClose">Close</button>`;
-  wrap.querySelector('#edClose').onclick = () => wrap.dispatchEvent(new CustomEvent('admin-close', { bubbles: true }));
+    <div class="mb-3 form-check form-switch">
+      <input class="form-check-input" type="checkbox" id="sysEnabled" ${working.enabled !== false ? 'checked' : ''} />
+      <label class="form-check-label" for="sysEnabled">Show in inspection form</label>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <button type="button" class="btn btn-primary" id="sysSave">Save</button>
+      <button type="button" class="btn btn-secondary" id="sysCancel">Cancel</button>
+    </div>`;
+  wrap.querySelector('#sysSave').onclick = () => {
+    working.enabled = wrap.querySelector('#sysEnabled').checked;
+    onSave(working);
+  };
+  wrap.querySelector('#sysCancel').onclick = onCancel;
   return wrap;
 }
 
@@ -897,10 +917,14 @@ function createSystemFieldEditor({ field, onSave, onCancel }) {
     <p class="mb-1 fw-semibold">${escapeHtml(field.label)}</p>
     <p class="small text-muted mb-3">
       <i class="fa-solid fa-lock me-1"></i>
-      ${escapeHtml(typeLabelForField(field))} — options come from the API. Set required and default below.
+      ${escapeHtml(typeLabelForField(field))} — options come from the API. Set visibility, required, and default below.
     </p>
+    <div class="mb-3 form-check form-switch">
+      <input class="form-check-input" type="checkbox" id="sysEnabled" ${working.enabled !== false ? 'checked' : ''} />
+      <label class="form-check-label" for="sysEnabled">Show in inspection form</label>
+    </div>
     <div class="mb-3" id="sysDefaultHost"></div>
-    <div class="mb-3 form-check">
+    <div class="mb-3 form-check" id="sysRequiredWrap">
       <input type="checkbox" class="form-check-input" id="sysRequired" ${working.required ? 'checked' : ''} />
       <label class="form-check-label" for="sysRequired">Required</label>
     </div>
@@ -910,15 +934,29 @@ function createSystemFieldEditor({ field, onSave, onCancel }) {
     </div>
   `;
 
+  const enabledEl = wrap.querySelector('#sysEnabled');
+  const requiredWrap = wrap.querySelector('#sysRequiredWrap');
+  const defaultHost = wrap.querySelector('#sysDefaultHost');
+
+  function syncSystemEditorVisibility() {
+    const on = enabledEl.checked;
+    if (requiredWrap) requiredWrap.style.display = on ? '' : 'none';
+    if (defaultHost) defaultHost.style.display = on ? '' : 'none';
+  }
+
+  enabledEl.addEventListener('change', syncSystemEditorVisibility);
+  syncSystemEditorVisibility();
+
   mountSystemDefaultPicker(
-    wrap.querySelector('#sysDefaultHost'),
+    defaultHost,
     field,
     defaultValue,
     v => { defaultPayload = v; }
   );
 
   wrap.querySelector('#sysSave').onclick = () => {
-    working.required = wrap.querySelector('#sysRequired').checked;
+    working.enabled = enabledEl.checked;
+    working.required = enabledEl.checked && wrap.querySelector('#sysRequired').checked;
     if (defaultPayload === null) delete working.default;
     else working.default = defaultPayload;
     onSave(working);
@@ -932,7 +970,7 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
     return createSystemFieldEditor({ field, onSave, onCancel });
   }
   if (!isNew && !isAdminEditableField(field)) {
-    return createReadOnlyFieldPanel(field);
+    return createReadOnlyFieldPanel({ field, onSave, onCancel });
   }
 
   const wrap = document.createElement('div');

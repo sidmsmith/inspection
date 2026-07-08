@@ -205,6 +205,15 @@ function isAdminEditableField(field) {
   return field.type === 'segmented' || field.type === 'dropdown' || field.type === 'freeform';
 }
 
+function isSystemField(field) {
+  if (!field) return false;
+  return !!field.dataSource || field.type === 'toggle_pair';
+}
+
+function isFieldEnabledInForm(field) {
+  return !field || field.enabled !== false;
+}
+
 function fieldsEqual(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
