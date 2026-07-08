@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-07-08T04:37:17.270Z",
+  "updatedAt": "2026-07-08T04:42:40.635Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -108,7 +108,7 @@
       "sections": {
         "signature": {
           "enabled": true,
-          "required": true,
+          "required": false,
           "label": "Inspector's Signature"
         },
         "photos": {
