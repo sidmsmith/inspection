@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-07-07T19:26:00.221Z",
+  "updatedAt": "2026-07-08T02:10:55.447Z",
   "checklists": {
     "ilpn": {
       "fields": [
@@ -80,6 +80,156 @@
           "label": "Condition Code",
           "type": "dropdown",
           "dataSource": "ilpn_condition_codes"
+        }
+      ]
+    },
+    "po": {
+      "fields": [
+        {
+          "id": "po_details_match",
+          "label": "PO # And Details Match",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Yes"
+        },
+        {
+          "id": "items_skus_correct",
+          "label": "Items / SKUs Correct",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "No"
+        },
+        {
+          "id": "quantities_match",
+          "label": "Quantities Match",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "id": "delivery_date_on_track",
+          "label": "Delivery Date On Track",
+          "type": "dropdown",
+          "options": [
+            "Delayed",
+            "Early",
+            "On Time"
+          ],
+          "required": true,
+          "default": "Delayed"
+        },
+        {
+          "id": "special_instructions_met",
+          "label": "Special Instructions Met",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "Pass"
+        },
+        {
+          "id": "approvals_complete",
+          "label": "Approvals Complete",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "id": "compliance_requirements",
+          "label": "Compliance Requirements",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "default": "OnTime"
+        },
+        {
+          "id": "amendments_noted",
+          "label": "Amendments Noted",
+          "type": "freeform",
+          "placeholder": "None / Details here...",
+          "default": "None"
+        }
+      ],
+      "sections": {
+        "signature": {
+          "enabled": true,
+          "required": false,
+          "label": "Inspector's Signature"
+        },
+        "photos": {
+          "enabled": true,
+          "required": false,
+          "label": "Inspection Photos"
+        },
+        "damagePad": {
+          "enabled": false,
+          "required": false,
+          "label": "Markup Pad",
+          "mode": "stock",
+          "defaultImage": "container",
+          "images": [
+            "container",
+            "trailer"
+          ]
+        }
+      },
+      "layout": [
+        {
+          "type": "field",
+          "id": "po_details_match"
+        },
+        {
+          "type": "field",
+          "id": "items_skus_correct"
+        },
+        {
+          "type": "field",
+          "id": "quantities_match"
+        },
+        {
+          "type": "field",
+          "id": "delivery_date_on_track"
+        },
+        {
+          "type": "field",
+          "id": "special_instructions_met"
+        },
+        {
+          "type": "field",
+          "id": "approvals_complete"
+        },
+        {
+          "type": "field",
+          "id": "compliance_requirements"
+        },
+        {
+          "type": "field",
+          "id": "amendments_noted"
+        },
+        {
+          "type": "section",
+          "key": "signature"
+        },
+        {
+          "type": "section",
+          "key": "photos"
+        },
+        {
+          "type": "section",
+          "key": "damagePad"
         }
       ]
     }
