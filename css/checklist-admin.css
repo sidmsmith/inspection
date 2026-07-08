@@ -943,6 +943,16 @@
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-muted);
+  cursor: pointer;
+  background: transparent;
+  font-family: inherit;
+  line-height: 1.2;
+}
+
+.preview-pad-static,
+.preview-mock-static {
+  pointer-events: none;
+  user-select: none;
 }
 
 .preview-damage-stock-toggle .preview-seg.on {

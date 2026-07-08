@@ -527,9 +527,9 @@ function appendPreviewSectionBlock(root, sectionKey, sections, objectType) {
     sig.innerHTML = `
       <div class="preview-section-head">
         <label>${escapeHtml(sec.label || DEFAULT_SECTION_LABELS.signature)}${sec.required ? ' <span class="required-asterisk">*</span>' : ''}</label>
-        <span class="preview-mock-btn">Clear</span>
+        <span class="preview-mock-btn preview-mock-static">Clear</span>
       </div>
-      <div class="preview-signature-pad" aria-hidden="true"></div>`;
+      <div class="preview-signature-pad preview-pad-static" aria-hidden="true"></div>`;
     root.appendChild(sig);
     return;
   }
@@ -543,9 +543,9 @@ function appendPreviewSectionBlock(root, sectionKey, sections, objectType) {
       block.innerHTML = `
         <div class="preview-section-head">
           <label>${escapeHtml(title)}${dp.required ? ' <span class="required-asterisk">*</span>' : ''}</label>
-          <span class="preview-mock-btn"><i class="fas fa-camera"></i></span>
+          <span class="preview-mock-btn preview-mock-static"><i class="fas fa-camera"></i></span>
         </div>
-        <div class="preview-damage-pad preview-damage-empty">
+        <div class="preview-damage-pad preview-damage-empty preview-pad-static">
           <i class="fas fa-plus"></i>
           <span>${objectType === 'ilpn' || objectType === 'olpn' ? 'Tap camera to add LPN photo' : 'Add photo to mark up'}</span>
         </div>`;
@@ -554,18 +554,34 @@ function appendPreviewSectionBlock(root, sectionKey, sections, objectType) {
       block.innerHTML = `
         <div class="preview-section-head">
           <label>${escapeHtml(title)}${dp.required ? ' <span class="required-asterisk">*</span>' : ''}</label>
-          <div class="preview-damage-stock-toggle">
-            <span class="preview-seg${imgKey === 'container' ? ' on' : ''}">Container</span>
-            <span class="preview-seg${imgKey === 'trailer' ? ' on' : ''}">Trailer</span>
+          <div class="preview-damage-stock-toggle" role="group" aria-label="Diagram image">
+            <button type="button" class="preview-seg${imgKey === 'container' ? ' on' : ''}" data-image="container">Container</button>
+            <button type="button" class="preview-seg${imgKey === 'trailer' ? ' on' : ''}" data-image="trailer">Trailer</button>
           </div>
         </div>
-        <div class="preview-damage-pad preview-damage-stock">
+        <div class="preview-damage-pad preview-damage-stock preview-pad-static">
           <img src="/${imgKey === 'trailer' ? 'trailer' : 'container'}.png" alt="" />
         </div>
         <small class="text-muted">Circle or mark areas of damage on the diagram</small>`;
+      root.appendChild(block);
+      bindPreviewDamageStockToggle(block);
+      return;
     }
     root.appendChild(block);
   }
+}
+
+function bindPreviewDamageStockToggle(block) {
+  const toggle = block.querySelector('.preview-damage-stock-toggle');
+  const img = block.querySelector('.preview-damage-pad img');
+  if (!toggle || !img) return;
+  toggle.querySelectorAll('.preview-seg').forEach(btn => {
+    btn.onclick = () => {
+      const key = btn.dataset.image === 'trailer' ? 'trailer' : 'container';
+      toggle.querySelectorAll('.preview-seg').forEach(s => s.classList.toggle('on', s.dataset.image === key));
+      img.src = `/${key}.png`;
+    };
+  });
 }
 
 function createSectionEditorForm({ sectionKey, sections, objectType, onSave, onCancel }) {
@@ -1044,7 +1060,7 @@ async function adminSaveDeploy({
       setStatus(res.error || 'Save failed', 'danger');
       return res;
     }
-    setStatus(res.message || `Saved ${org} — Vercel will redeploy shortly`, 'success');
+    setStatus(res.message || `Saved ${org} checklist config — Please wait 1 minute to use checklist`, 'success');
     return res;
   } catch (err) {
     setStatus(err.message || 'Save failed', 'danger');
