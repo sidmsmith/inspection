@@ -368,6 +368,20 @@
   align-items: center;
 }
 
+/* Export, Import, Reset — 80% of Bootstrap btn-sm; Save & Deploy unchanged */
+.config-toolbar .toolbar-actions .btn-sm,
+.config-toolbar .toolbar-actions label.btn.btn-sm {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.4rem;
+  line-height: 1.25;
+  min-height: 1.5625rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin-bottom: 0;
+}
+
 .config-toolbar .toolbar-actions label.btn {
   cursor: pointer;
 }
