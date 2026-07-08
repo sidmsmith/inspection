@@ -230,18 +230,35 @@ function syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, state
     layout: state.layout
   }, objectType);
 
-  if (checklistStateEqualsDefault(normalized, defaultConfig, objectType)) {
-    delete orgDraft.checklists[objectType];
-  } else {
-    orgDraft.checklists[objectType] = {
+  orgDraft.checklists[objectType] = {
+    fields: normalized.fields,
+    sections: normalized.sections,
+    layout: normalized.layout
+  };
+
+  if (!checklistsConfig.checklists) checklistsConfig.checklists = {};
+  checklistsConfig.checklists[objectType] = normalized;
+}
+
+/** Build a complete per-ORG checklist map (all object types) for save/export/deploy. */
+function buildFullOrgChecklistsFromConfig(checklistsConfig) {
+  const checklists = {};
+  for (const { key } of CHECKLIST_OBJECT_TYPES) {
+    const raw = checklistsConfig?.checklists?.[key];
+    const normalized = raw?.sections && raw?.layout
+      ? normalizeChecklistEntry(raw, key)
+      : normalizeChecklistEntry(raw || { fields: [] }, key);
+    checklists[key] = {
       fields: normalized.fields,
       sections: normalized.sections,
       layout: normalized.layout
     };
   }
+  return checklists;
+}
 
-  if (!checklistsConfig.checklists) checklistsConfig.checklists = {};
-  checklistsConfig.checklists[objectType] = normalized;
+function initOrgDraftFromChecklistsConfig(checklistsConfig) {
+  return { checklists: buildFullOrgChecklistsFromConfig(checklistsConfig) };
 }
 
 /** @deprecated use syncChecklistStateToOrgDraft */
@@ -253,11 +270,14 @@ function syncFieldsToOrgDraft(orgDraft, defaultConfig, objectType, fields, check
   }, checklistsConfig);
 }
 
-function buildOrgSavePayload(org, orgDraft) {
+function buildOrgSavePayload(org, orgDraft, checklistsConfig) {
+  const checklists = checklistsConfig
+    ? buildFullOrgChecklistsFromConfig(checklistsConfig)
+    : (orgDraft?.checklists || {});
   return {
     org: String(org || '').trim().toUpperCase(),
     updatedAt: new Date().toISOString(),
-    checklists: orgDraft?.checklists || {}
+    checklists
   };
 }
 

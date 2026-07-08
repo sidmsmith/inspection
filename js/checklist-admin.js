@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.2) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.3) */
 
 const FIELD_TYPES = [
   { key: 'yes_no', label: 'Yes / No', icon: 'fa-toggle-on', type: 'segmented', options: ['Yes', 'No'] },
@@ -1043,14 +1043,7 @@ async function adminSaveDeploy({
   }
 
   syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, { fields, sections, layout }, checklistsConfig);
-  const payload = buildOrgSavePayload(org, orgDraft);
-
-  if (!Object.keys(payload.checklists).length) {
-    const proceed = window.confirm(
-      `No customizations for ${org} — save will remove the org override file if one exists. Continue?`
-    );
-    if (!proceed) return { success: false, cancelled: true };
-  }
+  const payload = buildOrgSavePayload(org, orgDraft, checklistsConfig);
 
   saveBtn.disabled = true;
   setStatus('Saving to GitHub...');
@@ -1070,8 +1063,8 @@ async function adminSaveDeploy({
   }
 }
 
-function exportOrgConfig({ org, orgDraft, setStatus }) {
-  const payload = buildOrgSavePayload(org, orgDraft);
+function exportOrgConfig({ org, orgDraft, checklistsConfig, setStatus }) {
+  const payload = buildOrgSavePayload(org, orgDraft, checklistsConfig);
   const json = JSON.stringify(payload, null, 2) + '\n';
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
