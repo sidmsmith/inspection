@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.5) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.6) */
 
 const FIELD_TYPES = [
   { key: 'yes_no', label: 'Yes / No', icon: 'fa-toggle-on', type: 'segmented', options: ['Yes', 'No'] },
@@ -588,12 +588,7 @@ function formatChecklistExportFilename(org) {
   const safeOrg = String(org || 'org').trim().toUpperCase() || 'ORG';
   const d = new Date();
   const pad = n => String(n).padStart(2, '0');
-  const offsetMin = -d.getTimezoneOffset();
-  const sign = offsetMin >= 0 ? '+' : '-';
-  const abs = Math.abs(offsetMin);
-  const offH = pad(Math.floor(abs / 60));
-  const offM = pad(abs % 60);
-  const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${sign}${offH}${offM}`;
+  const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}`;
   return `checklist-config-${safeOrg}-${stamp}.json`;
 }
 
