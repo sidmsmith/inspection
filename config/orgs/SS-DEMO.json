@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-07-08T04:52:45.758Z",
+  "updatedAt": "2026-07-08T05:06:05.649Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -93,7 +93,8 @@
           "label": "Trailer Condition Code",
           "type": "dropdown",
           "dataSource": "condition_codes",
-          "required": false
+          "required": false,
+          "enabled": false
         }
       ],
       "sections": {
@@ -535,7 +536,9 @@
           "id": "condition_code",
           "label": "Condition Code",
           "type": "dropdown",
-          "dataSource": "ilpn_condition_codes"
+          "dataSource": "ilpn_condition_codes",
+          "enabled": false,
+          "required": false
         }
       ],
       "sections": {
