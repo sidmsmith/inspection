@@ -832,10 +832,10 @@ function renderChecklistAdminList(listHost, {
 }
 
 function systemFieldSummaryLabel(field) {
-  const onOff = field.enabled === false ? 'Off' : 'On';
-  if (field.dataSource === 'condition_codes') return `Trailer condition · ${onOff}`;
-  if (field.dataSource === 'ilpn_condition_codes') return `iLPN condition · ${onOff}`;
-  return onOff;
+  const onOff = field.enabled === false ? 'OFF' : 'ON';
+  if (field.dataSource === 'condition_codes') return `TRAILER CONDITION · ${onOff}`;
+  if (field.dataSource === 'ilpn_condition_codes') return `ILPN CONDITION · ${onOff}`;
+  return field.enabled === false ? 'Off' : 'On';
 }
 
 function createReadOnlyFieldPanel({ field, onSave, onCancel }) {
