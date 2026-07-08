@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.7) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.1.8) */
 
 const FIELD_TYPES = [
   { key: 'yes_no', label: 'Yes / No', icon: 'fa-toggle-on', type: 'segmented', options: ['Yes', 'No'] },
@@ -443,7 +443,6 @@ function renderPreview(fields, container, options = {}) {
   const sections = options.sections || getDefaultSectionsForType(objectType);
   const layout = options.layout || buildDefaultLayout(fields, sections);
   const apiData = options.previewApiData || previewApiData;
-  const inspectionVersion = options.inspectionVersion || '0.0.15';
 
   prunePreviewState(fields);
   fields.forEach(f => {
@@ -462,7 +461,7 @@ function renderPreview(fields, container, options = {}) {
             <span class="device-chrome-icon" aria-hidden="true"><i class="fas fa-camera"></i></span>
             <div class="device-chrome-center">
               <img id="previewDeviceLogo" class="device-theme-logo" alt="" />
-              <div class="device-chrome-title">Inspection v${escapeHtml(inspectionVersion)}</div>
+              <div class="device-chrome-title">Inspection Checklist</div>
             </div>
             <span class="device-chrome-icon device-chrome-spacer" aria-hidden="true"></span>
           </div>
