@@ -28,7 +28,9 @@ function mergeChecklistConfigs(base, orgOverlay) {
 }
 
 async function fetchChecklistJson(url) {
-  const res = await fetch(url, { cache: 'no-store' });
+  const bust = `_=${Date.now()}`;
+  const sep = url.includes('?') ? '&' : '?';
+  const res = await fetch(`${url}${sep}${bust}`, { cache: 'no-store' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
