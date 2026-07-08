@@ -76,8 +76,17 @@ def is_chroma_pixel(r: int, g: int, b: int) -> bool:
     )
 
 
+def photocopy_luminance(value: int) -> int:
+    """High-contrast tone curve so color art reads like a black-and-white photocopy."""
+    v = value / 255.0
+    v = (v - 0.5) * 1.5 + 0.5
+    v = max(0.0, min(1.0, v))
+    v = v ** 0.9
+    return int(v * 255)
+
+
 def prepare_container_image(source: Path, paper_rgb: tuple[int, int, int] = PAPER_RGB) -> Path:
-    """Replace magenta chroma-key pixels with the paper color so the diagram blends in."""
+    """Chroma-key magenta to paper, render diagram lines as a B&W photocopy."""
     img = Image.open(source).convert("RGB")
     pixels = img.load()
     for y in range(img.height):
@@ -85,6 +94,10 @@ def prepare_container_image(source: Path, paper_rgb: tuple[int, int, int] = PAPE
             r, g, b = pixels[x, y]
             if is_chroma_pixel(r, g, b):
                 pixels[x, y] = paper_rgb
+            else:
+                lum = int(0.299 * r + 0.587 * g + 0.114 * b)
+                tone = photocopy_luminance(lum)
+                pixels[x, y] = (tone, tone, tone)
     out = Path(tempfile.gettempdir()) / "trailer-checklist-container.png"
     img.save(out, format="PNG")
     return out
