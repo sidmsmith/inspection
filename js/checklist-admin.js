@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.2.8) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.2.9) */
 
 const FIELD_TYPES = CHECKLIST_FIELD_TYPES;
 
@@ -325,25 +325,21 @@ function renderTrafficLightLabels(container, options, onChange, onValidationChan
   TRAFFIC_LIGHT_SLOT_META.forEach((meta, idx) => {
     const row = document.createElement('div');
     row.className = 'tl-label-row';
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = `tl-label-chip ${meta.className}`;
-    chip.textContent = options[idx];
-    chip.title = `Click to edit ${meta.name} label`;
-    chip.onclick = () => {
-      const next = window.prompt(`Label for ${meta.name} light:`, options[idx]);
-      if (next == null) return;
-      const trimmed = next.trim();
-      if (!trimmed) return;
-      options[idx] = trimmed;
-      chip.textContent = trimmed;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = `form-control tl-label-input ${meta.className}`;
+    input.value = options[idx];
+    input.placeholder = `${meta.name} label`;
+    input.setAttribute('aria-label', `${meta.name} light label`);
+    input.addEventListener('input', () => {
+      options[idx] = input.value;
       onChange([...options]);
       onValidationChange?.();
-    };
+    });
     row.innerHTML = `
       <span class="tl-color-dot ${meta.className}"></span>
       <span class="tl-color-name">${meta.name}</span>`;
-    row.appendChild(chip);
+    row.appendChild(input);
     wrap.appendChild(row);
   });
 
@@ -1400,6 +1396,9 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
       valid = options.length >= min;
       const max = maxOptionsForFieldType(selectedTypeKey);
       if (max != null) valid = valid && options.length <= max;
+      if (selectedTypeKey === 'traffic_light') {
+        valid = valid && options.every(o => String(o).trim());
+      }
     }
     saveBtn.disabled = !valid;
   }
@@ -1468,7 +1467,7 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
     working.label = labelInput.value.trim();
     working.id = working.id || slugifyId(working.label);
     working.required = wrap.querySelector('#edRequired').checked;
-    if (usesOptionEditor(selectedTypeKey)) working.options = [...options];
+    if (usesOptionEditor(selectedTypeKey)) working.options = options.map(o => String(o).trim());
     if (working.type === 'gauge') {
       const desc = gaugeDescInput.value.trim();
       if (desc) working.description = desc;

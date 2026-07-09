@@ -241,7 +241,7 @@ function maxOptionsForFieldType(typeKey) {
 function optionsHintForFieldType(typeKey) {
   switch (typeKey) {
     case 'traffic_light':
-      return 'Click each light to edit its label (red · amber · green, fixed order).';
+      return 'Edit each light label directly (red · amber · green, fixed order).';
     case 'slider':
       return 'Add a label for each slider stop (minimum 2). Drag chips to reorder.';
     case 'gauge':
