@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-07-08T05:06:05.649Z",
+  "updatedAt": "2026-07-09T05:31:51.432Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -113,7 +113,7 @@
           "required": false,
           "label": "Markup Pad",
           "mode": "stock",
-          "defaultImage": "container",
+          "defaultImage": "trailer",
           "images": [
             "container",
             "trailer"
@@ -258,7 +258,7 @@
       "sections": {
         "signature": {
           "enabled": true,
-          "required": false,
+          "required": true,
           "label": "Inspector's Signature"
         },
         "photos": {
@@ -267,7 +267,7 @@
           "label": "Inspection Photos"
         },
         "damagePad": {
-          "enabled": false,
+          "enabled": true,
           "required": false,
           "label": "Markup Pad",
           "mode": "stock",
@@ -537,7 +537,7 @@
           "label": "Condition Code",
           "type": "dropdown",
           "dataSource": "ilpn_condition_codes",
-          "enabled": false,
+          "enabled": true,
           "required": false
         }
       ],
@@ -901,6 +901,222 @@
         {
           "type": "field",
           "id": "exceptions_notes"
+        },
+        {
+          "type": "section",
+          "key": "signature"
+        },
+        {
+          "type": "section",
+          "key": "photos"
+        },
+        {
+          "type": "section",
+          "key": "damagePad"
+        }
+      ]
+    },
+    "location": {
+      "fields": [
+        {
+          "id": "location_barcode_scannable",
+          "label": "Location Barcode Scannable",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ],
+          "required": true
+        },
+        {
+          "id": "label_signage_legible",
+          "label": "Label & Signage Legible",
+          "type": "segmented",
+          "options": [
+            "Yes",
+            "No"
+          ]
+        },
+        {
+          "id": "rack_slot_integrity",
+          "label": "Rack / Slot Integrity",
+          "type": "segmented",
+          "options": [
+            "Pass",
+            "Fail"
+          ]
+        },
+        {
+          "id": "physical_condition",
+          "label": "Physical Condition",
+          "type": "dropdown",
+          "options": [
+            "Good",
+            "Minor damage",
+            "Major damage",
+            "Unusable"
+          ]
+        },
+        {
+          "id": "contents_status",
+          "label": "Contents Status",
+          "type": "dropdown",
+          "options": [
+            "Empty",
+            "Matches system",
+            "Mismatch",
+            "Partial",
+            "Unknown"
+          ]
+        },
+        {
+          "id": "pick_path_clear",
+          "label": "Pick Path Clear (not blocked)",
+          "type": "segmented",
+          "options": [
+            "Pass",
+            "Fail"
+          ]
+        },
+        {
+          "id": "overall_location_status",
+          "label": "Overall Location Status",
+          "type": "traffic_light",
+          "options": [
+            "Stop — Block",
+            "Caution — Review",
+            "Go — OK"
+          ]
+        },
+        {
+          "id": "damage_severity",
+          "label": "Damage Severity",
+          "type": "slider",
+          "options": [
+            "None",
+            "Light",
+            "Moderate",
+            "Heavy",
+            "Severe"
+          ],
+          "default": "None"
+        },
+        {
+          "id": "issues_observed",
+          "label": "Issues Observed",
+          "type": "multi_select",
+          "options": [
+            "Damaged label",
+            "Blocked aisle",
+            "Overfilled",
+            "Mixed SKU",
+            "Wet floor"
+          ]
+        },
+        {
+          "id": "capacity_level",
+          "label": "Capacity Level",
+          "type": "gauge",
+          "description": "Estimated fill level for this reserve location",
+          "options": [
+            "Empty",
+            "25%",
+            "50%",
+            "75%",
+            "Full"
+          ]
+        },
+        {
+          "id": "notes_issues",
+          "label": "Notes / Issues Found",
+          "type": "freeform",
+          "placeholder": "None / Details..."
+        },
+        {
+          "id": "putaway_condition_code",
+          "label": "Putaway Condition Code",
+          "type": "dropdown",
+          "dataSource": "putaway_condition_codes",
+          "required": false
+        },
+        {
+          "id": "inventory_condition_code",
+          "label": "Inventory Condition Code",
+          "type": "dropdown",
+          "dataSource": "inventory_condition_codes",
+          "required": false
+        }
+      ],
+      "sections": {
+        "signature": {
+          "enabled": true,
+          "required": true,
+          "label": "Inspector's Signature"
+        },
+        "photos": {
+          "enabled": true,
+          "required": false,
+          "label": "Inspection Photos"
+        },
+        "damagePad": {
+          "enabled": true,
+          "required": false,
+          "label": "Location Photo for Markup",
+          "mode": "photo"
+        }
+      },
+      "layout": [
+        {
+          "type": "field",
+          "id": "location_barcode_scannable"
+        },
+        {
+          "type": "field",
+          "id": "label_signage_legible"
+        },
+        {
+          "type": "field",
+          "id": "rack_slot_integrity"
+        },
+        {
+          "type": "field",
+          "id": "physical_condition"
+        },
+        {
+          "type": "field",
+          "id": "contents_status"
+        },
+        {
+          "type": "field",
+          "id": "pick_path_clear"
+        },
+        {
+          "type": "field",
+          "id": "overall_location_status"
+        },
+        {
+          "type": "field",
+          "id": "damage_severity"
+        },
+        {
+          "type": "field",
+          "id": "issues_observed"
+        },
+        {
+          "type": "field",
+          "id": "capacity_level"
+        },
+        {
+          "type": "field",
+          "id": "notes_issues"
+        },
+        {
+          "type": "field",
+          "id": "putaway_condition_code"
+        },
+        {
+          "type": "field",
+          "id": "inventory_condition_code"
         },
         {
           "type": "section",
