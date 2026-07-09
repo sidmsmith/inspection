@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.2.7) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.2.8) */
 
 const FIELD_TYPES = CHECKLIST_FIELD_TYPES;
 
@@ -972,8 +972,10 @@ function renderChecklistAdminList(listHost, {
   layout,
   fields,
   sections,
-  selectedFieldIdx,
+  selectedFieldId,
   selectedSectionKey,
+  editorAnchor,
+  editorElement,
   onEditField,
   onEditSection,
   onDeleteField,
@@ -997,6 +999,9 @@ function renderChecklistAdminList(listHost, {
     empty.className = 'empty-state';
     empty.innerHTML = '<i class="fa-solid fa-inbox fa-2x mb-2"></i><p>No items — add a question or reset from default.</p>';
     listHost.appendChild(empty);
+    if (editorElement && editorAnchor?.beforeAdd) {
+      placeInlineEditor(listHost, null, editorAnchor, editorElement);
+    }
     appendAddQuestionButton(listHost, onAddQuestion);
     return;
   }
@@ -1008,13 +1013,13 @@ function renderChecklistAdminList(listHost, {
       const f = row.field;
       const editable = isAdminEditableField(f);
       const systemBadge = editable ? '' : ' <span class="badge-system">System</span>';
-      const selected = i === selectedFieldIdx && !selectedSectionKey;
+      const selected = row.fieldId === selectedFieldId && !selectedSectionKey;
       const offClass = !editable && f.enabled === false ? ' section-row-off' : '';
       const badgeText = isSystemField(f)
         ? systemFieldSummaryLabel(f)
         : escapeHtml(typeLabelForField(f));
       return `
-        <div class="question-row draggable-item${selected ? ' selected' : ''}${editable ? '' : ' system-field'}${offClass}" data-idx="${i}" data-kind="field">
+        <div class="question-row draggable-item${selected ? ' selected' : ''}${editable ? '' : ' system-field'}${offClass}" data-idx="${i}" data-kind="field" data-field-id="${escapeHtml(f.id)}">
           <span class="grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
           <div class="q-label">${escapeHtml(f.label)}${f.required ? ' <span class="required-asterisk">*</span>' : ''}${systemBadge}</div>
           <span class="badge-type">${badgeText}</span>
@@ -1073,7 +1078,37 @@ function renderChecklistAdminList(listHost, {
     };
   });
 
+  if (editorElement && editorAnchor) {
+    placeInlineEditor(listHost, inner, editorAnchor, editorElement);
+  }
+
   appendAddQuestionButton(listHost, onAddQuestion);
+}
+
+function placeInlineEditor(listHost, listInner, editorAnchor, editorElement) {
+  const host = document.createElement('div');
+  host.className = 'inline-editor-host';
+  host.appendChild(editorElement);
+
+  if (editorAnchor.beforeAdd) {
+    const addRow = listHost.querySelector('.add-question-row');
+    if (addRow) listHost.insertBefore(host, addRow);
+    else listHost.appendChild(host);
+    return;
+  }
+
+  const root = listInner || listHost;
+  if (editorAnchor.afterFieldId) {
+    const row = root.querySelector(`[data-field-id="${CSS.escape(editorAnchor.afterFieldId)}"]`);
+    if (row) row.after(host);
+    else listHost.appendChild(host);
+    return;
+  }
+  if (editorAnchor.afterSectionKey) {
+    const row = root.querySelector(`[data-section-key="${CSS.escape(editorAnchor.afterSectionKey)}"]`);
+    if (row) row.after(host);
+    else listHost.appendChild(host);
+  }
 }
 
 function systemFieldSummaryLabel(field) {
