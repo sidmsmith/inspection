@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Inspection v0.0.27</title>
-  <!-- v0.0.27: traffic light, slider, multi-select, gauge answer types -->
+  <title>Inspection v0.0.28</title>
+  <!-- v0.0.28: traffic light label edit, slider default, gauge color reverse -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -572,6 +572,9 @@
       mask: radial-gradient(circle at 50% 50%, transparent 54px, #000 55px);
       -webkit-mask: radial-gradient(circle at 50% 50%, transparent 54px, #000 55px);
       transform: rotate(-90deg);
+    }
+    .checklist-gauge .gauge-arc.gauge-red-to-green::before {
+      background: conic-gradient(var(--danger) 0deg, var(--warning) 130deg, var(--success) 210deg, var(--input-bg) 210deg);
     }
     .checklist-gauge .gauge-needle {
       position: absolute;
@@ -2777,6 +2780,9 @@
     }
 
     function getValidChecklistDefault(field) {
+      if (field.type === 'slider') {
+        return effectiveSliderDefault(field);
+      }
       if (field.default === undefined || field.default === null || field.default === '') {
         return null;
       }
@@ -2848,7 +2854,7 @@
         return defaultValue;
       }
 
-      if (field.type === 'traffic_light' || field.type === 'slider' || field.type === 'gauge') {
+      if (field.type === 'traffic_light' || field.type === 'gauge') {
         if (!isValueAllowedForField(field, defaultValue)) {
           console.warn(`[CHECKLIST] Invalid default for "${field.id}": "${defaultValue}"`);
           return null;
@@ -2895,12 +2901,13 @@
         control.dataset.value = defaultValue;
       } else if (field.type === 'slider') {
         const opts = field.options || [];
-        const idx = Math.max(0, opts.indexOf(defaultValue));
+        const initial = getValidChecklistDefault(field) || effectiveSliderDefault(field) || '';
+        const idx = Math.max(0, opts.indexOf(initial));
         const range = control.querySelector('.checklist-slider-input');
         const label = control.querySelector('.checklist-slider-value');
         if (range) range.value = String(idx);
         if (label) label.textContent = opts[idx] || '';
-        control.dataset.value = defaultValue;
+        control.dataset.value = opts[idx] || '';
       } else if (field.type === 'multi_select') {
         const selected = new Set(String(defaultValue).split(',').map(s => s.trim()).filter(Boolean));
         control.querySelectorAll('.chip-btn').forEach(btn => {
@@ -3127,7 +3134,7 @@
         control.appendChild(range);
         control.appendChild(ends);
         control.appendChild(valueLabel);
-        if (opts.length) valueLabel.textContent = '— Slide to select —';
+        applyChecklistFieldDefault(field, control);
       } else if (field.type === 'multi_select') {
         control = document.createElement('div');
         control.className = 'checklist-chips';
@@ -3159,7 +3166,7 @@
         control.dataset.checklistField = field.id;
         control.dataset.value = '';
         const arc = document.createElement('div');
-        arc.className = 'gauge-arc';
+        arc.className = 'gauge-arc' + (isGaugeRedToGreen(field) ? ' gauge-red-to-green' : '');
         const needle = document.createElement('div');
         needle.className = 'gauge-needle';
         arc.appendChild(needle);

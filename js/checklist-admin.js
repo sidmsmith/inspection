@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.2.6) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.2.7) */
 
 const FIELD_TYPES = CHECKLIST_FIELD_TYPES;
 
@@ -223,6 +223,7 @@ function bindChipReorder(wrap, options, onReorder) {
 function renderOptionChips(container, options, onChange, onValidationChange, chipLimits = {}) {
   const minOptions = chipLimits.minOptions ?? null;
   const maxOptions = chipLimits.maxOptions ?? null;
+  const disableReorder = !!chipLimits.disableReorder;
   container.innerHTML = '';
   const wrap = document.createElement('div');
   wrap.className = 'option-chips';
@@ -253,8 +254,11 @@ function renderOptionChips(container, options, onChange, onValidationChange, chi
       chip.className = 'option-chip';
       chip.dataset.idx = String(idx);
       const canRemove = minOptions == null || options.length > minOptions;
+      const gripHtml = disableReorder
+        ? ''
+        : '<span class="chip-grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>';
       chip.innerHTML = `
-        <span class="chip-grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
+        ${gripHtml}
         <span class="chip-label">${escapeHtml(opt)}</span>
         ${canRemove ? '<button type="button" class="chip-remove" aria-label="Remove">×</button>' : ''}`;
       const removeBtn = chip.querySelector('.chip-remove');
@@ -268,10 +272,12 @@ function renderOptionChips(container, options, onChange, onValidationChange, chi
       }
       wrap.insertBefore(chip, input);
     });
-    bindChipReorder(wrap, options, () => {
-      emit();
-      renderChips();
-    });
+    if (!disableReorder) {
+      bindChipReorder(wrap, options, () => {
+        emit();
+        renderChips();
+      });
+    }
     syncAddInput();
   }
 
@@ -292,6 +298,58 @@ function renderOptionChips(container, options, onChange, onValidationChange, chi
   wrap.appendChild(input);
   container.appendChild(wrap);
   renderChips();
+}
+
+const TRAFFIC_LIGHT_SLOT_META = [
+  { className: 'tl-red', name: 'Red' },
+  { className: 'tl-amber', name: 'Amber' },
+  { className: 'tl-green', name: 'Green' }
+];
+
+function normalizeTrafficLightOptions(options) {
+  const defaults = ['Stop', 'Caution', 'Go'];
+  const next = Array.isArray(options) ? [...options] : [];
+  while (next.length < 3) next.push(defaults[next.length] || `Option ${next.length + 1}`);
+  return next.slice(0, 3);
+}
+
+function renderTrafficLightLabels(container, options, onChange, onValidationChange) {
+  container.innerHTML = '';
+  const normalized = normalizeTrafficLightOptions(options);
+  options.length = 0;
+  options.push(...normalized);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'traffic-light-label-editor';
+
+  TRAFFIC_LIGHT_SLOT_META.forEach((meta, idx) => {
+    const row = document.createElement('div');
+    row.className = 'tl-label-row';
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = `tl-label-chip ${meta.className}`;
+    chip.textContent = options[idx];
+    chip.title = `Click to edit ${meta.name} label`;
+    chip.onclick = () => {
+      const next = window.prompt(`Label for ${meta.name} light:`, options[idx]);
+      if (next == null) return;
+      const trimmed = next.trim();
+      if (!trimmed) return;
+      options[idx] = trimmed;
+      chip.textContent = trimmed;
+      onChange([...options]);
+      onValidationChange?.();
+    };
+    row.innerHTML = `
+      <span class="tl-color-dot ${meta.className}"></span>
+      <span class="tl-color-name">${meta.name}</span>`;
+    row.appendChild(chip);
+    wrap.appendChild(row);
+  });
+
+  container.appendChild(wrap);
+  onChange([...options]);
+  onValidationChange?.();
 }
 
 function renderTypePicker(container, selectedKey, onSelect) {
@@ -328,6 +386,25 @@ function renderDefaultPicker(container, { typeKey, options, value, onChange }) {
   }
 
   const opts = optionsForTypeKey(typeKey, options);
+
+  if (typeKey === 'slider') {
+    const effective = value && opts.includes(value) ? value : (opts[0] || '');
+    container.innerHTML = `
+      <label class="form-label">Default position</label>
+      <select class="form-select form-select-sm" id="edDefaultSelect">
+        ${opts.map(o => `
+          <option value="${escapeHtml(o)}"${o === effective ? ' selected' : ''}>${escapeHtml(o)}</option>
+        `).join('')}
+      </select>
+      <small class="text-muted default-answer-hint">Slider starts at this position (defaults to first stop).</small>`;
+    const select = container.querySelector('#edDefaultSelect');
+    if (effective) onChange(effective);
+    select.addEventListener('change', e => {
+      onChange(e.target.value || opts[0] || null);
+    });
+    return;
+  }
+
   container.innerHTML = `
     <label class="form-label">Default answer</label>
     <select class="form-select form-select-sm" id="edDefaultSelect">
@@ -560,7 +637,7 @@ function appendPreviewControl(group, field, apiData) {
     const wrap = document.createElement('div');
     wrap.className = 'checklist-gauge';
     const arc = document.createElement('div');
-    arc.className = 'gauge-arc';
+    arc.className = 'gauge-arc' + (isGaugeRedToGreen(field) ? ' gauge-red-to-green' : '');
     const needle = document.createElement('div');
     needle.className = 'gauge-needle';
     arc.appendChild(needle);
@@ -1166,6 +1243,7 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   let options = fieldTypeUsesOptions(working.type) && working.options ? [...working.options] : [];
   let defaultValue = working.default ?? null;
   let gaugeDescription = working.description || '';
+  let gaugeReversed = working.gaugeColors === 'red_to_green';
 
   wrap.innerHTML = `
     <h3>${creating ? 'Add question' : 'Edit question'}</h3>
@@ -1180,6 +1258,10 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
     <div class="mb-3" id="edGaugeDescWrap" style="display:none">
       <label class="form-label">Gauge description</label>
       <input type="text" class="form-control" id="edGaugeDesc" placeholder="Helper text shown below the question" value="${escapeHtml(gaugeDescription)}" />
+      <div class="form-check mt-2">
+        <input class="form-check-input" type="checkbox" id="edGaugeReverse" ${gaugeReversed ? 'checked' : ''} />
+        <label class="form-check-label" for="edGaugeReverse">Reverse colors (red → green, low to high)</label>
+      </div>
     </div>
     <div class="mb-3" id="edOptionsWrap">
       <label class="form-label">Options</label>
@@ -1203,6 +1285,7 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   const optionsHint = wrap.querySelector('#edOptionsHint');
   const gaugeDescWrap = wrap.querySelector('#edGaugeDescWrap');
   const gaugeDescInput = wrap.querySelector('#edGaugeDesc');
+  const gaugeReverseInput = wrap.querySelector('#edGaugeReverse');
   const defaultHost = wrap.querySelector('#edDefaultHost');
   const saveBtn = wrap.querySelector('#edSave');
   const labelInput = wrap.querySelector('#edLabel');
@@ -1221,11 +1304,35 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   }
 
   function validateDefaultValue() {
+    if (selectedTypeKey === 'slider' && options.length) {
+      if (!defaultValue || !options.includes(defaultValue)) defaultValue = options[0];
+      return;
+    }
     if (!defaultValue || selectedTypeKey === 'text' || selectedTypeKey === 'multi_select') return;
     const opts = optionsForTypeKey(selectedTypeKey, options);
     if (!opts.includes(defaultValue)) {
       defaultValue = null;
     }
+  }
+
+  function mountOptionsEditor() {
+    if (selectedTypeKey === 'traffic_light') {
+      renderTrafficLightLabels(optionsHost, options, next => {
+        options = next;
+        working.options = [...options];
+        validateDefaultValue();
+        mountDefaultPicker();
+        updateSaveState();
+      }, updateSaveState);
+      return;
+    }
+    renderOptionChips(optionsHost, options, next => {
+      options = next;
+      working.options = [...options];
+      validateDefaultValue();
+      mountDefaultPicker();
+      updateSaveState();
+    }, updateSaveState, optionChipLimits());
   }
 
   function mountDefaultPicker() {
@@ -1263,13 +1370,7 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   }
 
   function mountOptionChips() {
-    renderOptionChips(optionsHost, options, next => {
-      options = next;
-      working.options = [...options];
-      validateDefaultValue();
-      mountDefaultPicker();
-      updateSaveState();
-    }, updateSaveState, optionChipLimits());
+    mountOptionsEditor();
   }
 
   function refreshTypePicker() {
@@ -1279,15 +1380,26 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
       defaultValue = null;
       const def = fieldTypeConfigForKey(key);
       if (usesOptionEditor(key)) {
-        options = !creating && working.options?.length ? [...working.options] : [...(def?.options || [])];
+        if (key === 'traffic_light') {
+          options = normalizeTrafficLightOptions(
+            !creating && working.options?.length ? working.options : (def?.options || [])
+          );
+        } else {
+          options = !creating && working.options?.length ? [...working.options] : [...(def?.options || [])];
+        }
         working.options = [...options];
-        mountOptionChips();
+        if (key === 'slider' && options.length) defaultValue = options[0];
+        mountOptionsEditor();
       } else {
         options = [];
       }
       if (key === 'gauge') {
         gaugeDescription = working.description || '';
         gaugeDescInput.value = gaugeDescription;
+        gaugeReversed = working.gaugeColors === 'red_to_green';
+        gaugeReverseInput.checked = gaugeReversed;
+      } else {
+        gaugeReversed = false;
       }
       syncOptionsVisibility();
       mountDefaultPicker();
@@ -1297,11 +1409,23 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   }
 
   refreshTypePicker();
-  if (usesOptionEditor(selectedTypeKey)) mountOptionChips();
+  if (usesOptionEditor(selectedTypeKey)) {
+    if (selectedTypeKey === 'traffic_light') {
+      options = normalizeTrafficLightOptions(options);
+    }
+    if (selectedTypeKey === 'slider' && options.length && !defaultValue) {
+      defaultValue = options[0];
+    }
+    mountOptionsEditor();
+  }
   syncOptionsVisibility();
   mountDefaultPicker();
   labelInput.addEventListener('input', updateSaveState);
   gaugeDescInput.addEventListener('input', updateSaveState);
+  gaugeReverseInput.addEventListener('change', () => {
+    gaugeReversed = gaugeReverseInput.checked;
+    updateSaveState();
+  });
   updateSaveState();
 
   saveBtn.onclick = () => {
@@ -1314,11 +1438,19 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
       const desc = gaugeDescInput.value.trim();
       if (desc) working.description = desc;
       else delete working.description;
+      if (gaugeReversed) working.gaugeColors = 'red_to_green';
+      else delete working.gaugeColors;
     } else {
       delete working.description;
+      delete working.gaugeColors;
     }
-    if (defaultValue) working.default = defaultValue;
-    else delete working.default;
+    if (working.type === 'slider' && options.length) {
+      working.default = defaultValue && options.includes(defaultValue) ? defaultValue : options[0];
+    } else if (defaultValue) {
+      working.default = defaultValue;
+    } else {
+      delete working.default;
+    }
     onSave(working);
   };
   wrap.querySelector('#edCancel').onclick = onCancel;

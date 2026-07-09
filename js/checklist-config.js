@@ -228,7 +228,8 @@ function fieldTypeUsesOptions(type) {
 function minOptionsForFieldType(typeKey) {
   if (typeKey === 'traffic_light') return 3;
   if (typeKey === 'slider' || typeKey === 'gauge') return 2;
-  if (typeKey === 'dropdown' || typeKey === 'multi_select') return 1;
+  if (typeKey === 'multi_select') return 2;
+  if (typeKey === 'dropdown') return 1;
   return 0;
 }
 
@@ -240,13 +241,13 @@ function maxOptionsForFieldType(typeKey) {
 function optionsHintForFieldType(typeKey) {
   switch (typeKey) {
     case 'traffic_light':
-      return 'Exactly 3 labels (displayed red · amber · green left to right).';
+      return 'Click each light to edit its label (red · amber · green, fixed order).';
     case 'slider':
       return 'Add a label for each slider stop (minimum 2). Drag chips to reorder.';
     case 'gauge':
       return 'Add a label for each gauge position (minimum 2). Drag chips to reorder.';
     case 'multi_select':
-      return 'Add choices inspectors can tap — multiple allowed (minimum 1). Drag chips to reorder.';
+      return 'Add choices inspectors can tap — multiple allowed (minimum 2). Drag chips to reorder.';
     default:
       return 'Add at least one option. Drag chips to reorder.';
   }
@@ -278,16 +279,31 @@ function applyChecklistFieldType(field, typeKey) {
   } else if (def.type === 'gauge') {
     field.options = Array.isArray(field.options) && field.options.length ? [...field.options] : [...def.options];
     field.description = field.description || '';
+    if (field.gaugeColors !== 'red_to_green') delete field.gaugeColors;
     delete field.placeholder;
   } else if (fieldTypeUsesOptions(def.type)) {
     field.options = Array.isArray(field.options) && field.options.length ? [...field.options] : [...(def.options || [])];
     delete field.description;
+    delete field.gaugeColors;
     delete field.placeholder;
   } else {
     field.options = [...def.options];
     delete field.description;
+    delete field.gaugeColors;
     delete field.placeholder;
   }
+}
+
+function isGaugeRedToGreen(field) {
+  return field?.gaugeColors === 'red_to_green';
+}
+
+function effectiveSliderDefault(field) {
+  const opts = optionLabelsForField(field);
+  if (!opts.length) return null;
+  const raw = field?.default;
+  if (raw != null && raw !== '' && opts.includes(String(raw))) return String(raw);
+  return opts[0];
 }
 
 function optionLabelsForField(field) {

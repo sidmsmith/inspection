@@ -1075,6 +1075,47 @@
   -webkit-mask: radial-gradient(circle at 50% 50%, transparent 44px, #000 45px);
   transform: rotate(-90deg);
 }
+.checklist-gauge .gauge-arc.gauge-red-to-green::before {
+  background: conic-gradient(#dc3545 0deg, #ffc107 130deg, #28a745 210deg, var(--input-bg) 210deg);
+}
+.traffic-light-label-editor { display: flex; flex-direction: column; gap: 0.5rem; }
+.tl-label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.tl-color-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.tl-color-dot.tl-red { background: #ff6b6b; }
+.tl-color-dot.tl-amber { background: #ffc107; }
+.tl-color-dot.tl-green { background: #28a745; }
+.tl-color-name {
+  width: 3.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.tl-label-chip {
+  flex: 1;
+  text-align: left;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tl-label-chip.tl-red { border-color: #ff6b6b; }
+.tl-label-chip.tl-amber { border-color: #ffc107; }
+.tl-label-chip.tl-green { border-color: #28a745; }
+.tl-label-chip:hover { filter: brightness(1.08); }
+
 .checklist-gauge .gauge-needle {
   position: absolute;
   left: 50%;

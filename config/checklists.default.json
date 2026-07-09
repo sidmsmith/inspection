@@ -619,7 +619,8 @@
             "Moderate",
             "Heavy",
             "Severe"
-          ]
+          ],
+          "default": "None"
         },
         {
           "id": "issues_observed",
