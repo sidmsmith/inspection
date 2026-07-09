@@ -1,4 +1,4 @@
-# api/index.py — Inspection v0.0.8
+# api/index.py — Inspection v0.0.9
 # Major updates: container damage diagram pad, JPEG form capture/upload 413 fixes, diagram in form screenshot
 from flask import Flask, request, jsonify, send_from_directory
 import json, re, os, traceback, base64
@@ -313,7 +313,7 @@ def usage_track():
         payload = {
             "event_name": event_name,
             "app_name": "inspection",
-            "app_version": "0.0.8",
+            "app_version": "0.0.9",
             **metadata,
             "timestamp": datetime.now().isoformat()
         }
@@ -788,45 +788,65 @@ def lock_location_inventory():
     token = request.json.get('token')
     location_id = (request.json.get('location_id') or '').strip()
     condition_code = (request.json.get('condition_code') or '').strip()
+    container_type = (request.json.get('inventory_container_type_id') or 'LOCATION').strip()
     if not all([org, token, location_id, condition_code]):
         return jsonify({"success": False, "error": "Missing data"})
+    if not container_type:
+        container_type = 'LOCATION'
+
     url = f"https://{API_HOST}/dcinventory/api/dcinventory/containerCondition/import"
     headers = _dcinventory_headers(token, org)
     headers["ValidatedErrorCodes"] = '{"Overrides":["DCI::106"]}'
     headers["ValidatedAllErrorCodes"] = "true"
+
+    import_row = {
+        "InventoryContainerId": location_id,
+        "InventoryContainerTypeId": container_type,
+        "ConditionCode": condition_code,
+    }
+    manhattan_payload = {"Data": [import_row]}
+
     try:
+        print(f"[LockLocationInventory] POST {url}")
+        print(f"[LockLocationInventory] Payload: {json.dumps(manhattan_payload)}")
         r = requests.post(
             url,
-            json={
-                "Data": [
-                    {
-                        "InventoryContainerId": location_id,
-                        "InventoryContainerTypeId": "LOCATION",
-                        "ConditionCode": condition_code,
-                    }
-                ]
-            },
+            json=manhattan_payload,
             headers=headers,
             timeout=30,
             verify=False,
         )
         if not r.ok:
-            return jsonify({"success": False, "error": f"Inventory lock failed: HTTP {r.status_code}: {r.text[:500]}"})
+            return jsonify({
+                "success": False,
+                "error": f"Inventory lock failed: HTTP {r.status_code}: {r.text[:500]}",
+                "manhattan_payload": manhattan_payload,
+            })
         body = r.json()
         if body.get("success") is False:
             err = body.get("message") or body.get("rootCause") or "Inventory lock request rejected"
             if body.get("errors"):
                 err = f"{err} — {body.get('errors')}"
-            return jsonify({"success": False, "error": err})
+            return jsonify({
+                "success": False,
+                "error": err,
+                "manhattan_payload": manhattan_payload,
+                "manhattan_response": body,
+            })
         return jsonify({
             "success": True,
             "location_id": location_id,
             "condition_code": condition_code,
+            "inventory_container_type_id": container_type,
         })
     except Exception as e:
         print(f"[LockLocationInventory] Exception: {e}")
         traceback.print_exc()
-        return jsonify({"success": False, "error": str(e)})
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "manhattan_payload": manhattan_payload,
+        })
 
 
 @app.route('/api/condition_codes', methods=['POST'])
