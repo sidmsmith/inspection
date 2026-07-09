@@ -31,7 +31,7 @@ CHROMA_TOLERANCE = 36
 class VintageChecklistPDF(FPDF):
     def __init__(self) -> None:
         super().__init__(unit="mm", format="letter")
-        self.set_auto_page_break(auto=True, margin=16)
+        self.set_auto_page_break(auto=False)
         self.set_margins(MARGIN, MARGIN, MARGIN)
 
     def header(self) -> None:
@@ -54,6 +54,8 @@ def load_trailer_fields() -> list[dict]:
     result: list[dict] = []
     for field in fields:
         label = field.get("label", "")
+        if field.get("id") == "trailer_condition_code" or label == "Trailer Condition Code":
+            continue
         if label in seen_labels:
             continue
         seen_labels.add(label)
@@ -115,15 +117,15 @@ def paper_background(pdf: VintageChecklistPDF) -> None:
 
 def draw_title_block(pdf: VintageChecklistPDF) -> None:
     pdf.set_text_color(45, 40, 35)
-    pdf.set_font("Courier", "B", 18)
-    pdf.cell(0, 10, "INSPECTION CHECKLIST", ln=True, align="C")
+    pdf.set_font("Courier", "B", 17)
+    pdf.cell(0, 8, "INSPECTION CHECKLIST", ln=True, align="C")
     pdf.set_font("Courier", "", 9)
     pdf.set_text_color(90, 80, 70)
-    pdf.cell(0, 5, "TRAILER RECEIVING / YARD INSPECTION", ln=True, align="C")
-    pdf.ln(2)
+    pdf.cell(0, 4, "TRAILER RECEIVING / YARD INSPECTION", ln=True, align="C")
+    pdf.ln(1)
     pdf.set_font("Courier", "", 8)
     pdf.cell(0, 4, "Rev 03/98  -  Retain copy with shipping documents", ln=True, align="C")
-    pdf.ln(5)
+    pdf.ln(3)
 
 
 def draw_header_fields(pdf: VintageChecklistPDF) -> None:
@@ -133,24 +135,31 @@ def draw_header_fields(pdf: VintageChecklistPDF) -> None:
     pdf.set_font("Courier", "", 9)
     pdf.ln(1)
 
-    rows = [
-        ("Trailer ID / #:", 118),
-        ("Inspection Date:", 55),
-        ("Inspector Name:", 118),
-        ("Location / Yard:", 118),
-        ("ORG / Facility:", 118),
-    ]
-
-    for label, line_w in rows:
-        pdf.set_x(MARGIN)
-        pdf.cell(38, 7, label)
+    def underline_field(label: str, line_w: float, x_start: float | None = None) -> None:
+        pdf.set_x(x_start if x_start is not None else MARGIN)
+        pdf.cell(pdf.get_string_width(label) + 2, 6, label)
         x = pdf.get_x()
         y = pdf.get_y()
         pdf.set_draw_color(60, 55, 48)
-        pdf.line(x, y + 6, x + line_w, y + 6)
-        pdf.ln(8)
+        pdf.line(x, y + 5, x + line_w, y + 5)
 
-    pdf.ln(2)
+    underline_field("Trailer #:", PAGE_W - MARGIN - MARGIN - 24)
+    pdf.ln(7)
+
+    y = pdf.get_y()
+    pdf.set_x(MARGIN)
+    pdf.cell(30, 6, "Inspection Date:")
+    x_date = pdf.get_x()
+    pdf.line(x_date, y + 5, x_date + 42, y + 5)
+    pdf.set_xy(x_date + 48, y)
+    pdf.cell(28, 6, "Inspector Name:")
+    x_name = pdf.get_x()
+    pdf.line(x_name, y + 5, PAGE_W - MARGIN, y + 5)
+    pdf.ln(7)
+
+    underline_field("Location / Yard:", PAGE_W - MARGIN - MARGIN - 34)
+    pdf.ln(7)
+    pdf.ln(1)
 
 
 def draw_checkbox(pdf: VintageChecklistPDF, x: float, y: float, size: float = 3.2) -> None:
@@ -169,7 +178,7 @@ def draw_pass_fail_row(pdf: VintageChecklistPDF, label: str, required: bool = Fa
         pdf.set_xy(x + 4.5, y - 1)
         pdf.cell(18, 5, option)
         x += 28
-    pdf.ln(7)
+    pdf.ln(6)
 
 
 def draw_yes_no_row(pdf: VintageChecklistPDF, label: str, required: bool = False) -> None:
@@ -183,7 +192,7 @@ def draw_yes_no_row(pdf: VintageChecklistPDF, label: str, required: bool = False
         pdf.set_xy(x + 4.5, y - 1)
         pdf.cell(16, 5, option)
         x += 26
-    pdf.ln(7)
+    pdf.ln(6)
 
 
 def draw_option_row(pdf: VintageChecklistPDF, label: str, options: list[str], required: bool = False) -> None:
@@ -205,7 +214,7 @@ def draw_option_row(pdf: VintageChecklistPDF, label: str, options: list[str], re
             x = MARGIN + 4
             col = 0
             pdf.set_y(y)
-    pdf.ln(8)
+    pdf.ln(6)
 
 
 def draw_blank_line_row(pdf: VintageChecklistPDF, label: str, required: bool = False) -> None:
@@ -215,7 +224,7 @@ def draw_blank_line_row(pdf: VintageChecklistPDF, label: str, required: bool = F
     x = pdf.get_x()
     y = pdf.get_y()
     pdf.line(x, y + 5, PAGE_W - MARGIN, y + 5)
-    pdf.ln(9)
+    pdf.ln(7)
 
 
 def draw_question(pdf: VintageChecklistPDF, field: dict) -> None:
@@ -235,18 +244,18 @@ def draw_question(pdf: VintageChecklistPDF, field: dict) -> None:
 
 
 def draw_damage_diagram(pdf: VintageChecklistPDF, image_path: Path | None) -> None:
-    pdf.ln(2)
+    pdf.ln(1)
     pdf.set_font("Courier", "B", 9)
-    pdf.cell(0, 6, "DAMAGE DIAGRAM - MARK AREAS OF DAMAGE ON CONTAINER", ln=True)
+    pdf.cell(0, 5, "DAMAGE DIAGRAM - MARK AREAS OF DAMAGE ON CONTAINER", ln=True)
     pdf.set_font("Courier", "", 7)
     pdf.set_text_color(90, 80, 70)
     pdf.cell(0, 4, "Circle or mark damage on the diagram below", ln=True)
-    pdf.ln(2)
+    pdf.ln(1)
 
     x = MARGIN
     y = pdf.get_y()
     box_w = PAGE_W - (MARGIN * 2)
-    box_h = 52
+    box_h = 36
 
     pdf.set_fill_color(*PAPER_RGB)
     pdf.set_draw_color(80, 75, 68)
@@ -268,15 +277,15 @@ def draw_damage_diagram(pdf: VintageChecklistPDF, image_path: Path | None) -> No
         pdf.set_text_color(120, 110, 95)
         pdf.cell(box_w, 8, "[ Container diagram ]", align="C")
 
-    pdf.set_y(y + box_h + 4)
+    pdf.set_y(y + box_h + 2)
     pdf.set_text_color(35, 32, 28)
 
 
 def draw_signature_block(pdf: VintageChecklistPDF) -> None:
-    pdf.ln(4)
+    pdf.ln(2)
     pdf.set_font("Courier", "B", 9)
-    pdf.cell(0, 6, "INSPECTOR'S SIGNATURE", ln=True)
-    pdf.ln(8)
+    pdf.cell(0, 5, "INSPECTOR'S SIGNATURE", ln=True)
+    pdf.ln(4)
     x = MARGIN
     y = pdf.get_y()
     pdf.line(x, y, x + 95, y)
@@ -308,19 +317,10 @@ def build_pdf() -> Path:
     pdf.set_font("Courier", "", 7)
     pdf.set_text_color(90, 80, 70)
     pdf.cell(0, 4, "* Required field", ln=True)
-    pdf.ln(2)
+    pdf.ln(1)
 
     for field in fields:
-        if pdf.get_y() > PAGE_H - 70:
-            pdf.add_page()
-            paper_background(pdf)
-            pdf.set_y(MARGIN + 2)
         draw_question(pdf, field)
-
-    if pdf.get_y() > PAGE_H - 95:
-        pdf.add_page()
-        paper_background(pdf)
-        pdf.set_y(MARGIN + 2)
 
     draw_damage_diagram(pdf, image_path)
     draw_signature_block(pdf)
