@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-07-09T05:31:51.432Z",
+  "updatedAt": "2026-07-09T13:25:21.791Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -94,7 +94,7 @@
           "type": "dropdown",
           "dataSource": "condition_codes",
           "required": false,
-          "enabled": false
+          "enabled": true
         }
       ],
       "sections": {
