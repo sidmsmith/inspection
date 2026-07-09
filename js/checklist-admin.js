@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.2.11) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.3.0) */
 
 const FIELD_TYPES = CHECKLIST_FIELD_TYPES;
 

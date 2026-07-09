@@ -1,5 +1,6 @@
-# api/index.py — Inspection v0.0.10
-# Major updates: container damage diagram pad, JPEG form capture/upload 413 fixes, diagram in form screenshot
+# api/index.py — Inspection v0.1.0
+# Major updates: Location object type (search, putaway/inventory locks), graphical checklist fields,
+# containerCondition verification on inventory lock, org draft merge on import/export
 from flask import Flask, request, jsonify, send_from_directory
 import json, re, os, traceback, base64
 from datetime import datetime
@@ -313,7 +314,7 @@ def usage_track():
         payload = {
             "event_name": event_name,
             "app_name": "inspection",
-            "app_version": "0.0.10",
+            "app_version": "0.1.0",
             **metadata,
             "timestamp": datetime.now().isoformat()
         }
