@@ -1,4 +1,4 @@
-# api/index.py — Inspection v0.0.7
+# api/index.py — Inspection v0.0.8
 # Major updates: container damage diagram pad, JPEG form capture/upload 413 fixes, diagram in form screenshot
 from flask import Flask, request, jsonify, send_from_directory
 import json, re, os, traceback, base64
@@ -313,7 +313,7 @@ def usage_track():
         payload = {
             "event_name": event_name,
             "app_name": "inspection",
-            "app_version": "0.0.7",
+            "app_version": "0.0.8",
             **metadata,
             "timestamp": datetime.now().isoformat()
         }
@@ -550,6 +550,60 @@ def search_shipment():
     return jsonify({"success": True, "results": results})
 
 
+def _dcinventory_headers(token, org):
+    return {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "selectedOrganization": org,
+        "selectedLocation": f"{org}-DM1",
+    }
+
+
+CONDITION_CODE_SEARCH_TEMPLATE = {
+    "ConditionCodeId": "",
+    "Description": "",
+    "PK": "",
+}
+
+
+def _fetch_condition_codes_via_search(org, token):
+    """Paginate dcinventory conditionCode/search — matches Manhattan UI search results."""
+    url = f"https://{API_HOST}/dcinventory/api/dcinventory/conditionCode/search"
+    headers = _dcinventory_headers(token, org)
+    codes = []
+    seen = set()
+    page = 0
+    page_size = 1000
+    while True:
+        payload = {
+            "Query": "",
+            "Template": CONDITION_CODE_SEARCH_TEMPLATE,
+            "Size": page_size,
+            "Page": page,
+        }
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+        if not r.ok:
+            raise RuntimeError(f"HTTP {r.status_code}: {r.text[:500]}")
+        items = r.json().get("data") or []
+        if not isinstance(items, list):
+            items = []
+        for row in items:
+            code_id = row.get("ConditionCodeId")
+            if not code_id or code_id in seen:
+                continue
+            seen.add(code_id)
+            codes.append({
+                "ConditionCodeId": code_id,
+                "Description": row.get("Description"),
+                "PK": row.get("PK"),
+            })
+        if len(items) < page_size:
+            break
+        page += 1
+    codes.sort(key=lambda c: (c.get("ConditionCodeId") or "").lower())
+    return codes
+
+
 LOCATION_SEARCH_TEMPLATE = {
     "LocationId": "",
     "DisplayLocation": "",
@@ -639,24 +693,34 @@ def putaway_condition_codes():
         return jsonify({"success": False, "error": "Missing data"})
     url = f"https://{API_HOST}/dcinventory/api/dcinventory/putawayConditionCode/search"
     try:
-        r = requests.post(
-            url,
-            json={"Query": ""},
-            headers=_dcinventory_headers(token, org),
-            timeout=30,
-            verify=False,
-        )
-        if not r.ok:
-            return jsonify({"success": False, "error": f"HTTP {r.status_code}: {r.text[:500]}"})
-        items = r.json().get("data") or []
-        codes = [
-            {
-                "PutawayConditionCodeId": x.get("PutawayConditionCodeId"),
-                "Description": x.get("Description"),
-            }
-            for x in items
-            if x.get("PutawayConditionCodeId")
-        ]
+        codes = []
+        seen = set()
+        page = 0
+        page_size = 1000
+        while True:
+            r = requests.post(
+                url,
+                json={"Query": "", "Size": page_size, "Page": page},
+                headers=_dcinventory_headers(token, org),
+                timeout=30,
+                verify=False,
+            )
+            if not r.ok:
+                return jsonify({"success": False, "error": f"HTTP {r.status_code}: {r.text[:500]}"})
+            items = r.json().get("data") or []
+            if not isinstance(items, list):
+                items = []
+            for x in items:
+                code_id = x.get("PutawayConditionCodeId")
+                if code_id and code_id not in seen:
+                    seen.add(code_id)
+                    codes.append({
+                        "PutawayConditionCodeId": code_id,
+                        "Description": x.get("Description"),
+                    })
+            if len(items) < page_size:
+                break
+            page += 1
         codes.sort(key=lambda c: (c.get("PutawayConditionCodeId") or "").lower())
         return jsonify({"success": True, "codes": codes})
     except Exception as e:
@@ -671,28 +735,9 @@ def inventory_condition_codes():
     token = request.json.get('token')
     if not all([org, token]):
         return jsonify({"success": False, "error": "Missing data"})
-    url = f"https://{API_HOST}/dcinventory/api/dcinventory/conditionCode/search"
     try:
-        r = requests.post(
-            url,
-            json={"Query": ""},
-            headers=_dcinventory_headers(token, org),
-            timeout=30,
-            verify=False,
-        )
-        if not r.ok:
-            return jsonify({"success": False, "error": f"HTTP {r.status_code}: {r.text[:500]}"})
-        items = r.json().get("data") or []
-        codes = [
-            {
-                "ConditionCodeId": x.get("ConditionCodeId"),
-                "Description": x.get("Description"),
-            }
-            for x in items
-            if x.get("ConditionCodeId")
-        ]
-        codes.sort(key=lambda c: (c.get("ConditionCodeId") or "").lower())
-        return jsonify({"success": True, "codes": codes})
+        codes = _fetch_condition_codes_via_search(org, token)
+        return jsonify({"success": True, "codes": codes, "count": len(codes)})
     except Exception as e:
         print(f"[InventoryConditionCodes] Exception: {e}")
         return jsonify({"success": False, "error": str(e)})
@@ -766,10 +811,13 @@ def lock_location_inventory():
             verify=False,
         )
         if not r.ok:
-            return jsonify({"success": False, "error": f"Inventory lock failed: HTTP {r.status_code}: {r.text[:300]}"})
+            return jsonify({"success": False, "error": f"Inventory lock failed: HTTP {r.status_code}: {r.text[:500]}"})
         body = r.json()
         if body.get("success") is False:
-            return jsonify({"success": False, "error": body.get("message") or "Inventory lock request rejected"})
+            err = body.get("message") or body.get("rootCause") or "Inventory lock request rejected"
+            if body.get("errors"):
+                err = f"{err} — {body.get('errors')}"
+            return jsonify({"success": False, "error": err})
         return jsonify({
             "success": True,
             "location_id": location_id,
@@ -826,36 +874,16 @@ def condition_codes():
         return jsonify({"success": False, "error": str(e)})
 
 
-def _dcinventory_headers(token, org):
-    return {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-        "selectedOrganization": org,
-        "selectedLocation": f"{org}-DM1",
-    }
-
-
 @app.route('/api/ilpn_condition_codes', methods=['POST'])
 def ilpn_condition_codes():
-    """Fetch inventory/LPN condition codes (dcinventory — not trailer yard-management codes)."""
+    """Fetch inventory/LPN condition codes from conditionCode/search (same source as Location)."""
     org = request.json.get('org')
     token = request.json.get('token')
     if not all([org, token]):
         return jsonify({"success": False, "error": "Missing data"})
-
-    url = f"https://{API_HOST}/dcinventory/api/dcinventory/conditionCode?size=50"
     try:
-        r = requests.get(url, headers=_dcinventory_headers(token, org), timeout=30, verify=False)
-        if not r.ok:
-            return jsonify({"success": False, "error": f"HTTP {r.status_code}: {r.text[:500]}"})
-        items = r.json().get("data") or []
-        codes = [
-            {"ConditionCodeId": x.get("ConditionCodeId"), "Description": x.get("Description")}
-            for x in items
-            if x.get("ConditionCodeId")
-        ]
-        codes.sort(key=lambda c: (c.get("ConditionCodeId") or "").lower())
-        return jsonify({"success": True, "codes": codes})
+        codes = _fetch_condition_codes_via_search(org, token)
+        return jsonify({"success": True, "codes": codes, "count": len(codes)})
     except Exception as e:
         print(f"[IlpnConditionCodes] Exception: {e}")
         return jsonify({"success": False, "error": str(e)})
