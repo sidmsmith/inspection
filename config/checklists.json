@@ -1,5 +1,5 @@
 {
-  "version": 16,
+  "version": 17,
   "checklists": {
     "trailer": {
       "damagePad": {
@@ -600,6 +600,53 @@
           ]
         },
         {
+          "id": "overall_location_status",
+          "label": "Overall Location Status",
+          "type": "traffic_light",
+          "options": [
+            "Stop — Block",
+            "Caution — Review",
+            "Go — OK"
+          ]
+        },
+        {
+          "id": "damage_severity",
+          "label": "Damage Severity",
+          "type": "slider",
+          "options": [
+            "None",
+            "Light",
+            "Moderate",
+            "Heavy",
+            "Severe"
+          ]
+        },
+        {
+          "id": "issues_observed",
+          "label": "Issues Observed",
+          "type": "multi_select",
+          "options": [
+            "Damaged label",
+            "Blocked aisle",
+            "Overfilled",
+            "Mixed SKU",
+            "Wet floor"
+          ]
+        },
+        {
+          "id": "capacity_level",
+          "label": "Capacity Level",
+          "type": "gauge",
+          "description": "Estimated fill level for this reserve location",
+          "options": [
+            "Empty",
+            "25%",
+            "50%",
+            "75%",
+            "Full"
+          ]
+        },
+        {
           "id": "notes_issues",
           "label": "Notes / Issues Found",
           "type": "freeform",
@@ -645,6 +692,10 @@
         { "type": "field", "id": "physical_condition" },
         { "type": "field", "id": "contents_status" },
         { "type": "field", "id": "pick_path_clear" },
+        { "type": "field", "id": "overall_location_status" },
+        { "type": "field", "id": "damage_severity" },
+        { "type": "field", "id": "issues_observed" },
+        { "type": "field", "id": "capacity_level" },
         { "type": "field", "id": "notes_issues" },
         { "type": "field", "id": "putaway_condition_code" },
         { "type": "field", "id": "inventory_condition_code" },

@@ -1,11 +1,6 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.2.4) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.2.6) */
 
-const FIELD_TYPES = [
-  { key: 'yes_no', label: 'Yes / No', icon: 'fa-toggle-on', type: 'segmented', options: ['Yes', 'No'] },
-  { key: 'pass_fail', label: 'Pass / Fail', icon: 'fa-check-double', type: 'segmented', options: ['Pass', 'Fail'] },
-  { key: 'dropdown', label: 'Pick one', icon: 'fa-list', type: 'dropdown', options: [] },
-  { key: 'text', label: 'Text', icon: 'fa-font', type: 'freeform', options: [] }
-];
+const FIELD_TYPES = CHECKLIST_FIELD_TYPES;
 
 const previewState = {};
 let previewApiData = {
@@ -40,12 +35,7 @@ function slugifyId(label) {
 }
 
 function typeKeyForField(field) {
-  if (!field?.type) return null;
-  if (field.type === 'freeform') return 'text';
-  if (field.type === 'dropdown' && !field.dataSource) return 'dropdown';
-  if (field.type === 'segmented' && field.options?.join(',') === 'Pass,Fail') return 'pass_fail';
-  if (field.type === 'segmented') return 'yes_no';
-  return null;
+  return typeKeyForChecklistField(field);
 }
 
 function typeLabelForField(field) {
@@ -60,20 +50,7 @@ function typeLabelForField(field) {
 }
 
 function applyFieldType(field, typeKey) {
-  const def = FIELD_TYPES.find(t => t.key === typeKey);
-  if (!def) return;
-  field.type = def.type;
-  delete field.dataSource;
-  delete field.default;
-  if (def.type === 'freeform') {
-    delete field.options;
-    field.placeholder = field.placeholder || '';
-  } else if (def.type === 'dropdown') {
-    field.options = field.options ? [...field.options] : [];
-  } else {
-    field.options = [...def.options];
-    delete field.placeholder;
-  }
+  applyChecklistFieldType(field, typeKey);
 }
 
 function clearPreviewState() {
@@ -93,8 +70,11 @@ function prunePreviewState(fields) {
   });
 }
 
-function optionsForTypeKey(typeKey, dropdownOptions) {
-  if (typeKey === 'dropdown') return dropdownOptions || [];
+function optionsForTypeKey(typeKey, customOptions) {
+  if (fieldTypeUsesOptions(typeKey) || typeKey === 'dropdown' || typeKey === 'multi_select'
+    || typeKey === 'traffic_light' || typeKey === 'slider' || typeKey === 'gauge') {
+    return customOptions || [];
+  }
   return FIELD_TYPES.find(t => t.key === typeKey)?.options || [];
 }
 
@@ -240,7 +220,9 @@ function bindChipReorder(wrap, options, onReorder) {
   });
 }
 
-function renderOptionChips(container, options, onChange, onValidationChange) {
+function renderOptionChips(container, options, onChange, onValidationChange, chipLimits = {}) {
+  const minOptions = chipLimits.minOptions ?? null;
+  const maxOptions = chipLimits.maxOptions ?? null;
   container.innerHTML = '';
   const wrap = document.createElement('div');
   wrap.className = 'option-chips';
@@ -255,34 +237,49 @@ function renderOptionChips(container, options, onChange, onValidationChange) {
   input.className = 'chip-add-input';
   input.placeholder = '+ Add option';
 
+  function syncAddInput() {
+    if (maxOptions != null && options.length >= maxOptions) {
+      input.style.display = 'none';
+      input.value = '';
+    } else {
+      input.style.display = '';
+    }
+  }
+
   function renderChips() {
     wrap.querySelectorAll('.option-chip').forEach(el => el.remove());
     options.forEach((opt, idx) => {
       const chip = document.createElement('span');
       chip.className = 'option-chip';
       chip.dataset.idx = String(idx);
+      const canRemove = minOptions == null || options.length > minOptions;
       chip.innerHTML = `
         <span class="chip-grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
         <span class="chip-label">${escapeHtml(opt)}</span>
-        <button type="button" class="chip-remove" aria-label="Remove">×</button>`;
-      chip.querySelector('.chip-remove').onclick = e => {
-        e.stopPropagation();
-        options.splice(idx, 1);
-        emit();
-        renderChips();
-      };
+        ${canRemove ? '<button type="button" class="chip-remove" aria-label="Remove">×</button>' : ''}`;
+      const removeBtn = chip.querySelector('.chip-remove');
+      if (removeBtn) {
+        removeBtn.onclick = e => {
+          e.stopPropagation();
+          options.splice(idx, 1);
+          emit();
+          renderChips();
+        };
+      }
       wrap.insertBefore(chip, input);
     });
     bindChipReorder(wrap, options, () => {
       emit();
       renderChips();
     });
+    syncAddInput();
   }
 
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const val = input.value.trim();
+      if (maxOptions != null && options.length >= maxOptions) return;
       if (val && !options.includes(val)) {
         options.push(val);
         input.value = '';
@@ -465,6 +462,140 @@ function appendPreviewControl(group, field, apiData) {
       input.oninput = () => { previewState[field.id] = input.value; };
     }
     group.appendChild(input);
+    return;
+  }
+
+  if (field.type === 'traffic_light') {
+    const wrap = document.createElement('div');
+    wrap.className = 'checklist-traffic-light';
+    const colors = ['tl-red', 'tl-amber', 'tl-green'];
+    (field.options || []).slice(0, 3).forEach((option, idx) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `tl-btn ${colors[idx] || 'tl-amber'}` + (current === option ? ' selected' : '');
+      btn.textContent = option;
+      btn.dataset.option = option;
+      if (field.id) {
+        btn.onclick = () => {
+          const active = previewState[field.id] ?? '';
+          const next = active === option ? '' : option;
+          previewState[field.id] = next;
+          wrap.querySelectorAll('.tl-btn').forEach(s => {
+            s.classList.toggle('selected', s.dataset.option === next);
+          });
+        };
+      }
+      wrap.appendChild(btn);
+    });
+    group.appendChild(wrap);
+    return;
+  }
+
+  if (field.type === 'slider') {
+    const opts = field.options || [];
+    const wrap = document.createElement('div');
+    wrap.className = 'checklist-slider-wrap';
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.className = 'checklist-slider-input';
+    range.min = '0';
+    range.max = String(Math.max(opts.length - 1, 0));
+    range.step = '1';
+    range.value = String(Math.max(0, opts.indexOf(current)));
+    const label = document.createElement('div');
+    label.className = 'checklist-slider-value';
+    const update = () => {
+      const idx = Number(range.value);
+      const text = opts[idx] || '';
+      label.textContent = text;
+      if (field.id) previewState[field.id] = text;
+    };
+    range.addEventListener('input', update);
+    update();
+    if (opts.length) {
+      const ends = document.createElement('div');
+      ends.className = 'checklist-slider-ends';
+      ends.innerHTML = `<span>${escapeHtml(opts[0])}</span><span>${escapeHtml(opts[opts.length - 1])}</span>`;
+      wrap.appendChild(range);
+      wrap.appendChild(ends);
+      wrap.appendChild(label);
+    }
+    group.appendChild(wrap);
+    return;
+  }
+
+  if (field.type === 'multi_select') {
+    const wrap = document.createElement('div');
+    wrap.className = 'checklist-chips';
+    const selected = new Set(String(current || '').split(',').map(s => s.trim()).filter(Boolean));
+    (field.options || []).forEach(option => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip-btn' + (selected.has(option) ? ' selected' : '');
+      btn.textContent = option;
+      btn.dataset.option = option;
+      if (field.id) {
+        btn.onclick = () => {
+          if (selected.has(option)) selected.delete(option);
+          else selected.add(option);
+          previewState[field.id] = [...selected].join(', ');
+          wrap.querySelectorAll('.chip-btn').forEach(s => {
+            s.classList.toggle('selected', selected.has(s.dataset.option));
+          });
+        };
+      }
+      wrap.appendChild(btn);
+    });
+    group.appendChild(wrap);
+    return;
+  }
+
+  if (field.type === 'gauge') {
+    if (field.description) {
+      const desc = document.createElement('p');
+      desc.className = 'checklist-field-desc';
+      desc.textContent = field.description;
+      group.appendChild(desc);
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'checklist-gauge';
+    const arc = document.createElement('div');
+    arc.className = 'gauge-arc';
+    const needle = document.createElement('div');
+    needle.className = 'gauge-needle';
+    arc.appendChild(needle);
+    const opts = field.options || [];
+    const btnRow = document.createElement('div');
+    btnRow.className = 'gauge-options';
+    const setNeedle = idx => {
+      const max = Math.max(opts.length - 1, 1);
+      const angle = -90 + (idx / max) * 180;
+      needle.style.transform = `translateX(-50%) rotate(${angle}deg)`;
+    };
+    const activeIdx = Math.max(0, opts.indexOf(current));
+    setNeedle(activeIdx);
+    opts.forEach((option, idx) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'gauge-opt-btn' + (current === option ? ' selected' : '');
+      btn.textContent = option;
+      btn.dataset.option = option;
+      if (field.id) {
+        btn.onclick = () => {
+          const active = previewState[field.id] ?? '';
+          const next = active === option ? '' : option;
+          previewState[field.id] = next;
+          btnRow.querySelectorAll('.gauge-opt-btn').forEach(s => {
+            s.classList.toggle('selected', s.dataset.option === next);
+          });
+          setNeedle(next ? opts.indexOf(next) : 0);
+        };
+      }
+      btnRow.appendChild(btn);
+    });
+    wrap.appendChild(arc);
+    wrap.appendChild(btnRow);
+    group.appendChild(wrap);
     return;
   }
 
@@ -1032,8 +1163,9 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   const creating = isNew ?? !field.id;
   const working = JSON.parse(JSON.stringify(field));
   let selectedTypeKey = creating ? null : typeKeyForField(working);
-  let options = working.type === 'dropdown' && working.options ? [...working.options] : [];
+  let options = fieldTypeUsesOptions(working.type) && working.options ? [...working.options] : [];
   let defaultValue = working.default ?? null;
+  let gaugeDescription = working.description || '';
 
   wrap.innerHTML = `
     <h3>${creating ? 'Add question' : 'Edit question'}</h3>
@@ -1044,6 +1176,10 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
     <div class="mb-3">
       <label class="form-label">Answer type</label>
       <div id="edTypePicker" class="type-picker"></div>
+    </div>
+    <div class="mb-3" id="edGaugeDescWrap" style="display:none">
+      <label class="form-label">Gauge description</label>
+      <input type="text" class="form-control" id="edGaugeDesc" placeholder="Helper text shown below the question" value="${escapeHtml(gaugeDescription)}" />
     </div>
     <div class="mb-3" id="edOptionsWrap">
       <label class="form-label">Options</label>
@@ -1064,16 +1200,28 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   const typePicker = wrap.querySelector('#edTypePicker');
   const optionsWrap = wrap.querySelector('#edOptionsWrap');
   const optionsHost = wrap.querySelector('#edOptions');
+  const optionsHint = wrap.querySelector('#edOptionsHint');
+  const gaugeDescWrap = wrap.querySelector('#edGaugeDescWrap');
+  const gaugeDescInput = wrap.querySelector('#edGaugeDesc');
   const defaultHost = wrap.querySelector('#edDefaultHost');
   const saveBtn = wrap.querySelector('#edSave');
   const labelInput = wrap.querySelector('#edLabel');
 
+  function usesOptionEditor(key) {
+    return key && (fieldTypeUsesOptions(fieldTypeConfigForKey(key)?.type || '') || key === 'dropdown' || key === 'multi_select');
+  }
+
   function syncOptionsVisibility() {
-    optionsWrap.style.display = selectedTypeKey === 'dropdown' ? 'block' : 'none';
+    const show = usesOptionEditor(selectedTypeKey);
+    optionsWrap.style.display = show ? 'block' : 'none';
+    gaugeDescWrap.style.display = selectedTypeKey === 'gauge' ? 'block' : 'none';
+    if (show && selectedTypeKey) {
+      optionsHint.textContent = optionsHintForFieldType(selectedTypeKey);
+    }
   }
 
   function validateDefaultValue() {
-    if (!defaultValue || selectedTypeKey === 'text') return;
+    if (!defaultValue || selectedTypeKey === 'text' || selectedTypeKey === 'multi_select') return;
     const opts = optionsForTypeKey(selectedTypeKey, options);
     if (!opts.includes(defaultValue)) {
       defaultValue = null;
@@ -1081,6 +1229,11 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   }
 
   function mountDefaultPicker() {
+    if (selectedTypeKey === 'multi_select') {
+      defaultHost.innerHTML = '<small class="text-muted default-answer-hint">Multi-select defaults are not configured in admin yet.</small>';
+      defaultHost.style.display = 'block';
+      return;
+    }
     renderDefaultPicker(defaultHost, {
       typeKey: selectedTypeKey,
       options,
@@ -1089,11 +1242,23 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
     });
   }
 
+  function optionChipLimits() {
+    return {
+      minOptions: selectedTypeKey ? minOptionsForFieldType(selectedTypeKey) : null,
+      maxOptions: selectedTypeKey ? maxOptionsForFieldType(selectedTypeKey) : null
+    };
+  }
+
   function updateSaveState() {
     const label = labelInput.value.trim();
     const hasType = selectedTypeKey != null;
     let valid = !!label && hasType;
-    if (valid && selectedTypeKey === 'dropdown') valid = options.length >= 1;
+    if (valid && usesOptionEditor(selectedTypeKey)) {
+      const min = minOptionsForFieldType(selectedTypeKey);
+      valid = options.length >= min;
+      const max = maxOptionsForFieldType(selectedTypeKey);
+      if (max != null) valid = valid && options.length <= max;
+    }
     saveBtn.disabled = !valid;
   }
 
@@ -1104,7 +1269,7 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
       validateDefaultValue();
       mountDefaultPicker();
       updateSaveState();
-    }, updateSaveState);
+    }, updateSaveState, optionChipLimits());
   }
 
   function refreshTypePicker() {
@@ -1112,10 +1277,17 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
       selectedTypeKey = key;
       applyFieldType(working, key);
       defaultValue = null;
-      if (key === 'dropdown') {
-        options = !creating && working.options?.length ? [...working.options] : [];
+      const def = fieldTypeConfigForKey(key);
+      if (usesOptionEditor(key)) {
+        options = !creating && working.options?.length ? [...working.options] : [...(def?.options || [])];
         working.options = [...options];
         mountOptionChips();
+      } else {
+        options = [];
+      }
+      if (key === 'gauge') {
+        gaugeDescription = working.description || '';
+        gaugeDescInput.value = gaugeDescription;
       }
       syncOptionsVisibility();
       mountDefaultPicker();
@@ -1125,10 +1297,11 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   }
 
   refreshTypePicker();
-  if (selectedTypeKey === 'dropdown') mountOptionChips();
+  if (usesOptionEditor(selectedTypeKey)) mountOptionChips();
   syncOptionsVisibility();
   mountDefaultPicker();
   labelInput.addEventListener('input', updateSaveState);
+  gaugeDescInput.addEventListener('input', updateSaveState);
   updateSaveState();
 
   saveBtn.onclick = () => {
@@ -1136,7 +1309,14 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
     working.label = labelInput.value.trim();
     working.id = working.id || slugifyId(working.label);
     working.required = wrap.querySelector('#edRequired').checked;
-    if (working.type === 'dropdown') working.options = [...options];
+    if (usesOptionEditor(selectedTypeKey)) working.options = [...options];
+    if (working.type === 'gauge') {
+      const desc = gaugeDescInput.value.trim();
+      if (desc) working.description = desc;
+      else delete working.description;
+    } else {
+      delete working.description;
+    }
     if (defaultValue) working.default = defaultValue;
     else delete working.default;
     onSave(working);

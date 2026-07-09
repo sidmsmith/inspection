@@ -201,6 +201,109 @@ const CHECKLIST_OBJECT_TYPES = [
   { key: 'location', label: 'Location' }
 ];
 
+/** Admin answer-type catalog — stored `type` may differ from `key` for legacy segmented presets. */
+const CHECKLIST_FIELD_TYPES = [
+  { key: 'yes_no', label: 'Yes / No', icon: 'fa-toggle-on', type: 'segmented', options: ['Yes', 'No'] },
+  { key: 'pass_fail', label: 'Pass / Fail', icon: 'fa-check-double', type: 'segmented', options: ['Pass', 'Fail'] },
+  { key: 'dropdown', label: 'Dropdown', icon: 'fa-list', type: 'dropdown', options: [] },
+  { key: 'multi_select', label: 'Multi-select', icon: 'fa-tags', type: 'multi_select', options: [] },
+  { key: 'text', label: 'Text', icon: 'fa-font', type: 'freeform', options: [] },
+  { key: 'traffic_light', label: 'Traffic light', icon: 'fa-circle', type: 'traffic_light', options: ['Stop', 'Caution', 'Go'] },
+  { key: 'slider', label: 'Slider', icon: 'fa-sliders', type: 'slider', options: ['None', 'Light', 'Moderate', 'Heavy', 'Severe'] },
+  { key: 'gauge', label: 'Gauge', icon: 'fa-gauge-high', type: 'gauge', options: ['Empty', '25%', '50%', '75%', 'Full'] }
+];
+
+const CHECKLIST_OPTION_FIELD_TYPES = new Set([
+  'dropdown', 'multi_select', 'traffic_light', 'slider', 'gauge'
+]);
+
+function fieldTypeConfigForKey(key) {
+  return CHECKLIST_FIELD_TYPES.find(t => t.key === key);
+}
+
+function fieldTypeUsesOptions(type) {
+  return CHECKLIST_OPTION_FIELD_TYPES.has(type);
+}
+
+function minOptionsForFieldType(typeKey) {
+  if (typeKey === 'traffic_light') return 3;
+  if (typeKey === 'slider' || typeKey === 'gauge') return 2;
+  if (typeKey === 'dropdown' || typeKey === 'multi_select') return 1;
+  return 0;
+}
+
+function maxOptionsForFieldType(typeKey) {
+  if (typeKey === 'traffic_light') return 3;
+  return null;
+}
+
+function optionsHintForFieldType(typeKey) {
+  switch (typeKey) {
+    case 'traffic_light':
+      return 'Exactly 3 labels (displayed red · amber · green left to right).';
+    case 'slider':
+      return 'Add a label for each slider stop (minimum 2). Drag chips to reorder.';
+    case 'gauge':
+      return 'Add a label for each gauge position (minimum 2). Drag chips to reorder.';
+    case 'multi_select':
+      return 'Add choices inspectors can tap — multiple allowed (minimum 1). Drag chips to reorder.';
+    default:
+      return 'Add at least one option. Drag chips to reorder.';
+  }
+}
+
+function typeKeyForChecklistField(field) {
+  if (!field?.type) return null;
+  if (field.type === 'freeform') return 'text';
+  if (field.type === 'dropdown' && !field.dataSource) return 'dropdown';
+  if (field.type === 'multi_select') return 'multi_select';
+  if (field.type === 'traffic_light') return 'traffic_light';
+  if (field.type === 'slider') return 'slider';
+  if (field.type === 'gauge') return 'gauge';
+  if (field.type === 'segmented' && field.options?.join(',') === 'Pass,Fail') return 'pass_fail';
+  if (field.type === 'segmented') return 'yes_no';
+  return null;
+}
+
+function applyChecklistFieldType(field, typeKey) {
+  const def = fieldTypeConfigForKey(typeKey);
+  if (!def) return;
+  field.type = def.type;
+  delete field.dataSource;
+  delete field.default;
+  if (def.type === 'freeform') {
+    delete field.options;
+    delete field.description;
+    field.placeholder = field.placeholder || '';
+  } else if (def.type === 'gauge') {
+    field.options = Array.isArray(field.options) && field.options.length ? [...field.options] : [...def.options];
+    field.description = field.description || '';
+    delete field.placeholder;
+  } else if (fieldTypeUsesOptions(def.type)) {
+    field.options = Array.isArray(field.options) && field.options.length ? [...field.options] : [...(def.options || [])];
+    delete field.description;
+    delete field.placeholder;
+  } else {
+    field.options = [...def.options];
+    delete field.description;
+    delete field.placeholder;
+  }
+}
+
+function optionLabelsForField(field) {
+  return Array.isArray(field?.options) ? field.options.filter(Boolean) : [];
+}
+
+function isValueAllowedForField(field, value) {
+  if (value == null || value === '') return false;
+  const labels = optionLabelsForField(field);
+  if (field.type === 'multi_select') {
+    const parts = String(value).split(',').map(s => s.trim()).filter(Boolean);
+    return parts.length > 0 && parts.every(p => labels.includes(p));
+  }
+  return labels.includes(String(value));
+}
+
 function cloneChecklistFields(config, objectType) {
   return loadChecklistState(config, objectType).fields;
 }
@@ -209,7 +312,13 @@ function isAdminEditableField(field) {
   if (!field) return false;
   if (field.dataSource) return false;
   if (field.type === 'toggle_pair') return false;
-  return field.type === 'segmented' || field.type === 'dropdown' || field.type === 'freeform';
+  return field.type === 'segmented'
+    || field.type === 'dropdown'
+    || field.type === 'freeform'
+    || field.type === 'traffic_light'
+    || field.type === 'slider'
+    || field.type === 'multi_select'
+    || field.type === 'gauge';
 }
 
 function isSystemField(field) {
