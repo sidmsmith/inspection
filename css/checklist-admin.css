@@ -1073,31 +1073,31 @@
   cursor: pointer;
 }
 .checklist-chips .chip-btn.selected {
-  background: rgba(34, 197, 94, 0.22);
-  border-color: var(--success);
-  color: #86efac;
+  background: var(--success, #28a745);
+  border-color: var(--success, #28a745);
+  color: #fff;
+  font-weight: 600;
 }
 .checklist-gauge { text-align: center; }
-.checklist-gauge .gauge-arc {
+.checklist-gauge .gauge-dial {
   width: 120px;
   height: 60px;
   margin: 0 auto;
   position: relative;
   overflow: hidden;
 }
-.checklist-gauge .gauge-arc::before {
-  content: '';
-  display: block;
+.checklist-gauge .gauge-arc {
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  background: conic-gradient(#28a745 0deg, #ffc107 130deg, #dc3545 210deg, var(--input-bg) 210deg);
+  background: conic-gradient(#28a745 0deg, #ffc107 130deg, #dc3545 210deg, var(--input-bg, #e9ecef) 210deg);
   mask: radial-gradient(circle at 50% 50%, transparent 44px, #000 45px);
   -webkit-mask: radial-gradient(circle at 50% 50%, transparent 44px, #000 45px);
   transform: rotate(-90deg);
+  transform-origin: center center;
 }
-.checklist-gauge .gauge-arc.gauge-red-to-green::before {
-  background: conic-gradient(#dc3545 0deg, #ffc107 130deg, #28a745 210deg, var(--input-bg) 210deg);
+.checklist-gauge .gauge-arc.gauge-red-to-green {
+  background: conic-gradient(#dc3545 0deg, #ffc107 130deg, #28a745 210deg, var(--input-bg, #e9ecef) 210deg);
 }
 .traffic-light-label-editor { display: flex; flex-direction: column; gap: 0.5rem; }
 .tl-label-row {
@@ -1145,6 +1145,7 @@
   transform-origin: bottom center;
   transform: translateX(-50%) rotate(-90deg);
   transition: transform 0.2s ease;
+  z-index: 1;
 }
 .checklist-gauge .gauge-options {
   display: flex;

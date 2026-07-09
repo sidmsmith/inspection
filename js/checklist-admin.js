@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.2.9) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.2.11) */
 
 const FIELD_TYPES = CHECKLIST_FIELD_TYPES;
 
@@ -632,11 +632,14 @@ function appendPreviewControl(group, field, apiData) {
     }
     const wrap = document.createElement('div');
     wrap.className = 'checklist-gauge';
+    const dial = document.createElement('div');
+    dial.className = 'gauge-dial';
     const arc = document.createElement('div');
     arc.className = 'gauge-arc' + (isGaugeRedToGreen(field) ? ' gauge-red-to-green' : '');
     const needle = document.createElement('div');
     needle.className = 'gauge-needle';
-    arc.appendChild(needle);
+    dial.appendChild(arc);
+    dial.appendChild(needle);
     const opts = field.options || [];
     const btnRow = document.createElement('div');
     btnRow.className = 'gauge-options';
@@ -666,7 +669,7 @@ function appendPreviewControl(group, field, apiData) {
       }
       btnRow.appendChild(btn);
     });
-    wrap.appendChild(arc);
+    wrap.appendChild(dial);
     wrap.appendChild(btnRow);
     group.appendChild(wrap);
     return;
