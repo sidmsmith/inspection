@@ -8,8 +8,8 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>Checklist Config v0.3.1</title>
-  <!-- v0.3.1: delete all questions, eye visibility toggles on system cards -->
+  <title>Checklist Config v0.3.2</title>
+  <!-- v0.3.2: required asterisk toggle on question cards, unified row action icons -->
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
 
@@ -29,7 +29,7 @@
 
       <div class="header-body">
         <h1>Checklist Config</h1>
-        <div class="subtitle">v0.3.1</div>
+        <div class="subtitle">v0.3.2</div>
       </div>
 
     </header>
@@ -188,7 +188,7 @@
 
   <script>
 
-    const ADMIN_VERSION = '0.3.1';
+    const ADMIN_VERSION = '0.3.2';
 
     const INSPECTION_VERSION = '0.1.0';
 
@@ -452,6 +452,23 @@
 
 
 
+    function syncOpenEditorRequiredToggle({ fieldId, sectionKey, required }) {
+      if (!activeEditorEl) return;
+      if (sectionKey && activeEditorEl.dataset.sectionKey === sectionKey) {
+        const el = activeEditorEl.querySelector('#secRequired');
+        if (el) el.checked = required;
+        return;
+      }
+      if (fieldId && selectedIdx >= 0 && fields[selectedIdx]?.id === fieldId) {
+        const sysEl = activeEditorEl.querySelector('#sysRequired');
+        const edEl = activeEditorEl.querySelector('#edRequired');
+        if (sysEl) sysEl.checked = required;
+        if (edEl) edEl.checked = required;
+      }
+    }
+
+
+
     function syncOpenEditorEnabledToggle({ fieldId, sectionKey, enabled }) {
       if (!activeEditorEl) return;
       if (sectionKey && activeEditorEl.dataset.sectionKey === sectionKey) {
@@ -503,13 +520,44 @@
 
 
 
+    function toggleFieldRequired(fieldId) {
+      const idx = fields.findIndex(f => f.id === fieldId);
+      if (idx < 0) return;
+      const f = fields[idx];
+      if (!isAdminEditableField(f) && f.enabled === false) return;
+      flushAndSyncCurrentDraft();
+      const next = !f.required;
+      fields[idx] = { ...f, required: next };
+      syncOpenEditorRequiredToggle({ fieldId, required: next });
+      syncCurrentFieldsToDraft();
+      refresh();
+    }
+
+
+
+    function toggleSectionRequired(sectionKey) {
+      const sec = sections[sectionKey];
+      if (!sec || sec.enabled === false) return;
+      flushAndSyncCurrentDraft();
+      const next = !sec.required;
+      sections[sectionKey] = { ...sec, required: next };
+      syncOpenEditorRequiredToggle({ sectionKey, required: next });
+      syncCurrentFieldsToDraft();
+      refresh();
+    }
+
+
+
     function toggleFieldVisibility(fieldId) {
       const idx = fields.findIndex(f => f.id === fieldId);
       if (idx < 0 || isAdminEditableField(fields[idx])) return;
       flushAndSyncCurrentDraft();
       const next = fields[idx].enabled === false;
-      fields[idx] = { ...fields[idx], enabled: next };
+      const updated = { ...fields[idx], enabled: next };
+      if (!next) updated.required = false;
+      fields[idx] = updated;
       syncOpenEditorEnabledToggle({ fieldId, enabled: next });
+      if (!next) syncOpenEditorRequiredToggle({ fieldId, required: false });
       syncCurrentFieldsToDraft();
       refresh();
     }
@@ -524,6 +572,7 @@
       sections[sectionKey] = { ...sec, enabled: next };
       if (!next) sections[sectionKey].required = false;
       syncOpenEditorEnabledToggle({ sectionKey, enabled: next });
+      if (!next) syncOpenEditorRequiredToggle({ sectionKey, required: false });
       syncCurrentFieldsToDraft();
       refresh();
     }
@@ -625,6 +674,10 @@
         onToggleFieldVisibility: toggleFieldVisibility,
 
         onToggleSectionVisibility: toggleSectionVisibility,
+
+        onToggleFieldRequired: toggleFieldRequired,
+
+        onToggleSectionRequired: toggleSectionRequired,
 
         onLayoutReorder: (from, to, nextLayout) => {
 

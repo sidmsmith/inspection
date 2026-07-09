@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.3.1) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.3.2) */
 
 const FIELD_TYPES = CHECKLIST_FIELD_TYPES;
 
@@ -78,12 +78,41 @@ function optionsForTypeKey(typeKey, customOptions) {
   return FIELD_TYPES.find(t => t.key === typeKey)?.options || [];
 }
 
+function requiredToggleButtonHtml(required, visible = true) {
+  const on = !!required;
+  const disabled = !visible;
+  const stateCls = on ? 'is-on' : 'is-off';
+  const disabledCls = disabled ? ' is-disabled' : '';
+  const title = disabled
+    ? 'Show in form before marking required'
+    : (on ? 'Required — click to make optional' : 'Optional — click to make required');
+  const disabledAttr = disabled ? ' disabled' : '';
+  return `<button type="button" class="btn btn-icon row-action-btn required-btn ${stateCls}${disabledCls}" title="${title}" aria-label="${title}"${disabledAttr}><i class="fa-solid fa-asterisk"></i></button>`;
+}
+
 function visibilityToggleButtonHtml(enabled) {
   const on = enabled !== false;
-  const cls = on ? 'visibility-btn is-on' : 'visibility-btn is-off';
+  const cls = on ? 'is-on' : 'is-off';
   const icon = on ? 'fa-eye' : 'fa-eye-slash';
   const title = on ? 'Shown in inspection form — click to hide' : 'Hidden from inspection form — click to show';
-  return `<button type="button" class="btn btn-icon ${cls}" title="${title}" aria-label="${title}"><i class="fa-solid ${icon}"></i></button>`;
+  return `<button type="button" class="btn btn-icon row-action-btn visibility-btn ${cls}" title="${title}" aria-label="${title}"><i class="fa-solid ${icon}"></i></button>`;
+}
+
+function deleteActionButtonHtml() {
+  return '<button type="button" class="btn btn-icon row-action-btn del-btn" title="Delete" aria-label="Delete"><i class="fa-solid fa-trash"></i></button>';
+}
+
+function buildFieldActionsHtml(field, editable) {
+  const visible = editable || field.enabled !== false;
+  const parts = [requiredToggleButtonHtml(field.required, visible)];
+  if (editable) parts.push(deleteActionButtonHtml());
+  else parts.push(visibilityToggleButtonHtml(field.enabled !== false));
+  return parts.join('');
+}
+
+function buildSectionActionsHtml(section) {
+  const visible = section.enabled !== false;
+  return requiredToggleButtonHtml(section.required, visible) + visibilityToggleButtonHtml(section.enabled !== false);
 }
 
 function appendAddQuestionButton(container, onClick) {
@@ -991,6 +1020,8 @@ function renderChecklistAdminList(listHost, {
   onDeleteField,
   onToggleFieldVisibility,
   onToggleSectionVisibility,
+  onToggleFieldRequired,
+  onToggleSectionRequired,
   onLayoutReorder,
   onAddQuestion
 }) {
@@ -1030,9 +1061,7 @@ function renderChecklistAdminList(listHost, {
       const badgeText = isSystemField(f)
         ? systemFieldSummaryLabel(f)
         : escapeHtml(typeLabelForField(f));
-      const actionsHtml = editable
-        ? `<button type="button" class="btn btn-outline-danger btn-icon del-btn" title="Delete"><i class="fa-solid fa-trash"></i></button>`
-        : visibilityToggleButtonHtml(f.enabled !== false);
+      const actionsHtml = buildFieldActionsHtml(f, editable);
       return `
         <div class="question-row draggable-item${selected ? ' selected' : ''}${editable ? '' : ' system-field'}${offClass}" data-idx="${i}" data-kind="field" data-field-id="${escapeHtml(f.id)}">
           <span class="grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
@@ -1050,7 +1079,7 @@ function renderChecklistAdminList(listHost, {
         <span class="grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
         <div class="q-label">${escapeHtml(sec.label || DEFAULT_SECTION_LABELS[key])}${sec.required ? ' <span class="required-asterisk">*</span>' : ''} <span class="badge-system">Section</span></div>
         <span class="badge-type">${escapeHtml(sectionSummaryLabel(key, sections))}</span>
-        <div class="q-actions">${visibilityToggleButtonHtml(sec.enabled !== false)}</div>
+        <div class="q-actions">${buildSectionActionsHtml(sec)}</div>
       </div>`;
   }).join('');
 
@@ -1068,6 +1097,14 @@ function renderChecklistAdminList(listHost, {
   inner.querySelectorAll('.question-row').forEach(row => {
     const idx = +row.dataset.idx;
     const kind = row.dataset.kind;
+    const requiredBtn = row.querySelector('.required-btn');
+    if (requiredBtn && !requiredBtn.disabled) {
+      requiredBtn.onclick = e => {
+        e.stopPropagation();
+        if (kind === 'section') onToggleSectionRequired?.(row.dataset.sectionKey);
+        else onToggleFieldRequired?.(row.dataset.fieldId);
+      };
+    }
     const visibilityBtn = row.querySelector('.visibility-btn');
     if (visibilityBtn) {
       visibilityBtn.onclick = e => {
