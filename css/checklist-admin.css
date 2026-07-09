@@ -627,6 +627,50 @@
   font-size: 0.8rem;
 }
 
+.question-row .visibility-btn {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0.15rem 0.4rem;
+  line-height: 1;
+}
+
+.question-row .visibility-btn.is-on {
+  color: #28a745;
+}
+
+.question-row .visibility-btn.is-off {
+  color: #dc3545;
+}
+
+.question-row .visibility-btn:hover {
+  filter: brightness(1.15);
+}
+
+.question-list-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.35rem;
+  min-height: 1.5rem;
+}
+
+.delete-all-questions-btn {
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.78rem;
+}
+
+.delete-all-questions-btn:hover:not(:disabled) {
+  color: #dc3545;
+  text-decoration: none;
+}
+
+.delete-all-questions-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
 .inline-editor-host {
   margin: 0.35rem 0 0.65rem;
 }

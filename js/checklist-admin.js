@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.3.0) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.3.1) */
 
 const FIELD_TYPES = CHECKLIST_FIELD_TYPES;
 
@@ -76,6 +76,14 @@ function optionsForTypeKey(typeKey, customOptions) {
     return customOptions || [];
   }
   return FIELD_TYPES.find(t => t.key === typeKey)?.options || [];
+}
+
+function visibilityToggleButtonHtml(enabled) {
+  const on = enabled !== false;
+  const cls = on ? 'visibility-btn is-on' : 'visibility-btn is-off';
+  const icon = on ? 'fa-eye' : 'fa-eye-slash';
+  const title = on ? 'Shown in inspection form — click to hide' : 'Hidden from inspection form — click to show';
+  return `<button type="button" class="btn btn-icon ${cls}" title="${title}" aria-label="${title}"><i class="fa-solid ${icon}"></i></button>`;
 }
 
 function appendAddQuestionButton(container, onClick) {
@@ -981,6 +989,8 @@ function renderChecklistAdminList(listHost, {
   onEditField,
   onEditSection,
   onDeleteField,
+  onToggleFieldVisibility,
+  onToggleSectionVisibility,
   onLayoutReorder,
   onAddQuestion
 }) {
@@ -1020,15 +1030,15 @@ function renderChecklistAdminList(listHost, {
       const badgeText = isSystemField(f)
         ? systemFieldSummaryLabel(f)
         : escapeHtml(typeLabelForField(f));
+      const actionsHtml = editable
+        ? `<button type="button" class="btn btn-outline-danger btn-icon del-btn" title="Delete"><i class="fa-solid fa-trash"></i></button>`
+        : visibilityToggleButtonHtml(f.enabled !== false);
       return `
         <div class="question-row draggable-item${selected ? ' selected' : ''}${editable ? '' : ' system-field'}${offClass}" data-idx="${i}" data-kind="field" data-field-id="${escapeHtml(f.id)}">
           <span class="grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
           <div class="q-label">${escapeHtml(f.label)}${f.required ? ' <span class="required-asterisk">*</span>' : ''}${systemBadge}</div>
           <span class="badge-type">${badgeText}</span>
-          <div class="q-actions">
-            <button type="button" class="btn btn-outline-light btn-icon edit-btn" title="Edit"><i class="fa-solid fa-pen"></i></button>
-            <button type="button" class="btn btn-outline-danger btn-icon del-btn${editable ? '' : ' del-btn-hidden'}" title="Delete"><i class="fa-solid fa-trash"></i></button>
-          </div>
+          <div class="q-actions">${actionsHtml}</div>
         </div>`;
     }
     const key = row.sectionKey;
@@ -1040,10 +1050,7 @@ function renderChecklistAdminList(listHost, {
         <span class="grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
         <div class="q-label">${escapeHtml(sec.label || DEFAULT_SECTION_LABELS[key])}${sec.required ? ' <span class="required-asterisk">*</span>' : ''} <span class="badge-system">Section</span></div>
         <span class="badge-type">${escapeHtml(sectionSummaryLabel(key, sections))}</span>
-        <div class="q-actions">
-          <button type="button" class="btn btn-outline-light btn-icon edit-btn" title="Edit"><i class="fa-solid fa-pen"></i></button>
-          <button type="button" class="btn btn-outline-danger btn-icon del-btn del-btn-hidden" title="Delete"><i class="fa-solid fa-trash"></i></button>
-        </div>
+        <div class="q-actions">${visibilityToggleButtonHtml(sec.enabled !== false)}</div>
       </div>`;
   }).join('');
 
@@ -1061,13 +1068,16 @@ function renderChecklistAdminList(listHost, {
   inner.querySelectorAll('.question-row').forEach(row => {
     const idx = +row.dataset.idx;
     const kind = row.dataset.kind;
-    row.querySelector('.edit-btn').onclick = e => {
-      e.stopPropagation();
-      if (kind === 'section') onEditSection(row.dataset.sectionKey);
-      else onEditField(fields.indexOf(rows[idx].field));
-    };
+    const visibilityBtn = row.querySelector('.visibility-btn');
+    if (visibilityBtn) {
+      visibilityBtn.onclick = e => {
+        e.stopPropagation();
+        if (kind === 'section') onToggleSectionVisibility?.(row.dataset.sectionKey);
+        else onToggleFieldVisibility?.(row.dataset.fieldId);
+      };
+    }
     const delBtn = row.querySelector('.del-btn');
-    if (!delBtn.classList.contains('del-btn-hidden')) {
+    if (delBtn) {
       delBtn.onclick = e => {
         e.stopPropagation();
         onDeleteField(fields.indexOf(rows[idx].field));
