@@ -295,10 +295,10 @@ function syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, state
 }
 
 /** Build a complete per-ORG checklist map (all object types) for save/export/deploy. */
-function buildFullOrgChecklistsFromConfig(checklistsConfig) {
+function buildFullOrgChecklistsFromConfig(checklistsConfig, defaultConfig) {
   const checklists = {};
   for (const { key } of CHECKLIST_OBJECT_TYPES) {
-    const raw = checklistsConfig?.checklists?.[key];
+    const raw = checklistsConfig?.checklists?.[key] ?? defaultConfig?.checklists?.[key];
     const normalized = normalizeChecklistEntry(raw || { fields: [] }, key);
     checklists[key] = {
       fields: normalized.fields,
@@ -309,8 +309,8 @@ function buildFullOrgChecklistsFromConfig(checklistsConfig) {
   return checklists;
 }
 
-function initOrgDraftFromChecklistsConfig(checklistsConfig) {
-  return { checklists: buildFullOrgChecklistsFromConfig(checklistsConfig) };
+function initOrgDraftFromChecklistsConfig(checklistsConfig, defaultConfig) {
+  return { checklists: buildFullOrgChecklistsFromConfig(checklistsConfig, defaultConfig) };
 }
 
 /** @deprecated use syncChecklistStateToOrgDraft */
@@ -322,7 +322,7 @@ function syncFieldsToOrgDraft(orgDraft, defaultConfig, objectType, fields, check
   }, checklistsConfig);
 }
 
-function buildOrgSavePayload(org, orgDraft, checklistsConfig, liveState) {
+function buildOrgSavePayload(org, orgDraft, checklistsConfig, liveState, defaultConfig) {
   if (liveState?.objectType) {
     syncChecklistStateToOrgDraft(
       orgDraft,
@@ -339,7 +339,9 @@ function buildOrgSavePayload(org, orgDraft, checklistsConfig, liveState) {
 
   const checklists = {};
   for (const { key } of CHECKLIST_OBJECT_TYPES) {
-    const entry = orgDraft?.checklists?.[key] ?? checklistsConfig?.checklists?.[key];
+    const entry = orgDraft?.checklists?.[key]
+      ?? checklistsConfig?.checklists?.[key]
+      ?? defaultConfig?.checklists?.[key];
     checklists[key] = cloneChecklistEntryForExport(entry, key);
   }
   return {
@@ -377,7 +379,10 @@ function normalizeImportedOrgConfig(raw) {
 }
 
 function applyOrgDraftFromImport(orgDraft, imported) {
-  orgDraft.checklists = JSON.parse(JSON.stringify(imported.checklists || {}));
+  if (!orgDraft.checklists) orgDraft.checklists = {};
+  for (const [typeKey, entry] of Object.entries(imported.checklists || {})) {
+    orgDraft.checklists[typeKey] = JSON.parse(JSON.stringify(entry));
+  }
 }
 
 function sectionSummaryLabel(key, sections) {

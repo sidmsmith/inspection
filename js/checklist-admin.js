@@ -1180,7 +1180,13 @@ async function adminSaveDeploy({
   }
 
   syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, { fields, sections, layout }, checklistsConfig);
-  const payload = buildOrgSavePayload(org, orgDraft, checklistsConfig, { objectType, fields, sections, layout });
+  const payload = buildOrgSavePayload(
+    org,
+    orgDraft,
+    checklistsConfig,
+    { objectType, fields, sections, layout },
+    defaultConfig
+  );
 
   saveBtn.disabled = true;
   setStatus('Saving to GitHub...');
@@ -1200,8 +1206,8 @@ async function adminSaveDeploy({
   }
 }
 
-function exportOrgConfig({ org, orgDraft, checklistsConfig, liveState, setStatus }) {
-  const payload = buildOrgSavePayload(org, orgDraft, checklistsConfig, liveState);
+function exportOrgConfig({ org, orgDraft, checklistsConfig, liveState, defaultConfig, setStatus }) {
+  const payload = buildOrgSavePayload(org, orgDraft, checklistsConfig, liveState, defaultConfig);
   const json = JSON.stringify(payload, null, 2) + '\n';
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -1212,11 +1218,13 @@ function exportOrgConfig({ org, orgDraft, checklistsConfig, liveState, setStatus
   link.click();
   URL.revokeObjectURL(url);
   const typeCount = Object.keys(payload.checklists).length;
-  setStatus(
-    `Exported ${safeOrg} local draft (${typeCount} object type${typeCount === 1 ? '' : 's'}) — Save & Deploy not required`,
-    'success',
-    4000
-  );
+  const expected = CHECKLIST_OBJECT_TYPES.length;
+  const typeList = CHECKLIST_OBJECT_TYPES.map(t => t.key).join(', ');
+  const hasLocation = !!payload.checklists.location;
+  let message = `Exported ${safeOrg} (${typeCount}/${expected} types: ${typeList})`;
+  if (!hasLocation) message += ' — warning: location missing';
+  message += ' — Save & Deploy not required';
+  setStatus(message, hasLocation ? 'success' : 'warning', 5000);
 }
 
 async function importOrgConfigFromFile({ file, org, orgDraft, defaultConfig, setStatus, onApplied }) {
@@ -1252,7 +1260,11 @@ async function importOrgConfigFromFile({ file, org, orgDraft, defaultConfig, set
 
   applyOrgDraftFromImport(orgDraft, imported);
   const nextConfig = mergeChecklistConfigs(defaultConfig, orgDraft);
-  onApplied(nextConfig);
-  setStatus(`Imported ${typeCount} object type${typeCount === 1 ? '' : 's'} — Save & Deploy when ready`, 'success', 4000);
+  onApplied(nextConfig, imported);
+  const importedLocation = !!imported.checklists.location;
+  let importMsg = `Imported ${typeCount} object type${typeCount === 1 ? '' : 's'} (${typeList})`;
+  if (importedLocation) importMsg += ' including location';
+  importMsg += ' — Save & Deploy when ready';
+  setStatus(importMsg, 'success', 4000);
   return { success: true };
 }
