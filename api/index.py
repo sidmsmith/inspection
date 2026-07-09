@@ -1,4 +1,4 @@
-# api/index.py — Inspection v0.0.5
+# api/index.py — Inspection v0.0.6
 # Major updates: container damage diagram pad, JPEG form capture/upload 413 fixes, diagram in form screenshot
 from flask import Flask, request, jsonify, send_from_directory
 import json, re, os, traceback, base64
@@ -313,7 +313,7 @@ def usage_track():
         payload = {
             "event_name": event_name,
             "app_name": "inspection",
-            "app_version": "0.0.5",
+            "app_version": "0.0.6",
             **metadata,
             "timestamp": datetime.now().isoformat()
         }
