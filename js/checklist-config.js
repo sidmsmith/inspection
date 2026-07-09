@@ -88,6 +88,12 @@ function getDefaultSectionsForType(objectType) {
     delete sections.damagePad.defaultImage;
     delete sections.damagePad.images;
   }
+  if (objectType === 'location') {
+    sections.damagePad.mode = 'photo';
+    sections.damagePad.label = 'Location Photo for Markup';
+    delete sections.damagePad.defaultImage;
+    delete sections.damagePad.images;
+  }
   return sections;
 }
 
@@ -191,7 +197,8 @@ const CHECKLIST_OBJECT_TYPES = [
   { key: 'asn', label: 'ASN' },
   { key: 'ilpn', label: 'iLPN' },
   { key: 'olpn', label: 'oLPN' },
-  { key: 'shipment', label: 'Shipment' }
+  { key: 'shipment', label: 'Shipment' },
+  { key: 'location', label: 'Location' }
 ];
 
 function cloneChecklistFields(config, objectType) {

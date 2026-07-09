@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Inspection v0.0.21</title>
-  <!-- v0.0.21: checkpoint before Location object type -->
+  <title>Inspection v0.0.22</title>
+  <!-- v0.0.22: Location object type inspection -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -710,6 +710,13 @@
       color: var(--red-text);
       font-weight: 700;
     }
+    .form-group.location-lock-disabled select {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+    .location-lock-hint {
+      font-size: 0.85rem;
+    }
     .inspection-busy-overlay {
       position: fixed;
       inset: 0;
@@ -1073,7 +1080,7 @@
     const checklistFormSection = document.getElementById('checklistFormSection');
     const checklistFormFields = document.getElementById('checklistFormFields');
     const legacyFormGrid = document.getElementById('legacyFormGrid');
-    const CHECKLIST_FORM_TYPES = ['trailer', 'po', 'asn', 'ilpn', 'olpn', 'shipment'];
+    const CHECKLIST_FORM_TYPES = ['trailer', 'po', 'asn', 'ilpn', 'olpn', 'shipment', 'location'];
     let checklistsConfig = null;
     let currentChecklistSections = null;
 
@@ -1152,17 +1159,28 @@
         idFields: ['ShipmentId'],
         objectTypeId: 'Shipment',
         supportsUpload: true
+      },
+      location: {
+        label: 'Location',
+        listApi: 'locations',
+        searchApi: 'search_location',
+        searchParam: 'location_id',
+        idFields: ['LocationId'],
+        objectTypeId: null,
+        supportsUpload: false
       }
     };
     // ID lookup order for Find button + search (oLPN before iLPN when both match).
     // Ready-status counts and placeholders still use INSPECTION_SEARCH_TYPES key order (iLPN before oLPN).
-    const SEARCH_RESOLVE_ORDER = ['trailer', 'po', 'asn', 'olpn', 'ilpn', 'shipment'];
+    const SEARCH_RESOLVE_ORDER = ['trailer', 'po', 'asn', 'olpn', 'ilpn', 'shipment', 'location'];
     const validIdsByType = Object.fromEntries(
       Object.keys(INSPECTION_SEARCH_TYPES).map(type => [type, new Set()])
     );
     let hasSigned = false; // Track whether signature pad has been drawn on
     let conditionCodes = []; // Cached trailer condition codes
     let ilpnConditionCodes = []; // Cached inventory/LPN condition codes (iLPN checklist)
+    let putawayConditionCodes = []; // Cached putaway condition codes (Location checklist)
+    let inventoryConditionCodes = []; // Cached inventory condition codes (Location checklist)
     let equipmentTypes = []; // Cached trailer equipment types
     let inspectionPhotos = []; // { id, base64Data, mimeType, dataUrl, extension }
     let cameraStream = null;
@@ -1956,8 +1974,8 @@
       // Appointment search disabled for now — may revisit later:
       // api('scheduled', { org, token }),
       const [
-        asnsRes, trailersRes, posRes, ilpnsRes, olpnsRes, shipmentsRes,
-        condRes, ilpnCondRes, equipRes
+        asnsRes, trailersRes, posRes, ilpnsRes, olpnsRes, shipmentsRes, locationsRes,
+        condRes, ilpnCondRes, putawayCondRes, inventoryCondRes, equipRes
       ] = await Promise.all([
         api('asns', { org, token }),
         api('trailers', { org, token }),
@@ -1965,8 +1983,11 @@
         api('ilpns', { org, token }),
         api('olpns', { org, token }),
         api('shipments', { org, token }),
+        api('locations', { org, token }),
         api('condition_codes', { org, token }),
         api('ilpn_condition_codes', { org, token }),
+        api('putaway_condition_codes', { org, token }),
+        api('inventory_condition_codes', { org, token }),
         api('equipment_types', { org, token })
       ]);
 
@@ -1986,7 +2007,8 @@
         po: posRes,
         ilpn: ilpnsRes,
         olpn: olpnsRes,
-        shipment: shipmentsRes
+        shipment: shipmentsRes,
+        location: locationsRes
       };
 
       let anyLoaded = false;
@@ -2040,6 +2062,24 @@
       } else {
         ilpnConditionCodes = [];
         console.error('[IlpnConditionCodes] Failed to load:', ilpnCondRes.error || 'Unknown error');
+      }
+
+      if (putawayCondRes.success && putawayCondRes.codes) {
+        putawayConditionCodes = putawayCondRes.codes.sort((a, b) =>
+          (a.Description || a.PutawayConditionCodeId || '').localeCompare(b.Description || b.PutawayConditionCodeId || '')
+        );
+      } else {
+        putawayConditionCodes = [];
+        console.error('[PutawayConditionCodes] Failed to load:', putawayCondRes.error || 'Unknown error');
+      }
+
+      if (inventoryCondRes.success && inventoryCondRes.codes) {
+        inventoryConditionCodes = inventoryCondRes.codes.sort((a, b) =>
+          (a.Description || a.ConditionCodeId || '').localeCompare(b.Description || b.ConditionCodeId || '')
+        );
+      } else {
+        inventoryConditionCodes = [];
+        console.error('[InventoryConditionCodes] Failed to load:', inventoryCondRes.error || 'Unknown error');
       }
 
       // Populate equipment type dropdown
@@ -2647,6 +2687,26 @@
           }
           return defaultValue;
         }
+        if (field.dataSource === 'putaway_condition_codes') {
+          const isValid = putawayConditionCodes.some(code => code.PutawayConditionCodeId === defaultValue);
+          if (!isValid) {
+            console.warn(
+              `[CHECKLIST] Invalid default for "${field.id}": "${defaultValue}" is not a valid putaway condition code`
+            );
+            return null;
+          }
+          return defaultValue;
+        }
+        if (field.dataSource === 'inventory_condition_codes') {
+          const isValid = inventoryConditionCodes.some(code => code.ConditionCodeId === defaultValue);
+          if (!isValid) {
+            console.warn(
+              `[CHECKLIST] Invalid default for "${field.id}": "${defaultValue}" is not a valid inventory condition code`
+            );
+            return null;
+          }
+          return defaultValue;
+        }
         const options = field.options || [];
         if (!options.includes(defaultValue)) {
           console.warn(
@@ -2797,6 +2857,26 @@
               : `${code.ConditionCodeId} - ${desc}`;
             control.appendChild(opt);
           });
+        } else if (field.dataSource === 'putaway_condition_codes') {
+          putawayConditionCodes.forEach(code => {
+            const opt = document.createElement('option');
+            opt.value = code.PutawayConditionCodeId;
+            const desc = code.Description || code.PutawayConditionCodeId;
+            opt.textContent = desc === code.PutawayConditionCodeId
+              ? code.PutawayConditionCodeId
+              : `${code.PutawayConditionCodeId} - ${desc}`;
+            control.appendChild(opt);
+          });
+        } else if (field.dataSource === 'inventory_condition_codes') {
+          inventoryConditionCodes.forEach(code => {
+            const opt = document.createElement('option');
+            opt.value = code.ConditionCodeId;
+            const desc = code.Description || code.ConditionCodeId;
+            opt.textContent = desc === code.ConditionCodeId
+              ? code.ConditionCodeId
+              : `${code.ConditionCodeId} - ${desc}`;
+            control.appendChild(opt);
+          });
         } else {
           (field.options || []).forEach(option => {
             const opt = document.createElement('option');
@@ -2841,6 +2921,37 @@
       checklistFormFields.appendChild(objectGroup);
 
       applyChecklistFormLayout(searchType, normalized);
+      updateLocationConditionFieldsState();
+      validateCompleteInspection();
+    }
+
+    function isLocationStorageType() {
+      return String(currentAppt?.LocationTypeId || '').toUpperCase() === 'STORAGE';
+    }
+
+    function updateLocationConditionFieldsState() {
+      if (currentAppt?._searchType !== 'location') return;
+      const lockable = isLocationStorageType();
+      ['putaway_condition_code', 'inventory_condition_code'].forEach(fieldId => {
+        const sel = checklistFormFields.querySelector(`[data-checklist-field="${fieldId}"]`);
+        if (!sel) return;
+        sel.disabled = !lockable;
+        const group = sel.closest('.form-group');
+        if (!group) return;
+        group.classList.toggle('location-lock-disabled', !lockable);
+        let hint = group.querySelector('.location-lock-hint');
+        if (!lockable) {
+          if (!hint) {
+            hint = document.createElement('small');
+            hint.className = 'text-muted location-lock-hint d-block mt-1';
+            hint.textContent = 'Locking only available for STORAGE locations';
+            group.appendChild(hint);
+          }
+        } else if (hint) {
+          hint.remove();
+        }
+        if (!lockable) sel.value = '';
+      });
       validateCompleteInspection();
     }
 
@@ -3211,7 +3322,7 @@
     async function openDamagePadCamera() {
       cameraModalPurpose = 'damagePad';
       if (cameraModalTitle) {
-        cameraModalTitle.textContent = isLpnDamagePadType(currentDamagePadSearchType) ? 'LPN Photo for Markup' : 'Damage Diagram Photo';
+        cameraModalTitle.textContent = photoMarkupPadTitle(currentDamagePadSearchType);
       }
       if (cameraGallery) cameraGallery.style.display = 'none';
       cameraModal.show();
@@ -3243,7 +3354,7 @@
       if (cameraModalPurpose === 'damagePad') {
         try {
           await setDamagePadUserPhotoFromDataUrl(dataUrl);
-          status(isLpnDamagePadType(currentDamagePadSearchType) ? 'LPN photo added' : 'Damage diagram photo added', 'success');
+          status(photoMarkupPadAddedMessage(currentDamagePadSearchType), 'success');
           cameraModal.hide();
         } catch (err) {
           status('Could not add damage diagram photo', 'error');
@@ -3516,6 +3627,7 @@
 
         let lockResult = null;
         let ilpnLockFailed = false;
+        let locationLockFailed = false;
         const selectedConditionCode = appt._searchType === 'ilpn'
           ? (appt._checklistResponses?.condition_code || getChecklistFieldValue('condition_code'))
           : '';
@@ -3548,9 +3660,49 @@
           }
         }
 
+        if (appt._searchType === 'location' && String(appt.LocationTypeId || '').toUpperCase() === 'STORAGE') {
+          const locationConfig = INSPECTION_SEARCH_TYPES.location;
+          const locationId = extractRecordId(appt, locationConfig.idFields);
+          const putawayCode = getChecklistFieldValue('putaway_condition_code');
+          const inventoryCode = getChecklistFieldValue('inventory_condition_code');
+          if (locationId && putawayCode) {
+            showBusyOverlay('Applying putaway condition...');
+            await yieldToUi();
+            const putawayLock = await api('lock_location_putaway', {
+              org,
+              token,
+              location_id: locationId,
+              putaway_condition_code: putawayCode
+            });
+            if (putawayLock.success) {
+              message += ` Location ${locationId} putaway blocked with ${putawayCode}.`;
+            } else {
+              locationLockFailed = true;
+              message += ` Putaway lock failed for ${locationId}: ${putawayLock.error || 'Unknown error'}.`;
+            }
+          }
+          if (locationId && inventoryCode) {
+            showBusyOverlay('Applying inventory condition...');
+            await yieldToUi();
+            const inventoryLock = await api('lock_location_inventory', {
+              org,
+              token,
+              location_id: locationId,
+              condition_code: inventoryCode
+            });
+            if (inventoryLock.success) {
+              message += ` Location ${locationId} inventory locked with ${inventoryCode}.`;
+            } else {
+              locationLockFailed = true;
+              message += ` Inventory lock failed for ${locationId}: ${inventoryLock.error || 'Unknown error'}.`;
+            }
+          }
+        }
+
         clearBusyOverlay();
         checkinMessage.innerHTML = escapeHtml(message) +
-          (ilpnLockFailed ? '<br><strong class="ilpn-lock-fail">iLPN lock FAILED</strong>' : '');
+          (ilpnLockFailed ? '<br><strong class="ilpn-lock-fail">iLPN lock FAILED</strong>' : '') +
+          (locationLockFailed ? '<br><strong class="ilpn-lock-fail">Location lock FAILED</strong>' : '');
         checkinModal.show();
 
         trackEvent('inspection_completed', {
@@ -4014,14 +4166,31 @@
 
     let currentDamagePadSearchType = null;
 
+    function isPhotoMarkupPadType(searchType) {
+      return searchType === 'ilpn' || searchType === 'olpn' || searchType === 'location';
+    }
+
     function isLpnDamagePadType(searchType) {
       return searchType === 'ilpn' || searchType === 'olpn';
+    }
+
+    function photoMarkupPadTitle(searchType) {
+      if (searchType === 'location') return 'Location Photo for Markup';
+      if (isLpnDamagePadType(searchType)) return 'LPN Photo for Markup';
+      return 'Damage Diagram Photo';
+    }
+
+    function photoMarkupPadAddedMessage(searchType) {
+      if (searchType === 'location') return 'Location photo added';
+      if (isLpnDamagePadType(searchType)) return 'LPN photo added';
+      return 'Damage diagram photo added';
     }
 
     function getDamagePadSectionTitle(searchType = currentDamagePadSearchType) {
       const normalized = searchType ? getNormalizedChecklist(searchType) : null;
       const label = normalized?.sections?.damagePad?.label;
       if (label) return label;
+      if (searchType === 'location') return 'Location Photo for Markup';
       return isLpnDamagePadType(searchType) ? 'LPN Photo for Markup' : 'Markup Pad';
     }
 
@@ -4030,8 +4199,10 @@
       const title = sec?.label || getDamagePadSectionTitle();
       setSectionLabelText(damagePadLabel, title, !!sec?.required);
       if (damagePadPhotoBtn) {
-        const photoLabel = isLpnDamagePadType(currentDamagePadSearchType)
-          ? 'Take LPN photo for markup'
+        const photoLabel = isPhotoMarkupPadType(currentDamagePadSearchType)
+          ? (currentDamagePadSearchType === 'location'
+            ? 'Take location photo for markup'
+            : 'Take LPN photo for markup')
           : 'Take photo for damage diagram';
         damagePadPhotoBtn.title = photoLabel;
         damagePadPhotoBtn.setAttribute('aria-label', photoLabel);
@@ -4045,14 +4216,14 @@
 
     function isLpnPhotoPadEmpty() {
       return damagePadMode === 'photo'
-        && isLpnDamagePadType(currentDamagePadSearchType)
+        && isPhotoMarkupPadType(currentDamagePadSearchType)
         && !damagePadHasBackground();
     }
 
     function shouldUseCompactLpnPhotoPad() {
       return window.matchMedia('(min-width: 992px)').matches
         && damagePadMode === 'photo'
-        && isLpnDamagePadType(currentDamagePadSearchType)
+        && isPhotoMarkupPadType(currentDamagePadSearchType)
         && !damagePadHasBackground();
     }
 
@@ -4071,17 +4242,20 @@
       damagePadWrapper.classList.toggle('show-empty-placeholder', showPlaceholder);
       damagePadWrapper.classList.toggle('lpn-photo-compact', shouldUseCompactLpnPhotoPad());
       damagePadWrapper.setAttribute('aria-label', showPlaceholder
-        ? 'Add LPN photo for markup'
+        ? (currentDamagePadSearchType === 'location'
+          ? 'Add location photo for markup'
+          : 'Add LPN photo for markup')
         : 'Draw damage marks on diagram');
       damageDrawCanvas.style.pointerEvents = damagePadHasBackground() ? 'auto' : 'none';
     }
 
     function updateDamagePadHint() {
       if (damagePadMode === 'photo') {
-        if (isLpnDamagePadType(currentDamagePadSearchType)) {
+        if (isPhotoMarkupPadType(currentDamagePadSearchType)) {
+          const noun = currentDamagePadSearchType === 'location' ? 'location' : 'LPN';
           damagePadHint.textContent = damagePadHasBackground()
-            ? 'Circle or mark areas of damage on the LPN photo.'
-            : 'Tap the camera icon to add an LPN photo to mark up';
+            ? `Circle or mark areas of damage on the ${noun} photo.`
+            : `Tap the camera icon to add a ${noun} photo to mark up`;
           return;
         }
         damagePadHint.textContent = damagePadHasBackground()
@@ -4375,7 +4549,7 @@
       if (!file) return;
       try {
         await setDamagePadUserPhoto(file);
-        status(isLpnDamagePadType(currentDamagePadSearchType) ? 'LPN photo added' : 'Damage diagram photo added', 'success');
+        status(photoMarkupPadAddedMessage(currentDamagePadSearchType), 'success');
       } catch (err) {
         status('Could not add damage diagram photo', 'error');
         console.warn('[DAMAGE PAD] Photo load failed:', err);

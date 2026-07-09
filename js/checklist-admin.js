@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.2.3) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.2.4) */
 
 const FIELD_TYPES = [
   { key: 'yes_no', label: 'Yes / No', icon: 'fa-toggle-on', type: 'segmented', options: ['Yes', 'No'] },
@@ -8,12 +8,19 @@ const FIELD_TYPES = [
 ];
 
 const previewState = {};
-let previewApiData = { condition_codes: [], ilpn_condition_codes: [] };
+let previewApiData = {
+  condition_codes: [],
+  ilpn_condition_codes: [],
+  putaway_condition_codes: [],
+  inventory_condition_codes: []
+};
 
 function setPreviewApiData(data) {
   previewApiData = {
     condition_codes: data?.condition_codes || [],
-    ilpn_condition_codes: data?.ilpn_condition_codes || []
+    ilpn_condition_codes: data?.ilpn_condition_codes || [],
+    putaway_condition_codes: data?.putaway_condition_codes || [],
+    inventory_condition_codes: data?.inventory_condition_codes || []
   };
 }
 
@@ -44,6 +51,8 @@ function typeKeyForField(field) {
 function typeLabelForField(field) {
   if (field?.dataSource === 'condition_codes') return 'Condition codes';
   if (field?.dataSource === 'ilpn_condition_codes') return 'iLPN condition';
+  if (field?.dataSource === 'putaway_condition_codes') return 'Putaway condition';
+  if (field?.dataSource === 'inventory_condition_codes') return 'Inventory condition';
   if (field?.type === 'toggle_pair') return 'Toggle pair';
   const key = typeKeyForField(field);
   if (!key) return field?.type || 'Not set';
@@ -401,6 +410,34 @@ function appendPreviewControl(group, field, apiData) {
       if (!list.length) {
         blank.textContent = 'No iLPN condition codes loaded';
       }
+    } else if (field.dataSource === 'putaway_condition_codes') {
+      const list = [...(codes.putaway_condition_codes || [])].sort((a, b) =>
+        (a.Description || a.PutawayConditionCodeId || '').localeCompare(b.Description || b.PutawayConditionCodeId || '')
+      );
+      list.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.PutawayConditionCodeId;
+        opt.textContent = c.Description || c.PutawayConditionCodeId;
+        if (current === c.PutawayConditionCodeId) opt.selected = true;
+        select.appendChild(opt);
+      });
+      if (!list.length) {
+        blank.textContent = 'No putaway condition codes loaded';
+      }
+    } else if (field.dataSource === 'inventory_condition_codes') {
+      const list = [...(codes.inventory_condition_codes || [])].sort((a, b) =>
+        (a.Description || a.ConditionCodeId || '').localeCompare(b.Description || b.ConditionCodeId || '')
+      );
+      list.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.ConditionCodeId;
+        opt.textContent = c.Description || c.ConditionCodeId;
+        if (current === c.ConditionCodeId) opt.selected = true;
+        select.appendChild(opt);
+      });
+      if (!list.length) {
+        blank.textContent = 'No inventory condition codes loaded';
+      }
     } else {
       (field.options || []).forEach(option => {
         const opt = document.createElement('option');
@@ -546,7 +583,7 @@ function appendPreviewSectionBlock(root, sectionKey, sections, objectType) {
         </div>
         <div class="preview-damage-pad preview-damage-empty preview-pad-static">
           <i class="fas fa-plus"></i>
-          <span>${objectType === 'ilpn' || objectType === 'olpn' ? 'Tap camera to add LPN photo' : 'Add photo to mark up'}</span>
+          <span>${objectType === 'ilpn' || objectType === 'olpn' ? 'Tap camera to add LPN photo' : objectType === 'location' ? 'Tap camera to add location photo' : 'Add photo to mark up'}</span>
         </div>`;
     } else {
       const imgKey = dp.defaultImage || 'container';
@@ -835,6 +872,8 @@ function systemFieldSummaryLabel(field) {
   const onOff = field.enabled === false ? 'OFF' : 'ON';
   if (field.dataSource === 'condition_codes') return `TRAILER CONDITION · ${onOff}`;
   if (field.dataSource === 'ilpn_condition_codes') return `ILPN CONDITION · ${onOff}`;
+  if (field.dataSource === 'putaway_condition_codes') return `PUTAWAY CONDITION · ${onOff}`;
+  if (field.dataSource === 'inventory_condition_codes') return `INVENTORY CONDITION · ${onOff}`;
   return field.enabled === false ? 'Off' : 'On';
 }
 
@@ -872,12 +911,24 @@ function systemDefaultUiValue(field) {
   return String(field.default);
 }
 
+function systemCodesForField(field) {
+  if (field.dataSource === 'putaway_condition_codes') return previewApiData.putaway_condition_codes || [];
+  if (field.dataSource === 'inventory_condition_codes') return previewApiData.inventory_condition_codes || [];
+  if (field.dataSource === 'ilpn_condition_codes') return previewApiData.ilpn_condition_codes || [];
+  return previewApiData.condition_codes || [];
+}
+
+function systemCodeIdForField(field, code) {
+  if (field.dataSource === 'putaway_condition_codes') return code.PutawayConditionCodeId;
+  return code.ConditionCodeId;
+}
+
 function mountSystemDefaultPicker(container, field, uiValue, onChange) {
-  const codes = field.dataSource === 'ilpn_condition_codes'
-    ? previewApiData.ilpn_condition_codes
-    : previewApiData.condition_codes;
-  const sorted = [...(codes || [])].sort((a, b) =>
-    (a.Description || a.ConditionCodeId || '').localeCompare(b.Description || b.ConditionCodeId || '')
+  const codes = systemCodesForField(field);
+  const sorted = [...codes].sort((a, b) =>
+    (a.Description || systemCodeIdForField(field, a) || '').localeCompare(
+      b.Description || systemCodeIdForField(field, b) || ''
+    )
   );
 
   container.innerHTML = `
@@ -886,9 +937,9 @@ function mountSystemDefaultPicker(container, field, uiValue, onChange) {
       <option value="__none__">No default</option>
       <option value="__blank__">— (blank) —</option>
       ${sorted.map(c => {
-        const id = escapeHtml(c.ConditionCodeId);
-        const label = escapeHtml(c.Description || c.ConditionCodeId);
-        return `<option value="${id}"${uiValue === c.ConditionCodeId ? ' selected' : ''}>${label}</option>`;
+        const id = escapeHtml(systemCodeIdForField(field, c));
+        const label = escapeHtml(c.Description || id);
+        return `<option value="${id}"${uiValue === systemCodeIdForField(field, c) ? ' selected' : ''}>${label}</option>`;
       }).join('')}
     </select>
     <small class="text-muted default-answer-hint">Options loaded from API after authenticate.</small>`;

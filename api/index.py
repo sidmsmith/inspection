@@ -1,4 +1,4 @@
-# api/index.py — Inspection v0.0.6
+# api/index.py — Inspection v0.0.7
 # Major updates: container damage diagram pad, JPEG form capture/upload 413 fixes, diagram in form screenshot
 from flask import Flask, request, jsonify, send_from_directory
 import json, re, os, traceback, base64
@@ -313,7 +313,7 @@ def usage_track():
         payload = {
             "event_name": event_name,
             "app_name": "inspection",
-            "app_version": "0.0.6",
+            "app_version": "0.0.7",
             **metadata,
             "timestamp": datetime.now().isoformat()
         }
@@ -548,6 +548,238 @@ def search_shipment():
     path = "/shipment/api/shipment/shipment/search"
     results = search_single_record(org, token, path, "ShipmentId", shipment_id)
     return jsonify({"success": True, "results": results})
+
+
+LOCATION_SEARCH_TEMPLATE = {
+    "LocationId": "",
+    "DisplayLocation": "",
+    "LocationTypeId": "",
+    "BlockPutawayConditionId": "",
+}
+
+
+def _location_search_payload(query="", size=1000, page=0):
+    return {
+        "Query": query,
+        "Template": LOCATION_SEARCH_TEMPLATE,
+        "Size": size,
+        "Page": page,
+    }
+
+
+def fetch_location_ids(org, token, query=""):
+    """Fetch location IDs using dcinventory location search Template."""
+    url = f"https://{API_HOST}/dcinventory/api/dcinventory/location/search"
+    headers = _dcinventory_headers(token, org)
+    ids = []
+    seen = set()
+    page = 0
+    page_size = 1000
+    while True:
+        payload = _location_search_payload(query=query, size=page_size, page=page)
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+        if not r.ok:
+            return None, f"Failed to fetch locations (HTTP {r.status_code})"
+        data = r.json().get("data", [])
+        if not isinstance(data, list):
+            data = []
+        for record in data:
+            record_id = extract_record_id(record, "LocationId")
+            if record_id and record_id not in seen:
+                seen.add(record_id)
+                ids.append(record_id)
+        if len(data) < page_size:
+            break
+        page += 1
+    return ids, None
+
+
+@app.route('/api/locations', methods=['POST'])
+def locations():
+    """Fetch location IDs only (Query: \"\")"""
+    org = request.json.get('org')
+    token = request.json.get('token')
+    if not all([org, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    try:
+        ids, err = fetch_location_ids(org, token, "")
+        if err:
+            return jsonify({"success": False, "error": err})
+        return jsonify({"success": True, "count": len(ids), "ids": ids})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/api/search_location', methods=['POST'])
+def search_location():
+    org = request.json.get('org')
+    location_id = request.json.get('location_id', '').strip()
+    token = request.json.get('token')
+    if not all([org, location_id, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    url = f"https://{API_HOST}/dcinventory/api/dcinventory/location/search"
+    headers = _dcinventory_headers(token, org)
+    payload = _location_search_payload(query=f"LocationId='{location_id}'", size=1, page=0)
+    try:
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+        results = r.json().get("data", []) if r.ok else []
+        if not isinstance(results, list):
+            results = []
+        return jsonify({"success": True, "results": results})
+    except Exception:
+        return jsonify({"success": True, "results": []})
+
+
+@app.route('/api/putaway_condition_codes', methods=['POST'])
+def putaway_condition_codes():
+    """Fetch putaway condition codes for location locking."""
+    org = request.json.get('org')
+    token = request.json.get('token')
+    if not all([org, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    url = f"https://{API_HOST}/dcinventory/api/dcinventory/putawayConditionCode/search"
+    try:
+        r = requests.post(
+            url,
+            json={"Query": ""},
+            headers=_dcinventory_headers(token, org),
+            timeout=30,
+            verify=False,
+        )
+        if not r.ok:
+            return jsonify({"success": False, "error": f"HTTP {r.status_code}: {r.text[:500]}"})
+        items = r.json().get("data") or []
+        codes = [
+            {
+                "PutawayConditionCodeId": x.get("PutawayConditionCodeId"),
+                "Description": x.get("Description"),
+            }
+            for x in items
+            if x.get("PutawayConditionCodeId")
+        ]
+        codes.sort(key=lambda c: (c.get("PutawayConditionCodeId") or "").lower())
+        return jsonify({"success": True, "codes": codes})
+    except Exception as e:
+        print(f"[PutawayConditionCodes] Exception: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/api/inventory_condition_codes', methods=['POST'])
+def inventory_condition_codes():
+    """Fetch inventory condition codes (location lock via containerCondition/import)."""
+    org = request.json.get('org')
+    token = request.json.get('token')
+    if not all([org, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    url = f"https://{API_HOST}/dcinventory/api/dcinventory/conditionCode/search"
+    try:
+        r = requests.post(
+            url,
+            json={"Query": ""},
+            headers=_dcinventory_headers(token, org),
+            timeout=30,
+            verify=False,
+        )
+        if not r.ok:
+            return jsonify({"success": False, "error": f"HTTP {r.status_code}: {r.text[:500]}"})
+        items = r.json().get("data") or []
+        codes = [
+            {
+                "ConditionCodeId": x.get("ConditionCodeId"),
+                "Description": x.get("Description"),
+            }
+            for x in items
+            if x.get("ConditionCodeId")
+        ]
+        codes.sort(key=lambda c: (c.get("ConditionCodeId") or "").lower())
+        return jsonify({"success": True, "codes": codes})
+    except Exception as e:
+        print(f"[InventoryConditionCodes] Exception: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/api/lock_location_putaway', methods=['POST'])
+def lock_location_putaway():
+    """Block putaway on a STORAGE location with a putaway condition code."""
+    org = request.json.get('org')
+    token = request.json.get('token')
+    location_id = (request.json.get('location_id') or '').strip()
+    putaway_condition_code = (request.json.get('putaway_condition_code') or '').strip()
+    if not all([org, token, location_id, putaway_condition_code]):
+        return jsonify({"success": False, "error": "Missing data"})
+    url = f"https://{API_HOST}/dcinventory/api/dcinventory/location/save"
+    try:
+        r = requests.post(
+            url,
+            json={
+                "LocationId": location_id,
+                "LocationTypeId": "STORAGE",
+                "BlockPutawayConditionId": putaway_condition_code,
+            },
+            headers=_dcinventory_headers(token, org),
+            timeout=30,
+            verify=False,
+        )
+        if not r.ok:
+            return jsonify({"success": False, "error": f"Putaway lock failed: HTTP {r.status_code}: {r.text[:300]}"})
+        body = r.json()
+        if body.get("success") is False:
+            return jsonify({"success": False, "error": body.get("message") or "Putaway lock request rejected"})
+        return jsonify({
+            "success": True,
+            "location_id": location_id,
+            "putaway_condition_code": putaway_condition_code,
+        })
+    except Exception as e:
+        print(f"[LockLocationPutaway] Exception: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/api/lock_location_inventory', methods=['POST'])
+def lock_location_inventory():
+    """Apply inventory condition code to a STORAGE location."""
+    org = request.json.get('org')
+    token = request.json.get('token')
+    location_id = (request.json.get('location_id') or '').strip()
+    condition_code = (request.json.get('condition_code') or '').strip()
+    if not all([org, token, location_id, condition_code]):
+        return jsonify({"success": False, "error": "Missing data"})
+    url = f"https://{API_HOST}/dcinventory/api/dcinventory/containerCondition/import"
+    headers = _dcinventory_headers(token, org)
+    headers["ValidatedErrorCodes"] = '{"Overrides":["DCI::106"]}'
+    headers["ValidatedAllErrorCodes"] = "true"
+    try:
+        r = requests.post(
+            url,
+            json={
+                "Data": [
+                    {
+                        "InventoryContainerId": location_id,
+                        "InventoryContainerTypeId": "LOCATION",
+                        "ConditionCode": condition_code,
+                    }
+                ]
+            },
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+        if not r.ok:
+            return jsonify({"success": False, "error": f"Inventory lock failed: HTTP {r.status_code}: {r.text[:300]}"})
+        body = r.json()
+        if body.get("success") is False:
+            return jsonify({"success": False, "error": body.get("message") or "Inventory lock request rejected"})
+        return jsonify({
+            "success": True,
+            "location_id": location_id,
+            "condition_code": condition_code,
+        })
+    except Exception as e:
+        print(f"[LockLocationInventory] Exception: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)})
+
 
 @app.route('/api/condition_codes', methods=['POST'])
 def condition_codes():
