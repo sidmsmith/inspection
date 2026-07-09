@@ -769,7 +769,10 @@ function appendPreviewSectionBlock(root, sectionKey, sections, objectType) {
         <label>${escapeHtml(sec.label || DEFAULT_SECTION_LABELS.signature)}${sec.required ? ' <span class="required-asterisk">*</span>' : ''}</label>
         <span class="preview-mock-btn preview-mock-static">Clear</span>
       </div>
-      <div class="preview-signature-pad preview-pad-static" aria-hidden="true"></div>`;
+      <div class="preview-signature-pad preview-pad-static" aria-hidden="true">
+        <i class="fa-solid fa-signature"></i>
+        <span>Sign here</span>
+      </div>`;
     root.appendChild(sig);
     return;
   }
