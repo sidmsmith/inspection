@@ -1,4 +1,4 @@
-# api/index.py — Inspection v0.0.9
+# api/index.py — Inspection v0.0.10
 # Major updates: container damage diagram pad, JPEG form capture/upload 413 fixes, diagram in form screenshot
 from flask import Flask, request, jsonify, send_from_directory
 import json, re, os, traceback, base64
@@ -313,7 +313,7 @@ def usage_track():
         payload = {
             "event_name": event_name,
             "app_name": "inspection",
-            "app_version": "0.0.9",
+            "app_version": "0.0.10",
             **metadata,
             "timestamp": datetime.now().isoformat()
         }
@@ -781,6 +781,38 @@ def lock_location_putaway():
         return jsonify({"success": False, "error": str(e)})
 
 
+def _verify_location_inventory_lock(org, token, location_id, condition_code, container_type='LOCATION'):
+    """Confirm containerCondition/import applied despite warning-style API responses."""
+    url = f"https://{API_HOST}/dcinventory/api/dcinventory/containerCondition/search"
+    headers = _dcinventory_headers(token, org)
+    safe_location = location_id.replace("'", "''")
+    safe_code = condition_code.replace("'", "''")
+    query = (
+        f"InventoryContainerId='{safe_location}' "
+        f"and InventoryContainerTypeId='{container_type}' "
+        f"and ConditionCode='{safe_code}'"
+    )
+    try:
+        r = requests.post(
+            url,
+            json={"Query": query, "Size": 10, "Page": 0},
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+        if not r.ok:
+            return False, None
+        body = r.json()
+        total = int((body.get("header") or {}).get("totalCount") or 0)
+        data = body.get("data") or []
+        if total > 0 and isinstance(data, list) and len(data) > 0:
+            return True, body
+        return False, body
+    except Exception as e:
+        print(f"[LockLocationInventory] Verify exception: {e}")
+        return False, None
+
+
 @app.route('/api/lock_location_inventory', methods=['POST'])
 def lock_location_inventory():
     """Apply inventory condition code to a STORAGE location."""
@@ -816,14 +848,39 @@ def lock_location_inventory():
             timeout=30,
             verify=False,
         )
+
+        body = {}
+        if r.text and r.text.strip():
+            try:
+                body = r.json()
+            except Exception:
+                body = {}
+
+        verified, verify_body = False, None
+        if r.ok:
+            verified, verify_body = _verify_location_inventory_lock(
+                org, token, location_id, condition_code, container_type
+            )
+
+        if verified:
+            return jsonify({
+                "success": True,
+                "location_id": location_id,
+                "condition_code": condition_code,
+                "inventory_container_type_id": container_type,
+                "verified": True,
+                "import_success_flag": body.get("success") if isinstance(body, dict) else None,
+            })
+
         if not r.ok:
             return jsonify({
                 "success": False,
                 "error": f"Inventory lock failed: HTTP {r.status_code}: {r.text[:500]}",
                 "manhattan_payload": manhattan_payload,
+                "verify_body": verify_body,
             })
-        body = r.json()
-        if body.get("success") is False:
+
+        if isinstance(body, dict) and body.get("success") is False:
             err = body.get("message") or body.get("rootCause") or "Inventory lock request rejected"
             if body.get("errors"):
                 err = f"{err} — {body.get('errors')}"
@@ -832,7 +889,9 @@ def lock_location_inventory():
                 "error": err,
                 "manhattan_payload": manhattan_payload,
                 "manhattan_response": body,
+                "verify_body": verify_body,
             })
+
         return jsonify({
             "success": True,
             "location_id": location_id,
