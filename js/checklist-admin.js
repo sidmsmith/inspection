@@ -1,4 +1,4 @@
-/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.3.2) */
+/** Checklist admin UI — editor, preview, drag-drop (inspection admin v0.3.3) */
 
 const FIELD_TYPES = CHECKLIST_FIELD_TYPES;
 
@@ -1555,10 +1555,6 @@ function adjustIndexAfterReorder(index, from, to) {
   if (from < index && to >= index) return index - 1;
   if (from > index && to <= index) return index + 1;
   return index;
-}
-
-function confirmClearObjectType(objectLabel) {
-  return window.confirm(`Reset all ${objectLabel} questions to the default configuration?`);
 }
 
 function adminSaveStub(statusEl) {

@@ -229,14 +229,26 @@
   border-color: var(--primary);
 }
 
-#themeModal .modal-content {
+#themeModal .modal-content,
+#resetModal .modal-content {
   background: var(--card-bg);
   color: var(--text);
   border-color: var(--border);
 }
 
-#themeModal .modal-header {
+#themeModal .modal-header,
+#resetModal .modal-header {
   border-color: var(--border);
+}
+
+#resetModal .modal-footer {
+  border-color: var(--border);
+}
+
+.reset-modal-footer {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
 }
 
 #themeModal .list-group-item {

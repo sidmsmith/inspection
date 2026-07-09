@@ -438,6 +438,21 @@ function initOrgDraftFromChecklistsConfig(checklistsConfig, defaultConfig) {
   return { checklists: buildFullOrgChecklistsFromConfig(checklistsConfig, defaultConfig) };
 }
 
+/** Replace org draft + in-memory config from defaults for one object type or all. */
+function applyDefaultChecklistsToOrgDraft(orgDraft, checklistsConfig, defaultConfig, objectTypeKey = null) {
+  if (!orgDraft.checklists) orgDraft.checklists = {};
+  if (!checklistsConfig.checklists) checklistsConfig.checklists = {};
+  const types = objectTypeKey
+    ? CHECKLIST_OBJECT_TYPES.filter(t => t.key === objectTypeKey)
+    : CHECKLIST_OBJECT_TYPES;
+  for (const { key } of types) {
+    const state = loadChecklistState(defaultConfig, key);
+    const entry = JSON.parse(JSON.stringify(buildChecklistEntryFromState(state, key)));
+    orgDraft.checklists[key] = entry;
+    checklistsConfig.checklists[key] = entry;
+  }
+}
+
 /** @deprecated use syncChecklistStateToOrgDraft */
 function syncFieldsToOrgDraft(orgDraft, defaultConfig, objectType, fields, checklistsConfig) {
   syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, {
