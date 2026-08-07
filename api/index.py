@@ -312,10 +312,10 @@ def usage_track():
         
         # Must match apps_dashboard neonAppName for Inspection (inspection)
         payload = {
+            **metadata,
             "event_name": event_name,
             "app_name": "inspection",
             "app_version": "0.1.0",
-            **metadata,
             "timestamp": datetime.now().isoformat()
         }
         
