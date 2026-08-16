@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-08-16T19:21:15Z",
+  "updatedAt": "2026-08-16T20:26:43Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -582,6 +582,19 @@
               ],
               "id": "banana_ripeness_color",
               "required": true
+            },
+            {
+              "label": "Banana Firmness",
+              "type": "slider",
+              "options": [
+                "Very Firm",
+                "Firm",
+                "Slightly Soft",
+                "Soft",
+                "Very Soft"
+              ],
+              "id": "banana_firmness",
+              "required": true
             }
           ],
           "sections": {
@@ -622,6 +635,10 @@
             {
               "type": "field",
               "id": "banana_ripeness_color"
+            },
+            {
+              "type": "field",
+              "id": "banana_firmness"
             }
           ]
         },
@@ -677,6 +694,18 @@
               ],
               "id": "berry_color",
               "required": true
+            },
+            {
+              "label": "Berry Firmness",
+              "type": "slider",
+              "options": [
+                "Firm",
+                "Slightly Soft",
+                "Soft",
+                "Very Soft"
+              ],
+              "id": "berry_firmness",
+              "required": true
             }
           ],
           "sections": {
@@ -717,6 +746,10 @@
             {
               "type": "field",
               "id": "berry_color"
+            },
+            {
+              "type": "field",
+              "id": "berry_firmness"
             }
           ]
         },
