@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-08-16T19:14:15Z",
+  "updatedAt": "2026-08-16T19:21:15Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -661,29 +661,21 @@
               "required": false
             },
             {
-              "label": "Berry Color (Red to Pink)",
+              "label": "Berry Color",
               "type": "color_swatch",
               "options": [
                 "#b71c1c",
                 "#c9454b",
                 "#db6e7a",
                 "#ed98aa",
-                "#ffc1d9"
-              ],
-              "id": "berry_color_red_to_pink",
-              "required": true
-            },
-            {
-              "label": "Blueberry Color (Purple to Blue)",
-              "type": "color_swatch",
-              "options": [
+                "#ffc1d9",
                 "#8b3fd1",
                 "#6e39b8",
                 "#50339e",
                 "#332d84",
                 "#16276b"
               ],
-              "id": "blueberry_color_purple_to_blue",
+              "id": "berry_color",
               "required": true
             }
           ],
@@ -724,11 +716,7 @@
             },
             {
               "type": "field",
-              "id": "berry_color_red_to_pink"
-            },
-            {
-              "type": "field",
-              "id": "blueberry_color_purple_to_blue"
+              "id": "berry_color"
             }
           ]
         },
