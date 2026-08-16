@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-08-16T17:50:59.113Z",
+  "updatedAt": "2026-08-16T18:34:40.587Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -478,7 +478,28 @@
               }
             ]
           },
-          "fields": [],
+          "fields": [
+            {
+              "label": "Choose color",
+              "type": "color_swatch",
+              "options": [
+                "#8BC34A",
+                "#CDDC39",
+                "#FFEB3B",
+                "#FF9800"
+              ],
+              "id": "choose_color",
+              "required": true
+            },
+            {
+              "label": "Image",
+              "type": "image",
+              "useItemImage": true,
+              "imageUrl": "",
+              "id": "image",
+              "required": false
+            }
+          ],
           "sections": {
             "signature": {
               "enabled": true,
@@ -498,6 +519,14 @@
             }
           },
           "layout": [
+            {
+              "type": "field",
+              "id": "choose_color"
+            },
+            {
+              "type": "field",
+              "id": "image"
+            },
             {
               "type": "section",
               "key": "signature"
