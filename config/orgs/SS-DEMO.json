@@ -632,7 +632,8 @@
               "enabled": true,
               "required": false,
               "label": "LPN Photo for Markup",
-              "mode": "photo"
+              "mode": "photo",
+              "includeInDocumentUpload": true
             }
           },
           "layout": [
@@ -761,7 +762,8 @@
               "enabled": true,
               "required": false,
               "label": "LPN Photo for Markup",
-              "mode": "photo"
+              "mode": "photo",
+              "includeInDocumentUpload": true
             }
           },
           "layout": [
