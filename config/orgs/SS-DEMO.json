@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-08-16T18:34:40.587Z",
+  "updatedAt": "2026-08-16T19:14:15Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -538,6 +538,197 @@
             {
               "type": "section",
               "key": "damagePad"
+            }
+          ]
+        },
+        {
+          "id": "c-msw69t4x-ef2yq",
+          "name": "Banana",
+          "isDefault": false,
+          "rule": {
+            "conditions": [
+              {
+                "id": "cond-msw69tvt-v4cst",
+                "source": "item",
+                "field": "Description",
+                "label": "Description",
+                "operator": "contains",
+                "value": "anana",
+                "conjunction": "AND"
+              }
+            ]
+          },
+          "fields": [
+            {
+              "label": "Item Image",
+              "type": "image",
+              "useItemImage": true,
+              "imageUrl": "",
+              "id": "item_image",
+              "required": false
+            },
+            {
+              "label": "Banana Ripeness Color",
+              "type": "color_swatch",
+              "options": [
+                "#4b7f2e",
+                "#658d2f",
+                "#7e9b30",
+                "#98a931",
+                "#b2b732",
+                "#ccc533",
+                "#e5d334",
+                "#ffe135"
+              ],
+              "id": "banana_ripeness_color",
+              "required": true
+            }
+          ],
+          "sections": {
+            "signature": {
+              "enabled": true,
+              "required": true,
+              "label": "Inspector's Signature"
+            },
+            "photos": {
+              "enabled": true,
+              "required": false,
+              "label": "Inspection Photos"
+            },
+            "damagePad": {
+              "enabled": true,
+              "required": false,
+              "label": "LPN Photo for Markup",
+              "mode": "photo"
+            }
+          },
+          "layout": [
+            {
+              "type": "section",
+              "key": "signature"
+            },
+            {
+              "type": "section",
+              "key": "photos"
+            },
+            {
+              "type": "section",
+              "key": "damagePad"
+            },
+            {
+              "type": "field",
+              "id": "item_image"
+            },
+            {
+              "type": "field",
+              "id": "banana_ripeness_color"
+            }
+          ]
+        },
+        {
+          "id": "c-msw6a5s1-dj38t",
+          "name": "Berry",
+          "isDefault": false,
+          "rule": {
+            "conditions": [
+              {
+                "id": "cond-msw6a705-hpcat",
+                "source": "item",
+                "field": "Description",
+                "label": "Description",
+                "operator": "contains",
+                "value": "erry",
+                "conjunction": "AND"
+              },
+              {
+                "id": "cond-msw6aa39-9fqcr",
+                "source": "item",
+                "field": "Description",
+                "label": "Description",
+                "operator": "contains",
+                "value": "erries",
+                "conjunction": "OR"
+              }
+            ]
+          },
+          "fields": [
+            {
+              "label": "Item Image",
+              "type": "image",
+              "useItemImage": true,
+              "imageUrl": "",
+              "id": "item_image",
+              "required": false
+            },
+            {
+              "label": "Berry Color (Red to Pink)",
+              "type": "color_swatch",
+              "options": [
+                "#b71c1c",
+                "#c9454b",
+                "#db6e7a",
+                "#ed98aa",
+                "#ffc1d9"
+              ],
+              "id": "berry_color_red_to_pink",
+              "required": true
+            },
+            {
+              "label": "Blueberry Color (Purple to Blue)",
+              "type": "color_swatch",
+              "options": [
+                "#8b3fd1",
+                "#6e39b8",
+                "#50339e",
+                "#332d84",
+                "#16276b"
+              ],
+              "id": "blueberry_color_purple_to_blue",
+              "required": true
+            }
+          ],
+          "sections": {
+            "signature": {
+              "enabled": true,
+              "required": true,
+              "label": "Inspector's Signature"
+            },
+            "photos": {
+              "enabled": true,
+              "required": false,
+              "label": "Inspection Photos"
+            },
+            "damagePad": {
+              "enabled": true,
+              "required": false,
+              "label": "LPN Photo for Markup",
+              "mode": "photo"
+            }
+          },
+          "layout": [
+            {
+              "type": "section",
+              "key": "signature"
+            },
+            {
+              "type": "section",
+              "key": "photos"
+            },
+            {
+              "type": "section",
+              "key": "damagePad"
+            },
+            {
+              "type": "field",
+              "id": "item_image"
+            },
+            {
+              "type": "field",
+              "id": "berry_color_red_to_pink"
+            },
+            {
+              "type": "field",
+              "id": "blueberry_color_purple_to_blue"
             }
           ]
         },
