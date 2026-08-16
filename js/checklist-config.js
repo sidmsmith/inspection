@@ -251,11 +251,13 @@ const CHECKLIST_FIELD_TYPES = [
   { key: 'text', label: 'Text', icon: 'fa-font', type: 'freeform', options: [] },
   { key: 'traffic_light', label: 'Traffic light', icon: 'fa-circle', type: 'traffic_light', options: ['Stop', 'Caution', 'Go'] },
   { key: 'slider', label: 'Slider', icon: 'fa-sliders', type: 'slider', options: ['None', 'Light', 'Moderate', 'Heavy', 'Severe'] },
-  { key: 'gauge', label: 'Gauge', icon: 'fa-gauge-high', type: 'gauge', options: ['Empty', '25%', '50%', '75%', 'Full'] }
+  { key: 'gauge', label: 'Gauge', icon: 'fa-gauge-high', type: 'gauge', options: ['Empty', '25%', '50%', '75%', 'Full'] },
+  { key: 'color_swatch', label: 'Color Swatch', icon: 'fa-palette', type: 'color_swatch', options: ['#8BC34A', '#CDDC39', '#FFEB3B', '#FF9800'] },
+  { key: 'image', label: 'Image', icon: 'fa-image', type: 'image', options: [] }
 ];
 
 const CHECKLIST_OPTION_FIELD_TYPES = new Set([
-  'dropdown', 'multi_select', 'traffic_light', 'slider', 'gauge'
+  'dropdown', 'multi_select', 'traffic_light', 'slider', 'gauge', 'color_swatch'
 ]);
 
 function fieldTypeConfigForKey(key) {
@@ -270,6 +272,7 @@ function minOptionsForFieldType(typeKey) {
   if (typeKey === 'traffic_light') return 3;
   if (typeKey === 'slider' || typeKey === 'gauge') return 2;
   if (typeKey === 'multi_select') return 2;
+  if (typeKey === 'color_swatch') return 2;
   if (typeKey === 'dropdown') return 1;
   return 0;
 }
@@ -289,6 +292,8 @@ function optionsHintForFieldType(typeKey) {
       return 'Add a label for each gauge position (minimum 2). Drag chips to reorder.';
     case 'multi_select':
       return 'Add choices inspectors can tap — multiple allowed (minimum 2). Drag chips to reorder.';
+    case 'color_swatch':
+      return 'Pick the range of colors inspectors can match against (minimum 2). Drag chips to reorder.';
     default:
       return 'Add at least one option. Drag chips to reorder.';
   }
@@ -302,6 +307,8 @@ function typeKeyForChecklistField(field) {
   if (field.type === 'traffic_light') return 'traffic_light';
   if (field.type === 'slider') return 'slider';
   if (field.type === 'gauge') return 'gauge';
+  if (field.type === 'color_swatch') return 'color_swatch';
+  if (field.type === 'image') return 'image';
   if (field.type === 'segmented' && field.options?.join(',') === 'Pass,Fail') return 'pass_fail';
   if (field.type === 'segmented') return 'yes_no';
   return null;
@@ -317,21 +324,37 @@ function applyChecklistFieldType(field, typeKey) {
     delete field.options;
     delete field.description;
     field.placeholder = field.placeholder || '';
+    delete field.useItemImage;
+    delete field.imageUrl;
   } else if (def.type === 'gauge') {
     field.options = Array.isArray(field.options) && field.options.length ? [...field.options] : [...def.options];
     field.description = field.description || '';
     if (field.gaugeColors !== 'red_to_green') delete field.gaugeColors;
     delete field.placeholder;
+    delete field.useItemImage;
+    delete field.imageUrl;
+  } else if (def.type === 'image') {
+    delete field.options;
+    delete field.description;
+    delete field.gaugeColors;
+    delete field.placeholder;
+    delete field.default;
+    if (typeof field.useItemImage !== 'boolean') field.useItemImage = false;
+    field.imageUrl = field.imageUrl || '';
   } else if (fieldTypeUsesOptions(def.type)) {
     field.options = Array.isArray(field.options) && field.options.length ? [...field.options] : [...(def.options || [])];
     delete field.description;
     delete field.gaugeColors;
     delete field.placeholder;
+    delete field.useItemImage;
+    delete field.imageUrl;
   } else {
     field.options = [...def.options];
     delete field.description;
     delete field.gaugeColors;
     delete field.placeholder;
+    delete field.useItemImage;
+    delete field.imageUrl;
   }
 }
 
@@ -375,7 +398,9 @@ function isAdminEditableField(field) {
     || field.type === 'traffic_light'
     || field.type === 'slider'
     || field.type === 'multi_select'
-    || field.type === 'gauge';
+    || field.type === 'gauge'
+    || field.type === 'color_swatch'
+    || field.type === 'image';
 }
 
 function isSystemField(field) {

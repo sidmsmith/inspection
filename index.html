@@ -542,6 +542,55 @@
     .checklist-traffic-light .tl-red { background: #4a1a1a; color: #ff8a8a; border-color: #ff6b6b; }
     .checklist-traffic-light .tl-amber { background: #4a3f12; color: #ffe08a; border-color: #ffc107; }
     .checklist-traffic-light .tl-green { background: #1a3d24; color: #8ee7a0; border-color: #28a745; }
+    .checklist-color-swatches {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+    .checklist-color-swatches .color-swatch-btn {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 50%;
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      cursor: pointer;
+      padding: 0;
+      transition: transform 0.1s, box-shadow 0.15s;
+    }
+    .checklist-color-swatches .color-swatch-btn.selected {
+      transform: scale(1.08);
+      box-shadow: 0 0 0 3px var(--card-bg, #1e1e1e), 0 0 0 5px var(--primary, #0d6efd);
+    }
+    .checklist-image-display {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 80px;
+    }
+    .checklist-image-el {
+      display: block;
+      max-width: 100%;
+      max-height: min(320px, 42vh);
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+    }
+    .checklist-image-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 1.5rem;
+      width: 100%;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      background: var(--input-bg);
+    }
+    .checklist-image-placeholder i { font-size: 1.4rem; }
     .checklist-slider-wrap { width: 100%; }
     .checklist-slider-input {
       width: 100%;
@@ -1274,6 +1323,7 @@
     let token = null;
     let currentAppt = null; // Full record data from API (appointment, ASN, trailer, etc.)
     let matchedCriteria = null; // { objectType, id, name, isDefault } for the loaded record, when the object type is criteria-driven
+    let currentItemMasterRecord = null; // Item Master row for the loaded record's first LPN Detail item (iLPN today) — backs "Use item image" fields
     // Appointment search disabled for now — may revisit later
     // let validAppointmentIds = new Set(); // Cached from /api/scheduled after auth
     const INSPECTION_SEARCH_TYPES = {
@@ -2718,20 +2768,15 @@
     }
 
     /**
-     * For criteria-driven object types: resolve LPN Detail (on-hand inventory — the iLPN
-     * header record itself doesn't carry ItemId) + Item Master, then evaluate rules to find
-     * the matching checklist.
+     * Resolve LPN Detail (on-hand inventory — the iLPN header record itself doesn't carry
+     * ItemId) + Item Master for the loaded record (iLPN today), then evaluate criteria rules
+     * to find the matching checklist. Item Master is resolved regardless of whether the object
+     * type has criteria configured, since "Use item image" fields depend on it too.
      */
     async function resolveMatchedCriteriaForRecord(record, searchType) {
-      const raw = checklistsConfig?.checklists?.[searchType];
-      if (!Array.isArray(raw?.criteria)) {
-        matchedCriteria = null;
-        updateChecklistCriteriaHint();
-        return;
-      }
-
       const org = orgInput.value.trim();
       let detailRecord = null;
+      let itemRecord = null;
       if (searchType === 'ilpn') {
         const ilpnId = record?.IlpnId;
         if (ilpnId) {
@@ -2743,17 +2788,24 @@
             console.warn('[CRITERIA] LPN Detail (inventory) lookup failed:', err);
           }
         }
-      }
 
-      let itemRecord = null;
-      const itemId = detailRecord?.ItemId || record?.ItemId;
-      if (itemId) {
-        try {
-          const res = await api('item_master', { org, token, item_id: itemId });
-          itemRecord = res?.success ? (res.results?.[0] || null) : null;
-        } catch (err) {
-          console.warn('[CRITERIA] Item Master lookup failed:', err);
+        const itemId = detailRecord?.ItemId || record?.ItemId;
+        if (itemId) {
+          try {
+            const res = await api('item_master', { org, token, item_id: itemId });
+            itemRecord = res?.success ? (res.results?.[0] || null) : null;
+          } catch (err) {
+            console.warn('[CRITERIA] Item Master lookup failed:', err);
+          }
         }
+      }
+      currentItemMasterRecord = itemRecord;
+
+      const raw = checklistsConfig?.checklists?.[searchType];
+      if (!Array.isArray(raw?.criteria)) {
+        matchedCriteria = null;
+        updateChecklistCriteriaHint();
+        return;
       }
 
       const context = { header: record || {}, detail: detailRecord || {}, item: itemRecord || {} };
@@ -3006,7 +3058,7 @@
         return defaultValue;
       }
 
-      if (field.type === 'traffic_light' || field.type === 'gauge') {
+      if (field.type === 'traffic_light' || field.type === 'gauge' || field.type === 'color_swatch') {
         if (!isValueAllowedForField(field, defaultValue)) {
           console.warn(`[CHECKLIST] Invalid default for "${field.id}": "${defaultValue}"`);
           return null;
@@ -3048,6 +3100,11 @@
         control.value = defaultValue;
       } else if (field.type === 'traffic_light') {
         control.querySelectorAll('.tl-btn').forEach(btn => {
+          btn.classList.toggle('selected', btn.dataset.option === defaultValue);
+        });
+        control.dataset.value = defaultValue;
+      } else if (field.type === 'color_swatch') {
+        control.querySelectorAll('.color-swatch-btn').forEach(btn => {
           btn.classList.toggle('selected', btn.dataset.option === defaultValue);
         });
         control.dataset.value = defaultValue;
@@ -3097,7 +3154,8 @@
       const group = document.createElement('div');
       group.className = 'form-group';
       if (field.type === 'freeform' || field.type === 'multi_select' || field.type === 'slider'
-        || field.type === 'gauge' || field.type === 'traffic_light') {
+        || field.type === 'gauge' || field.type === 'traffic_light' || field.type === 'color_swatch'
+        || field.type === 'image') {
         group.classList.add('checklist-field-full');
       }
 
@@ -3255,6 +3313,51 @@
           };
           control.appendChild(btn);
         });
+      } else if (field.type === 'color_swatch') {
+        control = document.createElement('div');
+        control.className = 'checklist-color-swatches';
+        control.dataset.checklistField = field.id;
+        control.dataset.value = '';
+        (field.options || []).forEach(option => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'color-swatch-btn';
+          btn.style.background = option;
+          btn.title = option;
+          btn.setAttribute('aria-label', option);
+          btn.dataset.option = option;
+          btn.onclick = () => {
+            const wasSelected = btn.classList.contains('selected');
+            control.querySelectorAll('.color-swatch-btn').forEach(b => b.classList.remove('selected'));
+            if (wasSelected) {
+              control.dataset.value = '';
+            } else {
+              btn.classList.add('selected');
+              control.dataset.value = option;
+            }
+            validateCompleteInspection();
+          };
+          control.appendChild(btn);
+        });
+      } else if (field.type === 'image') {
+        control = document.createElement('div');
+        control.className = 'checklist-image-display';
+        control.dataset.checklistField = field.id;
+        const src = field.useItemImage ? (currentItemMasterRecord?.ImageUrl || '') : (field.imageUrl || '');
+        control.dataset.value = src;
+        if (src) {
+          const img = document.createElement('img');
+          img.className = 'checklist-image-el';
+          img.src = src;
+          img.alt = field.label || 'Image';
+          img.onerror = () => {
+            control.innerHTML = '<div class="checklist-image-placeholder"><i class="fa-solid fa-triangle-exclamation"></i><span>Image failed to load</span></div>';
+            control.dataset.value = '';
+          };
+          control.appendChild(img);
+        } else {
+          control.innerHTML = '<div class="checklist-image-placeholder"><i class="fa-solid fa-image"></i><span>No image available</span></div>';
+        }
       } else if (field.type === 'slider') {
         const opts = field.options || [];
         control = document.createElement('div');
@@ -3657,6 +3760,7 @@
       stopInspectionTimer();
       currentAppt = null;
       matchedCriteria = null;
+      currentItemMasterRecord = null;
       updateChecklistCriteriaHint();
       checkinBtn.disabled = true;
     }

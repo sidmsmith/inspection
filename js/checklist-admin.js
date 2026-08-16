@@ -104,7 +104,8 @@ function deleteActionButtonHtml() {
 
 function buildFieldActionsHtml(field, editable) {
   const visible = editable || field.enabled !== false;
-  const parts = [requiredToggleButtonHtml(field.required, visible)];
+  const parts = [];
+  if (field.type !== 'image') parts.push(requiredToggleButtonHtml(field.required, visible));
   if (editable) parts.push(deleteActionButtonHtml());
   else parts.push(visibilityToggleButtonHtml(field.enabled !== false));
   return parts.join('');
@@ -337,6 +338,79 @@ function renderOptionChips(container, options, onChange, onValidationChange, chi
   renderChips();
 }
 
+function renderColorSwatchChips(container, options, onChange, onValidationChange, chipLimits = {}) {
+  const minOptions = chipLimits.minOptions ?? null;
+  const maxOptions = chipLimits.maxOptions ?? null;
+  container.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'option-chips color-swatch-chips';
+
+  function emit() {
+    onChange([...options]);
+    onValidationChange?.();
+  }
+
+  const addWrap = document.createElement('label');
+  addWrap.className = 'color-swatch-add';
+  addWrap.title = 'Pick a color to add';
+  const addInput = document.createElement('input');
+  addInput.type = 'color';
+  addInput.value = '#4caf50';
+  addInput.className = 'color-swatch-add-input';
+  addWrap.innerHTML = '<span class="color-swatch-add-icon"><i class="fa-solid fa-plus"></i></span>';
+  addWrap.appendChild(addInput);
+
+  function syncAddInput() {
+    const disabled = maxOptions != null && options.length >= maxOptions;
+    addWrap.classList.toggle('is-disabled', disabled);
+    addInput.disabled = disabled;
+  }
+
+  function renderChips() {
+    wrap.querySelectorAll('.color-swatch-chip').forEach(el => el.remove());
+    options.forEach((opt, idx) => {
+      const chip = document.createElement('span');
+      chip.className = 'option-chip color-swatch-chip';
+      chip.dataset.idx = String(idx);
+      const canRemove = minOptions == null || options.length > minOptions;
+      chip.innerHTML = `
+        <span class="chip-grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
+        <span class="color-swatch-dot" style="background:${escapeHtml(opt)}"></span>
+        <span class="color-swatch-hex">${escapeHtml(String(opt).toUpperCase())}</span>
+        ${canRemove ? '<button type="button" class="chip-remove" aria-label="Remove">×</button>' : ''}`;
+      const removeBtn = chip.querySelector('.chip-remove');
+      if (removeBtn) {
+        removeBtn.onclick = e => {
+          e.stopPropagation();
+          options.splice(idx, 1);
+          emit();
+          renderChips();
+        };
+      }
+      wrap.insertBefore(chip, addWrap);
+    });
+    bindChipReorder(wrap, options, () => {
+      emit();
+      renderChips();
+    });
+    syncAddInput();
+  }
+
+  addInput.addEventListener('change', () => {
+    if (maxOptions != null && options.length >= maxOptions) return;
+    const val = addInput.value;
+    if (val && !options.includes(val)) {
+      options.push(val);
+      emit();
+      renderChips();
+    }
+  });
+
+  wrap.appendChild(addWrap);
+  container.appendChild(wrap);
+  renderChips();
+}
+
 const TRAFFIC_LIGHT_SLOT_META = [
   { className: 'tl-red', name: 'Red' },
   { className: 'tl-amber', name: 'Amber' },
@@ -435,6 +509,29 @@ function renderDefaultPicker(container, { typeKey, options, value, onChange }) {
     select.addEventListener('change', e => {
       onChange(e.target.value || opts[0] || null);
     });
+    return;
+  }
+
+  if (typeKey === 'color_swatch') {
+    const renderSwatches = () => {
+      container.innerHTML = `
+        <label class="form-label">Default answer</label>
+        <div class="color-swatch-picker" id="edDefaultColorPicker">
+          ${opts.map(o => `
+            <button type="button" class="color-swatch-opt${o === value ? ' selected' : ''}" data-color="${escapeHtml(o)}" style="background:${escapeHtml(o)}" title="${escapeHtml(o)}" aria-label="${escapeHtml(o)}"></button>
+          `).join('')}
+          <button type="button" class="color-swatch-opt color-swatch-none${!value ? ' selected' : ''}" data-color="" title="No default" aria-label="No default">&times;</button>
+        </div>
+        <small class="text-muted default-answer-hint">Optional pre-selected color when inspectors open this question.</small>`;
+      container.querySelectorAll('.color-swatch-opt').forEach(btn => {
+        btn.onclick = () => {
+          value = btn.dataset.color || null;
+          onChange(value);
+          renderSwatches();
+        };
+      });
+    };
+    renderSwatches();
     return;
   }
 
@@ -597,6 +694,53 @@ function appendPreviewControl(group, field, apiData) {
       }
       wrap.appendChild(btn);
     });
+    group.appendChild(wrap);
+    return;
+  }
+
+  if (field.type === 'color_swatch') {
+    const wrap = document.createElement('div');
+    wrap.className = 'checklist-color-swatches';
+    (field.options || []).forEach(option => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'color-swatch-btn' + (current === option ? ' selected' : '');
+      btn.style.background = option;
+      btn.title = option;
+      btn.dataset.option = option;
+      if (field.id) {
+        btn.onclick = () => {
+          const active = previewState[field.id] ?? '';
+          const next = active === option ? '' : option;
+          previewState[field.id] = next;
+          wrap.querySelectorAll('.color-swatch-btn').forEach(s => {
+            s.classList.toggle('selected', s.dataset.option === next);
+          });
+        };
+      }
+      wrap.appendChild(btn);
+    });
+    group.appendChild(wrap);
+    return;
+  }
+
+  if (field.type === 'image') {
+    const wrap = document.createElement('div');
+    wrap.className = 'checklist-image-display';
+    if (field.useItemImage) {
+      wrap.innerHTML = '<div class="checklist-image-placeholder"><i class="fa-solid fa-image"></i><span>Item image (auto — from LPN Detail)</span></div>';
+    } else if (field.imageUrl) {
+      const img = document.createElement('img');
+      img.className = 'checklist-image-el';
+      img.src = field.imageUrl;
+      img.alt = field.label || 'Image';
+      img.onerror = () => {
+        wrap.innerHTML = '<div class="checklist-image-placeholder"><i class="fa-solid fa-triangle-exclamation"></i><span>Image failed to load</span></div>';
+      };
+      wrap.appendChild(img);
+    } else {
+      wrap.innerHTML = '<div class="checklist-image-placeholder"><i class="fa-solid fa-image"></i><span>No image set</span></div>';
+    }
     group.appendChild(wrap);
     return;
   }
@@ -1101,11 +1245,15 @@ function renderChecklistAdminList(listHost, {
       const badgeText = isSystemField(f)
         ? systemFieldSummaryLabel(f)
         : escapeHtml(typeLabelForField(f));
+      const swatchDotsHtml = f.type === 'color_swatch'
+        ? `<span class="q-color-dots">${(f.options || []).slice(0, 5).map(o => `<span class="q-color-dot" style="background:${escapeHtml(o)}"></span>`).join('')}</span>`
+        : '';
       const actionsHtml = buildFieldActionsHtml(f, editable);
       return `
         <div class="question-row draggable-item${selected ? ' selected' : ''}${editable ? '' : ' system-field'}${offClass}" data-idx="${i}" data-kind="field" data-field-id="${escapeHtml(f.id)}">
           <span class="grip" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
           <div class="q-label">${escapeHtml(f.label)}${f.required ? ' <span class="required-asterisk">*</span>' : ''}${systemBadge}</div>
+          ${swatchDotsHtml}
           <span class="badge-type">${badgeText}</span>
           <div class="q-actions">${actionsHtml}</div>
         </div>`;
@@ -1392,8 +1540,22 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
       <div id="edOptions"></div>
       <small class="text-muted" id="edOptionsHint">Add at least one option. Drag chips to reorder.</small>
     </div>
+    <div class="mb-3" id="edImageWrap" style="display:none">
+      <div class="form-check form-switch mb-2">
+        <input class="form-check-input" type="checkbox" id="edImageUseItem" ${working.useItemImage ? 'checked' : ''} />
+        <label class="form-check-label" for="edImageUseItem">Use item image (auto — first LPN Detail &rarr; Item Master)</label>
+      </div>
+      <div id="edImageUrlWrap">
+        <label class="form-label">Image URL</label>
+        <input type="text" class="form-control form-control-sm" id="edImageUrl" placeholder="https://..." value="${escapeHtml(working.imageUrl || '')}" />
+      </div>
+      <div class="image-field-preview" id="edImagePreview" style="display:none">
+        <img id="edImagePreviewImg" alt="Preview" />
+      </div>
+      <small class="text-muted d-block mt-2">When checked, this automatically shows the linked item's photo for LPN-based objects (iLPN today) — no image if the object has none. Leave unchecked to use a fixed URL instead.</small>
+    </div>
     <div class="mb-3" id="edDefaultHost"></div>
-    <div class="mb-3 form-check">
+    <div class="mb-3 form-check" id="edRequiredWrap">
       <input type="checkbox" class="form-check-input" id="edRequired" ${working.required ? 'checked' : ''} />
       <label class="form-check-label" for="edRequired">Required</label>
     </div>
@@ -1410,6 +1572,13 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   const gaugeDescWrap = wrap.querySelector('#edGaugeDescWrap');
   const gaugeDescInput = wrap.querySelector('#edGaugeDesc');
   const gaugeReverseInput = wrap.querySelector('#edGaugeReverse');
+  const imageWrap = wrap.querySelector('#edImageWrap');
+  const imageUseItemInput = wrap.querySelector('#edImageUseItem');
+  const imageUrlWrap = wrap.querySelector('#edImageUrlWrap');
+  const imageUrlInput = wrap.querySelector('#edImageUrl');
+  const imagePreview = wrap.querySelector('#edImagePreview');
+  const imagePreviewImg = wrap.querySelector('#edImagePreviewImg');
+  const requiredWrap = wrap.querySelector('#edRequiredWrap');
   const defaultHost = wrap.querySelector('#edDefaultHost');
   const saveBtn = wrap.querySelector('#edSave');
   const labelInput = wrap.querySelector('#edLabel');
@@ -1420,12 +1589,52 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
 
   function syncOptionsVisibility() {
     const show = usesOptionEditor(selectedTypeKey);
+    const isImage = selectedTypeKey === 'image';
     optionsWrap.style.display = show ? 'block' : 'none';
     gaugeDescWrap.style.display = selectedTypeKey === 'gauge' ? 'block' : 'none';
+    imageWrap.style.display = isImage ? 'block' : 'none';
+    requiredWrap.style.display = isImage ? 'none' : 'block';
     if (show && selectedTypeKey) {
       optionsHint.textContent = optionsHintForFieldType(selectedTypeKey);
     }
   }
+
+  function syncImageUrlVisibility() {
+    const useItem = imageUseItemInput.checked;
+    imageUrlWrap.style.display = useItem ? 'none' : 'block';
+    updateImagePreview();
+  }
+
+  function updateImagePreview() {
+    const url = imageUseItemInput.checked ? '' : imageUrlInput.value.trim();
+    if (url) {
+      imagePreviewImg.src = url;
+      imagePreview.style.display = 'block';
+    } else {
+      imagePreview.style.display = 'none';
+      imagePreviewImg.removeAttribute('src');
+    }
+  }
+
+  function mountImageSourceEditor() {
+    imageUseItemInput.checked = !!working.useItemImage;
+    imageUrlInput.value = working.imageUrl || '';
+    syncImageUrlVisibility();
+  }
+
+  imageUseItemInput.addEventListener('change', () => {
+    working.useItemImage = imageUseItemInput.checked;
+    syncImageUrlVisibility();
+    updateSaveState();
+  });
+  imageUrlInput.addEventListener('input', () => {
+    working.imageUrl = imageUrlInput.value.trim();
+    updateImagePreview();
+    updateSaveState();
+  });
+  imagePreviewImg.addEventListener('error', () => {
+    imagePreview.style.display = 'none';
+  });
 
   function validateDefaultValue() {
     if (selectedTypeKey === 'slider' && options.length) {
@@ -1450,7 +1659,8 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
       }, updateSaveState);
       return;
     }
-    renderOptionChips(optionsHost, options, next => {
+    const chipRenderer = selectedTypeKey === 'color_swatch' ? renderColorSwatchChips : renderOptionChips;
+    chipRenderer(optionsHost, options, next => {
       options = next;
       working.options = [...options];
       validateDefaultValue();
@@ -1460,6 +1670,11 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   }
 
   function mountDefaultPicker() {
+    if (selectedTypeKey === 'image') {
+      defaultHost.innerHTML = '';
+      defaultHost.style.display = 'none';
+      return;
+    }
     if (selectedTypeKey === 'multi_select') {
       defaultHost.innerHTML = '<small class="text-muted default-answer-hint">Multi-select defaults are not configured in admin yet.</small>';
       defaultHost.style.display = 'block';
@@ -1528,6 +1743,7 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
       } else {
         gaugeReversed = false;
       }
+      if (key === 'image') mountImageSourceEditor();
       syncOptionsVisibility();
       mountDefaultPicker();
       refreshTypePicker();
@@ -1545,6 +1761,7 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
     }
     mountOptionsEditor();
   }
+  if (selectedTypeKey === 'image') mountImageSourceEditor();
   syncOptionsVisibility();
   mountDefaultPicker();
   labelInput.addEventListener('input', updateSaveState);
