@@ -169,6 +169,35 @@
         },
         logo: '/rockline_logo.png'
       },
+      'sprouts': {
+        name: 'Sprouts Farmers Market',
+        colors: {
+          '--bg-dark': '#f3f7f1',
+          '--card-bg': '#ffffff',
+          '--input-bg': '#eef4ea',
+          '--border': '#d3e0cc',
+          '--text': '#26301f',
+          '--text-secondary': '#44573c',
+          '--text-muted': '#728163',
+          '--red-bg': '#fff5f5',
+          '--red-text': '#c62828',
+          '--blue-select': '#2E6F39',
+          '--success': '#2E6F39',
+          '--primary': '#2E6F39',
+          '--primary-hover': '#255928',
+          '--success-hover': '#255928',
+          '--table-header-bg': '#2E6F39',
+          '--table-header-text': '#ffffff',
+          '--input-border': '#c3d4bb',
+          '--input-focus-bg': '#ffffff',
+          '--input-focus-border': '#2E6F39',
+          '--input-focus-shadow': 'rgba(46, 111, 57, 0.25)',
+          '--logo-url': 'url("/sprouts_logo.png")',
+          '--logo-display': 'block'
+        },
+        logo: '/sprouts_logo.png',
+        logoMaxHeight: '50px'
+      },
       'steris': {
         name: 'Steris',
         colors: {
