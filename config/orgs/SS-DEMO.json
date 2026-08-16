@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-08-16T20:26:43Z",
+  "updatedAt": "2026-08-16T21:02:01Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -595,6 +595,26 @@
               ],
               "id": "banana_firmness",
               "required": true
+            },
+            {
+              "label": "Temperature",
+              "type": "number",
+              "placeholder": "",
+              "unit": "°F",
+              "min": 0,
+              "max": 100,
+              "id": "temperature",
+              "required": true
+            },
+            {
+              "label": "Visible Damage / Mold Present",
+              "type": "segmented",
+              "options": [
+                "Yes",
+                "No"
+              ],
+              "id": "visible_damage_mold_present",
+              "required": true
             }
           ],
           "sections": {
@@ -639,6 +659,14 @@
             {
               "type": "field",
               "id": "banana_firmness"
+            },
+            {
+              "type": "field",
+              "id": "temperature"
+            },
+            {
+              "type": "field",
+              "id": "visible_damage_mold_present"
             }
           ]
         },
@@ -706,6 +734,26 @@
               ],
               "id": "berry_firmness",
               "required": true
+            },
+            {
+              "label": "Temperature",
+              "type": "number",
+              "placeholder": "",
+              "unit": "°F",
+              "min": 0,
+              "max": 100,
+              "id": "temperature",
+              "required": true
+            },
+            {
+              "label": "Visible Damage / Mold Present",
+              "type": "segmented",
+              "options": [
+                "Yes",
+                "No"
+              ],
+              "id": "visible_damage_mold_present",
+              "required": true
             }
           ],
           "sections": {
@@ -750,6 +798,14 @@
             {
               "type": "field",
               "id": "berry_firmness"
+            },
+            {
+              "type": "field",
+              "id": "temperature"
+            },
+            {
+              "type": "field",
+              "id": "visible_damage_mold_present"
             }
           ]
         },
