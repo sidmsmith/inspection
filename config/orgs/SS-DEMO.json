@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-08-16T21:02:01Z",
+  "updatedAt": "2026-08-16T21:19:16.931Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -637,18 +637,6 @@
           },
           "layout": [
             {
-              "type": "section",
-              "key": "signature"
-            },
-            {
-              "type": "section",
-              "key": "photos"
-            },
-            {
-              "type": "section",
-              "key": "damagePad"
-            },
-            {
               "type": "field",
               "id": "item_image"
             },
@@ -667,6 +655,18 @@
             {
               "type": "field",
               "id": "visible_damage_mold_present"
+            },
+            {
+              "type": "section",
+              "key": "damagePad"
+            },
+            {
+              "type": "section",
+              "key": "signature"
+            },
+            {
+              "type": "section",
+              "key": "photos"
             }
           ]
         },
@@ -744,16 +744,6 @@
               "max": 100,
               "id": "temperature",
               "required": true
-            },
-            {
-              "label": "Visible Damage / Mold Present",
-              "type": "segmented",
-              "options": [
-                "Yes",
-                "No"
-              ],
-              "id": "visible_damage_mold_present",
-              "required": true
             }
           ],
           "sections": {
@@ -763,7 +753,7 @@
               "label": "Inspector's Signature"
             },
             "photos": {
-              "enabled": true,
+              "enabled": false,
               "required": false,
               "label": "Inspection Photos"
             },
@@ -775,18 +765,6 @@
             }
           },
           "layout": [
-            {
-              "type": "section",
-              "key": "signature"
-            },
-            {
-              "type": "section",
-              "key": "photos"
-            },
-            {
-              "type": "section",
-              "key": "damagePad"
-            },
             {
               "type": "field",
               "id": "item_image"
@@ -804,8 +782,16 @@
               "id": "temperature"
             },
             {
-              "type": "field",
-              "id": "visible_damage_mold_present"
+              "type": "section",
+              "key": "damagePad"
+            },
+            {
+              "type": "section",
+              "key": "signature"
+            },
+            {
+              "type": "section",
+              "key": "photos"
             }
           ]
         },
