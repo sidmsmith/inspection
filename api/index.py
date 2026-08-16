@@ -4,6 +4,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 import json, re, os, traceback, base64
 from datetime import datetime
+from pathlib import Path
 import requests
 from requests.auth import HTTPBasicAuth
 import urllib3
@@ -27,9 +28,45 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "").strip()
 GITHUB_REPO = os.getenv("GITHUB_REPO", "sidmsmith/inspection").strip()
 GITHUB_REF = os.getenv("GITHUB_REF", "main").strip()
 
-# Critical: Fail fast if secrets missing
-if not PASSWORD or not CLIENT_SECRET:
-    raise Exception("Missing MANHATTAN_PASSWORD or MANHATTAN_SECRET environment variables")
+# Local-dev Bearer token bypass (same convention as taskcompletion/receivingworkbench):
+# a gitignored .token file at the repo root takes priority over the OAuth env vars below,
+# so a real session token can be dropped in without needing MANHATTAN_PASSWORD/SECRET locally.
+TOKEN_FILE = Path(__file__).resolve().parent.parent / ".token"
+
+def normalize_token(token):
+    """Clean a pasted token: strip whitespace, quotes, and a redundant Bearer prefix."""
+    token = (token or "").strip()
+    if token.lower().startswith("bearer "):
+        token = token[7:].strip()
+    if len(token) >= 2 and token[0] == token[-1] and token[0] in ('"', "'"):
+        token = token[1:-1].strip()
+    return token
+
+def read_local_token_file():
+    """Local-dev Bearer token from .token (gitignored). Empty on Vercel / missing file."""
+    try:
+        if not TOKEN_FILE.is_file():
+            return ""
+        return normalize_token(TOKEN_FILE.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"[auth] Could not read .token: {e}")
+        return ""
+
+def resolve_bearer_token(org):
+    """Resolve access token. Priority: project .token file > OAuth env vars."""
+    file_token = read_local_token_file()
+    if file_token:
+        return file_token, "token-file"
+    if PASSWORD and CLIENT_SECRET:
+        oauth = get_manhattan_token(org)
+        if oauth:
+            return normalize_token(oauth), "oauth"
+    return None, None
+
+# Fail fast if neither auth path is usable — but allow a local .token file to substitute
+# for the OAuth env vars entirely (mirrors taskcompletion/receivingworkbench's dev workflow).
+if not (PASSWORD and CLIENT_SECRET) and not TOKEN_FILE.is_file():
+    raise Exception("Missing MANHATTAN_PASSWORD or MANHATTAN_SECRET environment variables (or a local .token file)")
 
 STATUS_MAP = {
     "1000": "Requested", "2000": "Countered", "3000": "Scheduled",
@@ -331,9 +368,9 @@ def auth():
     org = request.json.get('org', '').strip()
     if not org:
         return jsonify({"success": False, "error": "ORG required"})
-    token = get_manhattan_token(org)
+    token, source = resolve_bearer_token(org)
     if token:
-        return jsonify({"success": True, "token": token})
+        return jsonify({"success": True, "token": token, "source": source})
     return jsonify({"success": False, "error": "Auth failed"})
 
 @app.route('/api/scheduled', methods=['POST'])
@@ -511,6 +548,49 @@ def search_ilpn():
     path = "/dcinventory/api/dcinventory/ilpn/search"
     results = search_single_record(org, token, path, "IlpnId", ilpn_id)
     return jsonify({"success": True, "results": results})
+
+@app.route('/api/item_master', methods=['POST'])
+def item_master():
+    """Fetch a single Item Master record by ItemId, used by criteria rule matching."""
+    org = request.json.get('org')
+    item_id = request.json.get('item_id', '').strip()
+    token = request.json.get('token')
+    if not all([org, item_id, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    path = "/item-master/api/item-master/item/search"
+    results = search_single_record(org, token, path, "ItemId", item_id)
+    return jsonify({"success": True, "results": results})
+
+@app.route('/api/ilpn_inventory', methods=['POST'])
+def ilpn_inventory():
+    """Fetch on-hand inventory detail rows (Item/Qty per line) for an iLPN.
+
+    The iLPN header record itself (ilpn/search) does not carry ItemId — the
+    item(s) on the LPN live in dcinventory's inventory/search instead, one row
+    per item (more than one row means a mixed LPN). Used by criteria rule
+    matching for "LPN Detail" fields.
+    """
+    org = request.json.get('org')
+    ilpn_id = request.json.get('ilpn_id', '').strip()
+    token = request.json.get('token')
+    if not all([org, ilpn_id, token]):
+        return jsonify({"success": False, "error": "Missing data"})
+    url = f"https://{API_HOST}/dcinventory/api/dcinventory/inventory/search"
+    headers = manhattan_api_headers(org, token)
+    quoted = ilpn_id.replace("'", "''")
+    payload = {
+        "Query": f"InventoryContainerId ='{quoted}' and InventoryContainerTypeId ='ILPN'",
+        "Size": 50,
+        "Page": 0
+    }
+    try:
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+        results = r.json().get("data", []) if r.ok else []
+        if not isinstance(results, list):
+            results = []
+        return jsonify({"success": True, "results": results})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 @app.route('/api/olpns', methods=['POST'])
 def olpns():

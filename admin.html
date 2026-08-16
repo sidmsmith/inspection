@@ -70,7 +70,43 @@
 
         </div>
 
+        <div class="field-grow" id="criteriaFieldWrap" style="display:none;">
+
+          <label class="form-label" for="criteriaSelect">Criteria</label>
+
+          <select id="criteriaSelect" class="form-select object-type-select" aria-label="Criteria"></select>
+
+        </div>
+
+        <div class="criteria-icon-actions" id="criteriaIconActions" style="display:none;">
+
+          <button type="button" class="criteria-icon-btn" id="copyCriteriaBtn" title="Copy checklist from another criteria" aria-label="Copy checklist from another criteria">
+
+            <i class="fa-solid fa-copy"></i>
+
+          </button>
+
+          <button type="button" class="criteria-icon-btn" id="manageCriteriaBtn" title="Configure criteria rules" aria-label="Configure criteria rules">
+
+            <i class="fa-solid fa-wrench"></i>
+
+          </button>
+
+        </div>
+
         <div class="toolbar-actions">
+
+          <span id="draftDirtyBadge" class="draft-dirty-badge d-none">
+
+            <i class="fa-solid fa-circle"></i> Unsaved changes
+
+          </span>
+
+          <button type="button" class="btn btn-outline-secondary btn-sm mb-0 d-none" id="discardLocalBtn" title="Discard unsaved local changes and reload from the last deployed config">
+
+            <i class="fa-solid fa-rotate-left"></i> Discard local changes
+
+          </button>
 
           <button type="button" class="btn btn-outline-secondary btn-sm mb-0" id="exportBtn" title="Download local draft as JSON (Save &amp; Deploy not required)">
 
@@ -216,13 +252,99 @@
 
 
 
+  <div class="modal fade" id="manageCriteriaModal" tabindex="-1" aria-labelledby="manageCriteriaModalTitle" aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered criteria-modal-dialog">
+
+      <div class="modal-content">
+
+        <div class="modal-header">
+
+          <h5 class="modal-title" id="manageCriteriaModalTitle">Manage Criteria</h5>
+
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+
+        </div>
+
+        <div class="modal-body">
+
+          <div class="criteria-modal-split">
+
+            <div class="criteria-rule-list-panel">
+
+              <h6 class="criteria-panel-title">Criteria</h6>
+
+              <div id="criteriaRuleListHost"></div>
+
+            </div>
+
+            <div class="criteria-rule-builder-panel">
+
+              <h6 class="criteria-panel-title">Rule</h6>
+
+              <div id="criteriaRuleBuilderHost"></div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="modal fade" id="copyCriteriaModal" tabindex="-1" aria-labelledby="copyCriteriaModalTitle" aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered">
+
+      <div class="modal-content">
+
+        <div class="modal-header">
+
+          <h5 class="modal-title" id="copyCriteriaModalTitle">Copy checklist questions</h5>
+
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+
+        </div>
+
+        <div class="modal-body">
+
+          <label class="form-label" for="copyCriteriaSource">Copy questions from</label>
+
+          <select class="form-select" id="copyCriteriaSource"></select>
+
+          <p class="small text-muted copy-criteria-hint mb-0">This replaces the questions, sections, and layout for the currently selected criteria. The rule/conditions are not affected.</p>
+
+        </div>
+
+        <div class="modal-footer">
+
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+
+          <button type="button" class="btn btn-success" id="copyCriteriaConfirmBtn" data-bs-dismiss="modal">Copy</button>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
   <script src="js/inspection-themes.js"></script>
 
   <script src="js/checklist-config.js"></script>
 
+  <script src="js/criteria-engine.js"></script>
+
   <script src="js/checklist-admin.js"></script>
+
+  <script src="js/criteria-admin.js"></script>
 
   <script>
 
@@ -276,7 +398,13 @@
 
     let orgDraft = { checklists: {} };
 
+    let deployedSnapshot = null; // last-deployed (or last-loaded) checklists, compared against orgDraft for the unsaved-changes badge
+
+    let localPersistTimer = null;
+
     let objectType = readStoredObjectType();
+
+    let criteriaId = null; // selected criteria id when the current object type is rule-driven
 
     let fields = [];
 
@@ -320,7 +448,79 @@
 
     const resetModal = new bootstrap.Modal(document.getElementById('resetModal'));
 
+    const manageCriteriaModal = new bootstrap.Modal(document.getElementById('manageCriteriaModal'));
+
+    const copyCriteriaModal = new bootstrap.Modal(document.getElementById('copyCriteriaModal'));
+
     const themeList = document.getElementById('themeList');
+
+
+
+    function objectTypeHasCriteria() {
+
+      return hasCriteria(checklistsConfig?.checklists?.[objectType]);
+
+    }
+
+
+
+    function refreshCriteriaControls() {
+
+      const has = objectTypeHasCriteria();
+
+      document.getElementById('criteriaFieldWrap').style.display = has ? '' : 'none';
+
+      document.getElementById('criteriaIconActions').style.display = has ? '' : 'none';
+
+      if (!has) return;
+
+      const list = checklistsConfig.checklists[objectType].criteria;
+
+      if (!criteriaId || !list.some(c => c.id === criteriaId)) {
+
+        criteriaId = (list.find(c => c.isDefault) || list[list.length - 1] || {}).id || null;
+
+      }
+
+      const sel = document.getElementById('criteriaSelect');
+
+      sel.innerHTML = list.map(c =>
+
+        `<option value="${c.id}">${escapeHtml(c.name || (c.isDefault ? 'Default' : 'New Rule'))}</option>`
+
+      ).join('');
+
+      sel.value = criteriaId;
+
+    }
+
+
+
+    function updateDirtyIndicator() {
+
+      const dirty = !!(deployedSnapshot && orgDraft && !checklistDraftsEqual(orgDraft.checklists, deployedSnapshot));
+
+      document.getElementById('draftDirtyBadge')?.classList.toggle('d-none', !dirty);
+
+      document.getElementById('discardLocalBtn')?.classList.toggle('d-none', !dirty);
+
+    }
+
+
+
+    function scheduleLocalPersist() {
+
+      updateDirtyIndicator();
+
+      clearTimeout(localPersistTimer);
+
+      localPersistTimer = setTimeout(() => {
+
+        persistChecklistDraftLocal(currentOrg, orgDraft);
+
+      }, 500);
+
+    }
 
 
 
@@ -420,7 +620,7 @@
 
       flushPendingSectionEditor(listHost, sections, selectedSectionKey, objectType);
 
-      syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, { fields, sections, layout }, checklistsConfig);
+      syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, { fields, sections, layout }, checklistsConfig, criteriaId);
 
     }
 
@@ -438,7 +638,23 @@
 
     function loadChecklistStateForType() {
 
-      const state = loadChecklistState(checklistsConfig, objectType);
+      if (objectTypeHasCriteria()) {
+
+        const list = checklistsConfig.checklists[objectType].criteria;
+
+        if (!criteriaId || !list.some(c => c.id === criteriaId)) {
+
+          criteriaId = (list.find(c => c.isDefault) || list[list.length - 1] || {}).id || null;
+
+        }
+
+      } else {
+
+        criteriaId = null;
+
+      }
+
+      const state = loadChecklistState(checklistsConfig, objectType, criteriaId);
 
       fields = state.fields;
 
@@ -449,6 +665,8 @@
       clearEditor();
 
       clearPreviewState();
+
+      refreshCriteriaControls();
 
     }
 
@@ -464,7 +682,15 @@
 
     function loadFieldsFromDefault() {
 
-      const state = loadChecklistState(defaultConfig, objectType);
+      if (hasCriteria(defaultConfig?.checklists?.[objectType])) {
+
+        const list = defaultConfig.checklists[objectType].criteria;
+
+        criteriaId = (list.find(c => c.isDefault) || list[list.length - 1] || {}).id || null;
+
+      }
+
+      const state = loadChecklistState(defaultConfig, objectType, criteriaId);
 
       fields = state.fields;
 
@@ -475,6 +701,8 @@
       clearEditor();
 
       clearPreviewState();
+
+      refreshCriteriaControls();
 
     }
 
@@ -720,6 +948,8 @@
       renderList();
 
       updateDeleteAllButton();
+
+      scheduleLocalPersist();
 
     }
 
@@ -1017,11 +1247,31 @@
 
       orgDraft = initOrgDraftFromChecklistsConfig(checklistsConfig, defaultConfig);
 
+      deployedSnapshot = JSON.parse(JSON.stringify(orgDraft.checklists));
+
+
+
+      const localDraft = readChecklistDraftLocal(currentOrg);
+
+      if (localDraft?.checklists && !checklistDraftsEqual(localDraft.checklists, deployedSnapshot)) {
+
+        orgDraft = { checklists: JSON.parse(JSON.stringify(localDraft.checklists)) };
+
+        checklistsConfig = normalizeAllChecklists({ checklists: JSON.parse(JSON.stringify(localDraft.checklists)) });
+
+      }
+
+
+
       objectTypeSelect.value = objectType;
+
+      criteriaId = null;
 
       loadFieldsForObjectType();
 
       refresh();
+
+      updateDirtyIndicator();
 
       saveBtn.disabled = false;
 
@@ -1055,11 +1305,141 @@
 
       objectType = nextType;
 
+      criteriaId = null;
+
       persistObjectTypeChoice(objectType);
 
       loadFieldsForObjectType();
 
       refresh();
+
+    };
+
+
+
+    document.getElementById('criteriaSelect').onchange = () => {
+
+      const nextId = document.getElementById('criteriaSelect').value;
+
+      if (!nextId || nextId === criteriaId) return;
+
+      flushAndSyncCurrentDraft();
+
+      criteriaId = nextId;
+
+      loadChecklistStateForType();
+
+      refresh();
+
+    };
+
+
+
+    document.getElementById('manageCriteriaBtn').onclick = async () => {
+
+      if (!objectTypeHasCriteria()) return;
+
+      flushAndSyncCurrentDraft();
+
+      const list = checklistsConfig.checklists[objectType].criteria;
+
+      await openManageCriteriaModal({
+
+        objectType,
+
+        criteriaList: list,
+
+        modal: manageCriteriaModal,
+
+        onChange: () => {
+
+          syncCriteriaListToOrgDraft(orgDraft, checklistsConfig, objectType);
+
+          scheduleLocalPersist();
+
+          refreshCriteriaControls();
+
+        }
+
+      });
+
+      manageCriteriaModal.show();
+
+    };
+
+
+
+    document.getElementById('manageCriteriaModal').addEventListener('hidden.bs.modal', () => {
+
+      if (!objectTypeHasCriteria()) return;
+
+      const list = checklistsConfig.checklists[objectType].criteria;
+
+      if (!list.some(c => c.id === criteriaId)) criteriaId = null;
+
+      loadChecklistStateForType();
+
+      refresh();
+
+    });
+
+
+
+    document.getElementById('copyCriteriaBtn').onclick = () => {
+
+      if (!objectTypeHasCriteria()) return;
+
+      const list = checklistsConfig.checklists[objectType].criteria;
+
+      openCopyCriteriaModal({
+
+        criteriaList: list,
+
+        targetId: criteriaId,
+
+        onApply: source => {
+
+          fields = JSON.parse(JSON.stringify(source.fields || []));
+
+          sections = JSON.parse(JSON.stringify(source.sections || {}));
+
+          layout = JSON.parse(JSON.stringify(source.layout || []));
+
+          clearEditor();
+
+          clearPreviewState();
+
+          syncCurrentFieldsToDraft();
+
+          refresh();
+
+        }
+
+      });
+
+      copyCriteriaModal.show();
+
+    };
+
+
+
+    document.getElementById('discardLocalBtn').onclick = () => {
+
+      clearChecklistDraftLocal(currentOrg);
+
+      orgDraft = { checklists: JSON.parse(JSON.stringify(deployedSnapshot)) };
+
+      checklistsConfig = normalizeAllChecklists({ checklists: JSON.parse(JSON.stringify(deployedSnapshot)) });
+
+      criteriaId = null;
+
+      clearEditor();
+
+      loadFieldsForObjectType();
+
+      refresh();
+
+      updateDirtyIndicator();
 
     };
 
@@ -1079,7 +1459,7 @@
 
       syncCurrentFieldsToDraft();
 
-      await adminSaveDeploy({
+      const res = await adminSaveDeploy({
 
         org: currentOrg,
 
@@ -1097,6 +1477,8 @@
 
         layout,
 
+        criteriaId,
+
         checklistsConfig,
 
         api,
@@ -1106,6 +1488,16 @@
         saveBtn
 
       });
+
+      if (res?.success) {
+
+        deployedSnapshot = JSON.parse(JSON.stringify(orgDraft.checklists));
+
+        clearChecklistDraftLocal(currentOrg);
+
+        updateDirtyIndicator();
+
+      }
 
     };
 
@@ -1125,7 +1517,7 @@
 
         defaultConfig,
 
-        liveState: { objectType, fields, sections, layout },
+        liveState: { objectType, fields, sections, layout, criteriaId },
 
         setStatus
 
@@ -1162,6 +1554,8 @@
           checklistsConfig = normalizeAllChecklists(nextConfig);
 
           orgDraft = initOrgDraftFromChecklistsConfig(checklistsConfig, defaultConfig);
+
+          criteriaId = null;
 
           clearEditor();
 

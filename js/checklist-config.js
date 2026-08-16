@@ -8,12 +8,21 @@ const DEFAULT_SECTION_LABELS = {
   damagePad: 'Markup Pad'
 };
 
+/** Presence of a `criteria` array marks an object type as rule-driven (multiple checklist configs). */
+function hasCriteria(raw) {
+  return !!raw && Array.isArray(raw.criteria);
+}
+
 function mergeChecklistConfigs(base, orgOverlay) {
   const result = JSON.parse(JSON.stringify(base));
   if (!orgOverlay?.checklists) return result;
   for (const [typeKey, orgChecklist] of Object.entries(orgOverlay.checklists)) {
     if (!result.checklists) result.checklists = {};
     if (!result.checklists[typeKey]) result.checklists[typeKey] = {};
+    if (Array.isArray(orgChecklist.criteria)) {
+      result.checklists[typeKey] = { criteria: JSON.parse(JSON.stringify(orgChecklist.criteria)) };
+      continue;
+    }
     if (Array.isArray(orgChecklist.fields)) {
       result.checklists[typeKey].fields = JSON.parse(JSON.stringify(orgChecklist.fields));
     }
@@ -52,11 +61,27 @@ async function loadChecklistsForOrg(org) {
   }
 }
 
+/** Normalize one object-type entry, preserving criteria metadata (id/name/isDefault/rule) when present. */
+function normalizeChecklistTypeEntry(raw, typeKey) {
+  if (hasCriteria(raw)) {
+    return {
+      criteria: raw.criteria.map(c => ({
+        id: c.id,
+        name: c.name,
+        isDefault: !!c.isDefault,
+        rule: c.rule ? JSON.parse(JSON.stringify(c.rule)) : null,
+        ...normalizeChecklistEntry(c, typeKey)
+      }))
+    };
+  }
+  return normalizeChecklistEntry(raw, typeKey);
+}
+
 function normalizeAllChecklists(config) {
   if (!config?.checklists) return config;
   const next = JSON.parse(JSON.stringify(config));
   for (const typeKey of Object.keys(next.checklists)) {
-    next.checklists[typeKey] = normalizeChecklistEntry(next.checklists[typeKey], typeKey);
+    next.checklists[typeKey] = normalizeChecklistTypeEntry(next.checklists[typeKey], typeKey);
   }
   return next;
 }
@@ -164,9 +189,25 @@ function normalizeChecklistEntry(raw, objectType) {
   return { fields, sections, layout };
 }
 
-function loadChecklistState(config, objectType) {
+function defaultCriteriaEntry(list) {
+  if (!Array.isArray(list) || !list.length) return null;
+  return list.find(c => c.isDefault) || list[list.length - 1];
+}
+
+/** Pick a criteria entry by id, falling back to the Default (catch-all) entry. */
+function findCriteriaEntry(raw, criteriaId) {
+  if (!hasCriteria(raw)) return null;
+  if (criteriaId) {
+    const found = raw.criteria.find(c => c.id === criteriaId);
+    if (found) return found;
+  }
+  return defaultCriteriaEntry(raw.criteria);
+}
+
+function loadChecklistState(config, objectType, criteriaId) {
   const raw = config?.checklists?.[objectType] || { fields: [] };
-  const normalized = normalizeChecklistEntry(raw, objectType);
+  const entryRaw = hasCriteria(raw) ? (findCriteriaEntry(raw, criteriaId) || { fields: [] }) : raw;
+  const normalized = normalizeChecklistEntry(entryRaw, objectType);
   return {
     fields: normalized.fields,
     sections: normalized.sections,
@@ -320,8 +361,8 @@ function isValueAllowedForField(field, value) {
   return labels.includes(String(value));
 }
 
-function cloneChecklistFields(config, objectType) {
-  return loadChecklistState(config, objectType).fields;
+function cloneChecklistFields(config, objectType, criteriaId) {
+  return loadChecklistState(config, objectType, criteriaId).fields;
 }
 
 function isAdminEditableField(field) {
@@ -401,6 +442,17 @@ function buildChecklistEntryFromState(state, objectType) {
 }
 
 function cloneChecklistEntryForExport(entry, objectType) {
+  if (hasCriteria(entry)) {
+    return {
+      criteria: entry.criteria.map(c => ({
+        id: c.id,
+        name: c.name,
+        isDefault: !!c.isDefault,
+        rule: c.rule ? JSON.parse(JSON.stringify(c.rule)) : null,
+        ...buildChecklistEntryFromState({ fields: c.fields, sections: c.sections, layout: c.layout }, objectType)
+      }))
+    };
+  }
   if (!entry) return buildChecklistEntryFromState({ fields: [] }, objectType);
   return buildChecklistEntryFromState({
     fields: entry.fields,
@@ -409,9 +461,32 @@ function cloneChecklistEntryForExport(entry, objectType) {
   }, objectType);
 }
 
-function syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, state, checklistsConfig) {
+/**
+ * Write the currently-edited fields/sections/layout back into the draft.
+ * For criteria-mode object types, splices into the matching criteria slot
+ * (by criteriaId, default Default) so every other rule is left untouched.
+ */
+function syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, state, checklistsConfig, criteriaId) {
   if (!orgDraft.checklists) orgDraft.checklists = {};
   const entry = JSON.parse(JSON.stringify(buildChecklistEntryFromState(state, objectType)));
+
+  const existingRaw = checklistsConfig?.checklists?.[objectType];
+  if (hasCriteria(existingRaw) || criteriaId) {
+    const currentDraftRaw = orgDraft.checklists[objectType];
+    const baseList = hasCriteria(currentDraftRaw)
+      ? currentDraftRaw.criteria
+      : (hasCriteria(existingRaw) ? JSON.parse(JSON.stringify(existingRaw.criteria)) : []);
+    const targetId = criteriaId || (defaultCriteriaEntry(baseList) || {}).id;
+    const idx = baseList.findIndex(c => c.id === targetId);
+    const meta = idx >= 0 ? baseList[idx] : { id: targetId, name: 'New Rule', isDefault: false, rule: { conditions: [] } };
+    const nextEntry = { ...meta, ...entry };
+    if (idx >= 0) baseList[idx] = nextEntry; else baseList.push(nextEntry);
+
+    orgDraft.checklists[objectType] = { criteria: baseList };
+    if (!checklistsConfig.checklists) checklistsConfig.checklists = {};
+    checklistsConfig.checklists[objectType] = JSON.parse(JSON.stringify(orgDraft.checklists[objectType]));
+    return;
+  }
 
   orgDraft.checklists[objectType] = entry;
 
@@ -419,17 +494,20 @@ function syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, state
   checklistsConfig.checklists[objectType] = JSON.parse(JSON.stringify(entry));
 }
 
+/** Sync a criteria-mode object type's whole rule list (names/order/conditions) — e.g. after the rule-builder modal edits it in place. */
+function syncCriteriaListToOrgDraft(orgDraft, checklistsConfig, objectType) {
+  const raw = checklistsConfig?.checklists?.[objectType];
+  if (!hasCriteria(raw)) return;
+  if (!orgDraft.checklists) orgDraft.checklists = {};
+  orgDraft.checklists[objectType] = { criteria: JSON.parse(JSON.stringify(raw.criteria)) };
+}
+
 /** Build a complete per-ORG checklist map (all object types) for save/export/deploy. */
 function buildFullOrgChecklistsFromConfig(checklistsConfig, defaultConfig) {
   const checklists = {};
   for (const { key } of CHECKLIST_OBJECT_TYPES) {
     const raw = checklistsConfig?.checklists?.[key] ?? defaultConfig?.checklists?.[key];
-    const normalized = normalizeChecklistEntry(raw || { fields: [] }, key);
-    checklists[key] = {
-      fields: normalized.fields,
-      sections: normalized.sections,
-      layout: normalized.layout
-    };
+    checklists[key] = normalizeChecklistTypeEntry(raw || { fields: [] }, key);
   }
   return checklists;
 }
@@ -438,7 +516,7 @@ function initOrgDraftFromChecklistsConfig(checklistsConfig, defaultConfig) {
   return { checklists: buildFullOrgChecklistsFromConfig(checklistsConfig, defaultConfig) };
 }
 
-/** Replace org draft + in-memory config from defaults for one object type or all. */
+/** Replace org draft + in-memory config from defaults for one object type or all (whole criteria array, for criteria-mode types). */
 function applyDefaultChecklistsToOrgDraft(orgDraft, checklistsConfig, defaultConfig, objectTypeKey = null) {
   if (!orgDraft.checklists) orgDraft.checklists = {};
   if (!checklistsConfig.checklists) checklistsConfig.checklists = {};
@@ -446,10 +524,10 @@ function applyDefaultChecklistsToOrgDraft(orgDraft, checklistsConfig, defaultCon
     ? CHECKLIST_OBJECT_TYPES.filter(t => t.key === objectTypeKey)
     : CHECKLIST_OBJECT_TYPES;
   for (const { key } of types) {
-    const state = loadChecklistState(defaultConfig, key);
-    const entry = JSON.parse(JSON.stringify(buildChecklistEntryFromState(state, key)));
+    const defaultRaw = defaultConfig?.checklists?.[key] || { fields: [] };
+    const entry = JSON.parse(JSON.stringify(normalizeChecklistTypeEntry(defaultRaw, key)));
     orgDraft.checklists[key] = entry;
-    checklistsConfig.checklists[key] = entry;
+    checklistsConfig.checklists[key] = JSON.parse(JSON.stringify(entry));
   }
 }
 
@@ -473,7 +551,8 @@ function buildOrgSavePayload(org, orgDraft, checklistsConfig, liveState, default
         sections: liveState.sections,
         layout: liveState.layout
       },
-      checklistsConfig
+      checklistsConfig,
+      liveState.criteriaId
     );
   }
 

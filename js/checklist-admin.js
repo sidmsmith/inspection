@@ -867,6 +867,46 @@ function bindPreviewDamageStockToggle(block) {
   });
 }
 
+/** Local-draft safety net (ported from VAS Execution's vas-config-admin.js) — survives a refresh/crash between Save & Deploy runs. */
+function draftStorageKey(org) {
+  const o = String(org || '').trim().toUpperCase();
+  return o ? `checklist_draft:${o}` : null;
+}
+
+function checklistDraftsEqual(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function persistChecklistDraftLocal(org, orgDraft) {
+  const key = draftStorageKey(org);
+  if (!key || !orgDraft) return;
+  try {
+    localStorage.setItem(key, JSON.stringify({
+      checklists: orgDraft.checklists,
+      savedAt: new Date().toISOString()
+    }));
+  } catch (_) { /* private browsing / quota exceeded — degrade silently */ }
+}
+
+function readChecklistDraftLocal(org) {
+  const key = draftStorageKey(org);
+  if (!key) return null;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.checklists ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function clearChecklistDraftLocal(org) {
+  const key = draftStorageKey(org);
+  if (!key) return;
+  try { localStorage.removeItem(key); } catch (_) {}
+}
+
 function formatChecklistExportFilename(org) {
   const safeOrg = String(org || 'org').trim().toUpperCase() || 'ORG';
   const d = new Date();
@@ -1567,19 +1607,19 @@ function adminSaveStub(statusEl) {
 }
 
 async function adminSaveDeploy({
-  org, token, orgDraft, defaultConfig, objectType, fields, sections, layout, checklistsConfig, api, setStatus, saveBtn
+  org, token, orgDraft, defaultConfig, objectType, fields, sections, layout, criteriaId, checklistsConfig, api, setStatus, saveBtn
 }) {
   if (!org || !token) {
     setStatus('Authenticate before saving', 'danger');
     return { success: false };
   }
 
-  syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, { fields, sections, layout }, checklistsConfig);
+  syncChecklistStateToOrgDraft(orgDraft, defaultConfig, objectType, { fields, sections, layout }, checklistsConfig, criteriaId);
   const payload = buildOrgSavePayload(
     org,
     orgDraft,
     checklistsConfig,
-    { objectType, fields, sections, layout },
+    { objectType, fields, sections, layout, criteriaId },
     defaultConfig
   );
 

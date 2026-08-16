@@ -460,149 +460,157 @@
       ]
     },
     "ilpn": {
-      "fields": [
+      "criteria": [
         {
-          "id": "label_present_legible",
-          "label": "Label Present & Legible",
-          "type": "dropdown",
-          "options": [
-            "Eligible",
-            "Present"
+          "id": "default",
+          "name": "Default",
+          "isDefault": true,
+          "rule": null,
+          "fields": [
+            {
+              "id": "label_present_legible",
+              "label": "Label Present & Legible",
+              "type": "dropdown",
+              "options": [
+                "Eligible",
+                "Present"
+              ],
+              "required": true,
+              "default": "Eligible"
+            },
+            {
+              "id": "visible_damage",
+              "label": "Visible Damage",
+              "type": "segmented",
+              "options": [
+                "None",
+                "Yes (describe)"
+              ]
+            },
+            {
+              "id": "storage_conditions_ok",
+              "label": "Storage Conditions OK",
+              "type": "dropdown",
+              "options": [
+                "Good",
+                "Improper Stacking",
+                "Temperature Issue"
+              ],
+              "required": true,
+              "default": "Good"
+            },
+            {
+              "id": "contents_match_system",
+              "label": "Contents Match System",
+              "type": "segmented",
+              "options": [
+                "Yes",
+                "No"
+              ],
+              "default": "No"
+            },
+            {
+              "id": "location_correct",
+              "label": "Location Correct",
+              "type": "segmented",
+              "options": [
+                "Yes",
+                "No"
+              ],
+              "default": "Pass"
+            },
+            {
+              "id": "seal_tag_intact",
+              "label": "Seal / Tag Intact",
+              "type": "segmented",
+              "options": [
+                "Yes",
+                "No"
+              ]
+            },
+            {
+              "id": "weight_dims_accurate",
+              "label": "Weight & Dims Accurate",
+              "type": "segmented",
+              "options": [
+                "Yes",
+                "No"
+              ],
+              "default": "OnTime"
+            },
+            {
+              "id": "condition_code",
+              "label": "Condition Code",
+              "type": "dropdown",
+              "dataSource": "ilpn_condition_codes",
+              "enabled": true,
+              "required": false
+            }
           ],
-          "required": true,
-          "default": "Eligible"
-        },
-        {
-          "id": "visible_damage",
-          "label": "Visible Damage",
-          "type": "segmented",
-          "options": [
-            "None",
-            "Yes (describe)"
+          "sections": {
+            "signature": {
+              "enabled": true,
+              "required": true,
+              "label": "Inspector's Signature"
+            },
+            "photos": {
+              "enabled": true,
+              "required": false,
+              "label": "Inspection Photos"
+            },
+            "damagePad": {
+              "enabled": true,
+              "required": false,
+              "label": "LPN Photo for Markup",
+              "mode": "photo"
+            }
+          },
+          "layout": [
+            {
+              "type": "field",
+              "id": "label_present_legible"
+            },
+            {
+              "type": "field",
+              "id": "visible_damage"
+            },
+            {
+              "type": "field",
+              "id": "storage_conditions_ok"
+            },
+            {
+              "type": "field",
+              "id": "contents_match_system"
+            },
+            {
+              "type": "field",
+              "id": "location_correct"
+            },
+            {
+              "type": "field",
+              "id": "seal_tag_intact"
+            },
+            {
+              "type": "field",
+              "id": "weight_dims_accurate"
+            },
+            {
+              "type": "field",
+              "id": "condition_code"
+            },
+            {
+              "type": "section",
+              "key": "signature"
+            },
+            {
+              "type": "section",
+              "key": "photos"
+            },
+            {
+              "type": "section",
+              "key": "damagePad"
+            }
           ]
-        },
-        {
-          "id": "storage_conditions_ok",
-          "label": "Storage Conditions OK",
-          "type": "dropdown",
-          "options": [
-            "Good",
-            "Improper Stacking",
-            "Temperature Issue"
-          ],
-          "required": true,
-          "default": "Good"
-        },
-        {
-          "id": "contents_match_system",
-          "label": "Contents Match System",
-          "type": "segmented",
-          "options": [
-            "Yes",
-            "No"
-          ],
-          "default": "No"
-        },
-        {
-          "id": "location_correct",
-          "label": "Location Correct",
-          "type": "segmented",
-          "options": [
-            "Yes",
-            "No"
-          ],
-          "default": "Pass"
-        },
-        {
-          "id": "seal_tag_intact",
-          "label": "Seal / Tag Intact",
-          "type": "segmented",
-          "options": [
-            "Yes",
-            "No"
-          ]
-        },
-        {
-          "id": "weight_dims_accurate",
-          "label": "Weight & Dims Accurate",
-          "type": "segmented",
-          "options": [
-            "Yes",
-            "No"
-          ],
-          "default": "OnTime"
-        },
-        {
-          "id": "condition_code",
-          "label": "Condition Code",
-          "type": "dropdown",
-          "dataSource": "ilpn_condition_codes",
-          "enabled": true,
-          "required": false
-        }
-      ],
-      "sections": {
-        "signature": {
-          "enabled": true,
-          "required": true,
-          "label": "Inspector's Signature"
-        },
-        "photos": {
-          "enabled": true,
-          "required": false,
-          "label": "Inspection Photos"
-        },
-        "damagePad": {
-          "enabled": true,
-          "required": false,
-          "label": "LPN Photo for Markup",
-          "mode": "photo"
-        }
-      },
-      "layout": [
-        {
-          "type": "field",
-          "id": "label_present_legible"
-        },
-        {
-          "type": "field",
-          "id": "visible_damage"
-        },
-        {
-          "type": "field",
-          "id": "storage_conditions_ok"
-        },
-        {
-          "type": "field",
-          "id": "contents_match_system"
-        },
-        {
-          "type": "field",
-          "id": "location_correct"
-        },
-        {
-          "type": "field",
-          "id": "seal_tag_intact"
-        },
-        {
-          "type": "field",
-          "id": "weight_dims_accurate"
-        },
-        {
-          "type": "field",
-          "id": "condition_code"
-        },
-        {
-          "type": "section",
-          "key": "signature"
-        },
-        {
-          "type": "section",
-          "key": "photos"
-        },
-        {
-          "type": "section",
-          "key": "damagePad"
         }
       ]
     },

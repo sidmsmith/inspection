@@ -845,6 +845,13 @@
       letter-spacing: 0.02em;
     }
 
+    .checklist-criteria-hint {
+      margin-top: -0.35rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
     /* HIDDEN UNTIL AUTH */
     #mainUI { display: none; }
 
@@ -924,6 +931,7 @@
     <div class="header-with-logo">
       <img id="themeLogo" class="theme-logo" alt="Theme Logo" />
       <h2 class="text-center mb-2 app-title">Inspection Checklist</h2>
+      <div class="text-center checklist-criteria-hint" id="checklistCriteriaHint" style="display:none;"></div>
     </div>
 
     <!-- ORG -->
@@ -1194,6 +1202,7 @@
   </div>
 
   <script src="js/checklist-config.js"></script>
+  <script src="js/criteria-engine.js"></script>
   <script>
     const orgInput = document.getElementById('org');
     const mainUI = document.getElementById('mainUI');
@@ -1264,6 +1273,7 @@
 
     let token = null;
     let currentAppt = null; // Full record data from API (appointment, ASN, trailer, etc.)
+    let matchedCriteria = null; // { objectType, id, name, isDefault } for the loaded record, when the object type is criteria-driven
     // Appointment search disabled for now — may revisit later
     // let validAppointmentIds = new Set(); // Cached from /api/scheduled after auth
     const INSPECTION_SEARCH_TYPES = {
@@ -2659,7 +2669,73 @@
     function getNormalizedChecklist(searchType) {
       const raw = checklistsConfig?.checklists?.[searchType];
       if (!raw) return null;
+      if (Array.isArray(raw.criteria)) {
+        let entry = null;
+        if (matchedCriteria && matchedCriteria.objectType === searchType) {
+          entry = raw.criteria.find(c => c.id === matchedCriteria.id);
+        }
+        if (!entry) entry = raw.criteria.find(c => c.isDefault) || raw.criteria[raw.criteria.length - 1];
+        if (!entry) return null;
+        return normalizeChecklistEntry(entry, searchType);
+      }
       return normalizeChecklistEntry(raw, searchType);
+    }
+
+    /**
+     * For criteria-driven object types: resolve LPN Detail (on-hand inventory — the iLPN
+     * header record itself doesn't carry ItemId) + Item Master, then evaluate rules to find
+     * the matching checklist.
+     */
+    async function resolveMatchedCriteriaForRecord(record, searchType) {
+      const raw = checklistsConfig?.checklists?.[searchType];
+      if (!Array.isArray(raw?.criteria)) {
+        matchedCriteria = null;
+        updateChecklistCriteriaHint();
+        return;
+      }
+
+      const org = orgInput.value.trim();
+      let detailRecord = null;
+      if (searchType === 'ilpn') {
+        const ilpnId = record?.IlpnId;
+        if (ilpnId) {
+          try {
+            const res = await api('ilpn_inventory', { org, token, ilpn_id: ilpnId });
+            // First record if the LPN is mixed (more than one item) — same convention as the admin checklist.
+            detailRecord = res?.success ? (res.results?.[0] || null) : null;
+          } catch (err) {
+            console.warn('[CRITERIA] LPN Detail (inventory) lookup failed:', err);
+          }
+        }
+      }
+
+      let itemRecord = null;
+      const itemId = detailRecord?.ItemId || record?.ItemId;
+      if (itemId) {
+        try {
+          const res = await api('item_master', { org, token, item_id: itemId });
+          itemRecord = res?.success ? (res.results?.[0] || null) : null;
+        } catch (err) {
+          console.warn('[CRITERIA] Item Master lookup failed:', err);
+        }
+      }
+
+      const context = { header: record || {}, detail: detailRecord || {}, item: itemRecord || {} };
+      const entry = resolveMatchedCriteria(raw.criteria, context);
+      matchedCriteria = entry ? { objectType: searchType, id: entry.id, name: entry.name, isDefault: !!entry.isDefault } : null;
+      updateChecklistCriteriaHint();
+    }
+
+    function updateChecklistCriteriaHint() {
+      const hintEl = document.getElementById('checklistCriteriaHint');
+      if (!hintEl) return;
+      if (!matchedCriteria || matchedCriteria.objectType !== currentAppt?._searchType) {
+        hintEl.style.display = 'none';
+        hintEl.textContent = '';
+        return;
+      }
+      hintEl.textContent = `Criteria: ${matchedCriteria.name || (matchedCriteria.isDefault ? 'Default' : '')}`;
+      hintEl.style.display = '';
     }
 
     function resetSectionLabelsToDefaults() {
@@ -2971,7 +3047,7 @@
     }
 
     function validateChecklistComplete(searchType) {
-      const checklist = checklistsConfig?.checklists?.[searchType];
+      const checklist = getNormalizedChecklist(searchType);
       if (!checklist) return true;
       for (const field of checklist.fields) {
         if (!isFieldEnabledInForm(field)) continue;
@@ -3478,12 +3554,13 @@
       return collectAsnIds(appt).length > 0;
     }
 
-    function populateInspectionForm(record, searchType) {
+    async function populateInspectionForm(record, searchType) {
       const config = INSPECTION_SEARCH_TYPES[searchType];
       const objectId = extractRecordId(record, config.idFields) || '';
       currentAppt = { ...record, _searchType: searchType };
 
-      const renderForm = () => {
+      const renderForm = async () => {
+        await resolveMatchedCriteriaForRecord(record, searchType);
         if (usesChecklistForm(searchType)) {
           legacyFormGrid.style.display = 'none';
           checklistFormSection.style.display = 'block';
@@ -3507,18 +3584,18 @@
 
       const org = orgInput.value.trim();
       if (org) {
-        loadChecklistsConfig(org).then(renderForm).catch(err => {
+        try {
+          await loadChecklistsConfig(org);
+        } catch (err) {
           console.warn('[CHECKLIST] Config refresh failed, using cached config:', err);
-          renderForm();
-        });
-        return;
+        }
       }
-      renderForm();
+      await renderForm();
     }
 
     // Minimal form state for ASN search — delegates to generic populate
-    function populateAsnForm(asn) {
-      populateInspectionForm(asn, 'asn');
+    async function populateAsnForm(asn) {
+      await populateInspectionForm(asn, 'asn');
     }
 
     // Reset form
@@ -3543,6 +3620,8 @@
       syncInspectionFormLayout();
       stopInspectionTimer();
       currentAppt = null;
+      matchedCriteria = null;
+      updateChecklistCriteriaHint();
       checkinBtn.disabled = true;
     }
 
@@ -3809,7 +3888,7 @@
         return status(`${config.label} not found`, 'error');
       }
       
-      populateInspectionForm(res.results[0], searchType);
+      await populateInspectionForm(res.results[0], searchType);
       status(`${config.label} Loaded`, 'success');
       
       trackEvent('search_completed', {
@@ -3858,7 +3937,7 @@
     };
 
     function collectChecklistResponses(searchType) {
-      const checklist = checklistsConfig?.checklists?.[searchType];
+      const checklist = getNormalizedChecklist(searchType);
       if (!checklist) return {};
       const responses = {};
       checklist.fields.forEach(field => {
