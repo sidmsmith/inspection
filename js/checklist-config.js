@@ -597,7 +597,40 @@ function buildOrgSavePayload(org, orgDraft, checklistsConfig, liveState, default
 
 const CHECKLIST_OBJECT_TYPE_KEYS = new Set(CHECKLIST_OBJECT_TYPES.map(t => t.key));
 
-function normalizeImportedOrgConfig(raw) {
+/** Normalize an imported criteria array: guarantee exactly one Default (catch-all, always last),
+ *  preserve existing ids where present, and normalize each rule's fields/sections/layout. */
+function normalizeImportedCriteriaList(rawCriteria, typeKey) {
+  const seen = new Set();
+  const list = rawCriteria
+    .filter(c => c && typeof c === 'object')
+    .map(c => {
+      const normalizedEntry = normalizeChecklistEntry(c, typeKey);
+      let id = c.isDefault ? 'default' : (c.id || newCriteriaId());
+      while (seen.has(id)) id = newCriteriaId();
+      seen.add(id);
+      return {
+        id,
+        name: c.name || (c.isDefault ? 'Default' : 'New Rule'),
+        isDefault: !!c.isDefault,
+        rule: c.isDefault ? null : { conditions: Array.isArray(c.rule?.conditions) ? c.rule.conditions : [] },
+        ...normalizedEntry
+      };
+    });
+
+  const rules = list.filter(c => !c.isDefault);
+  const defaultEntry = list.find(c => c.isDefault) || {
+    id: 'default', name: 'Default', isDefault: true, rule: null, fields: [], sections: {}, layout: []
+  };
+  return [...rules, { ...defaultEntry, id: 'default', isDefault: true, rule: null }];
+}
+
+/**
+ * Returns { checklists, notes } — notes flags any type imported as a flat/legacy shape (no
+ * "criteria" array) for an object type this app now treats as criteria-driven; that flat shape
+ * becomes the Default (catch-all) criteria, since Default is exactly the one fixed checklist
+ * this type used to have before rule-based criteria existed.
+ */
+function normalizeImportedOrgConfig(raw, referenceConfig) {
   if (!raw || typeof raw !== 'object') {
     throw new Error('Invalid file — expected a JSON object');
   }
@@ -606,20 +639,39 @@ function normalizeImportedOrgConfig(raw) {
     throw new Error('Invalid file — expected a "checklists" object');
   }
   const normalized = { checklists: {} };
+  const notes = [];
   for (const [typeKey, entry] of Object.entries(checklists)) {
     if (!CHECKLIST_OBJECT_TYPE_KEYS.has(typeKey)) continue;
-    if (!entry || !Array.isArray(entry.fields)) continue;
+    if (!entry || typeof entry !== 'object') continue;
+
+    if (Array.isArray(entry.criteria)) {
+      normalized.checklists[typeKey] = { criteria: normalizeImportedCriteriaList(entry.criteria, typeKey) };
+      continue;
+    }
+
+    if (!Array.isArray(entry.fields)) continue;
     const item = normalizeChecklistEntry(entry, typeKey);
-    normalized.checklists[typeKey] = {
-      fields: item.fields,
-      sections: item.sections,
-      layout: item.layout
-    };
+
+    if (hasCriteria(referenceConfig?.checklists?.[typeKey])) {
+      normalized.checklists[typeKey] = {
+        criteria: [{
+          id: 'default', name: 'Default', isDefault: true, rule: null,
+          fields: item.fields, sections: item.sections, layout: item.layout
+        }]
+      };
+      notes.push(`${typeKey}: file had no "criteria" — applied as the Default rule`);
+    } else {
+      normalized.checklists[typeKey] = {
+        fields: item.fields,
+        sections: item.sections,
+        layout: item.layout
+      };
+    }
   }
   if (!Object.keys(normalized.checklists).length) {
-    throw new Error('No valid checklist types found — need at least one object type with a "fields" array');
+    throw new Error('No valid checklist types found — need at least one object type with a "fields" or "criteria" array');
   }
-  return normalized;
+  return { checklists: normalized.checklists, notes };
 }
 
 function applyOrgDraftFromImport(orgDraft, imported) {

@@ -1881,7 +1881,7 @@ async function importOrgConfigFromFile({ file, org, orgDraft, defaultConfig, set
 
   let imported;
   try {
-    imported = normalizeImportedOrgConfig(raw);
+    imported = normalizeImportedOrgConfig(raw, defaultConfig);
   } catch (err) {
     setStatus(err.message || 'Import failed — invalid config file', 'danger');
     return { success: false };
@@ -1893,6 +1893,7 @@ async function importOrgConfigFromFile({ file, org, orgDraft, defaultConfig, set
   const typeList = Object.keys(imported.checklists).join(', ');
 
   let message = `Import ${typeCount} object type${typeCount === 1 ? '' : 's'} (${typeList}) into ${targetOrg}?`;
+  if (imported.notes.length) message += `\n\nNote: ${imported.notes.join('; ')}.`;
   message += '\n\nThis updates your local draft only — use Save & Deploy to publish.';
   if (fileOrg && fileOrg !== targetOrg) {
     message = `This file is labeled for ${fileOrg} but you are editing ${targetOrg}.\n\n${message}`;
@@ -1907,6 +1908,7 @@ async function importOrgConfigFromFile({ file, org, orgDraft, defaultConfig, set
   const importedLocation = !!imported.checklists.location;
   let importMsg = `Imported ${typeCount} object type${typeCount === 1 ? '' : 's'} (${typeList})`;
   if (importedLocation) importMsg += ' including location';
+  if (imported.notes.length) importMsg += ` (${imported.notes.length} applied as Default)`;
   importMsg += ' — Save & Deploy when ready';
   setStatus(importMsg, 'success', 4000);
   return { success: true };
