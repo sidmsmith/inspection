@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-07-09T13:31:22.073Z",
+  "updatedAt": "2026-08-16T17:50:59.113Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -461,6 +461,57 @@
     },
     "ilpn": {
       "criteria": [
+        {
+          "id": "c-msw3ka9d-lj17n",
+          "name": "Test LPN Rule",
+          "isDefault": false,
+          "rule": {
+            "conditions": [
+              {
+                "id": "cond-msw3km3q-3jqd0",
+                "source": "item",
+                "field": "Description",
+                "label": "Description",
+                "operator": "contains",
+                "value": "olo",
+                "conjunction": "AND"
+              }
+            ]
+          },
+          "fields": [],
+          "sections": {
+            "signature": {
+              "enabled": true,
+              "required": true,
+              "label": "Inspector's Signature"
+            },
+            "photos": {
+              "enabled": true,
+              "required": false,
+              "label": "Inspection Photos"
+            },
+            "damagePad": {
+              "enabled": true,
+              "required": true,
+              "label": "LPN Photo for Markup",
+              "mode": "photo"
+            }
+          },
+          "layout": [
+            {
+              "type": "section",
+              "key": "signature"
+            },
+            {
+              "type": "section",
+              "key": "photos"
+            },
+            {
+              "type": "section",
+              "key": "damagePad"
+            }
+          ]
+        },
         {
           "id": "default",
           "name": "Default",
