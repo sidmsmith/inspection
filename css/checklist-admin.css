@@ -1703,3 +1703,22 @@
 
 .checklist-image-placeholder i { font-size: 1.4rem; }
 
+/* ===== Number question type ===== */
+
+.checklist-number-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.checklist-number-wrap .checklist-number-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.checklist-number-unit {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+

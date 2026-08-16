@@ -479,12 +479,13 @@ function renderDefaultPicker(container, { typeKey, options, value, onChange }) {
   }
   container.style.display = 'block';
 
-  if (typeKey === 'text') {
+  if (typeKey === 'text' || typeKey === 'number') {
+    const inputType = typeKey === 'number' ? 'number' : 'text';
     container.innerHTML = `
       <label class="form-label">Default answer</label>
-      <input type="text" class="form-control form-control-sm" id="edDefaultInput"
+      <input type="${inputType}" class="form-control form-control-sm" id="edDefaultInput"
         placeholder="Leave blank for no default"
-        value="${escapeHtml(value || '')}" />
+        value="${escapeHtml(value ?? '')}" />
       <small class="text-muted default-answer-hint">Optional pre-filled value in the inspection form.</small>`;
     container.querySelector('#edDefaultInput').addEventListener('input', e => {
       onChange(e.target.value.trim() || null);
@@ -669,6 +670,33 @@ function appendPreviewControl(group, field, apiData) {
       input.oninput = () => { previewState[field.id] = input.value; };
     }
     group.appendChild(input);
+    return;
+  }
+
+  if (field.type === 'number') {
+    const wrap = document.createElement('div');
+    wrap.className = 'checklist-number-wrap';
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.className = 'form-control form-control-sm checklist-number-input';
+    if (field.min != null) input.min = field.min;
+    if (field.max != null) input.max = field.max;
+    input.placeholder = field.placeholder || '';
+    input.value = current;
+    if (field.id) {
+      input.oninput = () => {
+        previewState[field.id] = input.value;
+        input.classList.toggle('is-invalid', !isNumberValueInRange(field, input.value.trim()) && input.value.trim() !== '');
+      };
+    }
+    wrap.appendChild(input);
+    if (field.unit) {
+      const unitSpan = document.createElement('span');
+      unitSpan.className = 'checklist-number-unit';
+      unitSpan.textContent = field.unit;
+      wrap.appendChild(unitSpan);
+    }
+    group.appendChild(wrap);
     return;
   }
 
@@ -1554,6 +1582,21 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
       </div>
       <small class="text-muted d-block mt-2">When checked, this automatically shows the linked item's photo for LPN-based objects (iLPN today) — no image if the object has none. Leave unchecked to use a fixed URL instead.</small>
     </div>
+    <div class="mb-3" id="edNumberWrap" style="display:none">
+      <label class="form-label">Unit (optional)</label>
+      <input type="text" class="form-control form-control-sm mb-2" id="edUnit" placeholder="e.g. °F, lbs, %" value="${escapeHtml(working.unit || '')}" />
+      <div class="d-flex gap-2">
+        <div class="flex-fill">
+          <label class="form-label">Minimum (optional)</label>
+          <input type="number" class="form-control form-control-sm" id="edNumberMin" value="${working.min ?? ''}" />
+        </div>
+        <div class="flex-fill">
+          <label class="form-label">Maximum (optional)</label>
+          <input type="number" class="form-control form-control-sm" id="edNumberMax" value="${working.max ?? ''}" />
+        </div>
+      </div>
+      <small class="text-muted d-block mt-1">Inspectors are blocked from submitting a value outside this range.</small>
+    </div>
     <div class="mb-3" id="edDefaultHost"></div>
     <div class="mb-3 form-check" id="edRequiredWrap">
       <input type="checkbox" class="form-check-input" id="edRequired" ${working.required ? 'checked' : ''} />
@@ -1578,6 +1621,10 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   const imageUrlInput = wrap.querySelector('#edImageUrl');
   const imagePreview = wrap.querySelector('#edImagePreview');
   const imagePreviewImg = wrap.querySelector('#edImagePreviewImg');
+  const numberWrap = wrap.querySelector('#edNumberWrap');
+  const unitInput = wrap.querySelector('#edUnit');
+  const numberMinInput = wrap.querySelector('#edNumberMin');
+  const numberMaxInput = wrap.querySelector('#edNumberMax');
   const requiredWrap = wrap.querySelector('#edRequiredWrap');
   const defaultHost = wrap.querySelector('#edDefaultHost');
   const saveBtn = wrap.querySelector('#edSave');
@@ -1593,6 +1640,7 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
     optionsWrap.style.display = show ? 'block' : 'none';
     gaugeDescWrap.style.display = selectedTypeKey === 'gauge' ? 'block' : 'none';
     imageWrap.style.display = isImage ? 'block' : 'none';
+    numberWrap.style.display = selectedTypeKey === 'number' ? 'block' : 'none';
     requiredWrap.style.display = isImage ? 'none' : 'block';
     if (show && selectedTypeKey) {
       optionsHint.textContent = optionsHintForFieldType(selectedTypeKey);
@@ -1634,6 +1682,15 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   });
   imagePreviewImg.addEventListener('error', () => {
     imagePreview.style.display = 'none';
+  });
+  unitInput.addEventListener('input', () => {
+    working.unit = unitInput.value.trim();
+  });
+  numberMinInput.addEventListener('input', () => {
+    working.min = numberMinInput.value === '' ? null : Number(numberMinInput.value);
+  });
+  numberMaxInput.addEventListener('input', () => {
+    working.max = numberMaxInput.value === '' ? null : Number(numberMaxInput.value);
   });
 
   function validateDefaultValue() {
@@ -1744,6 +1801,11 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
         gaugeReversed = false;
       }
       if (key === 'image') mountImageSourceEditor();
+      if (key === 'number') {
+        unitInput.value = working.unit || '';
+        numberMinInput.value = working.min ?? '';
+        numberMaxInput.value = working.max ?? '';
+      }
       syncOptionsVisibility();
       mountDefaultPicker();
       refreshTypePicker();

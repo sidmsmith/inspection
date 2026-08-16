@@ -591,6 +591,20 @@
       background: var(--input-bg);
     }
     .checklist-image-placeholder i { font-size: 1.4rem; }
+    .checklist-number-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .checklist-number-wrap .checklist-number-input {
+      flex: 1;
+      min-width: 0;
+    }
+    .checklist-number-unit {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
     .checklist-slider-wrap { width: 100%; }
     .checklist-slider-input {
       width: 100%;
@@ -2996,6 +3010,14 @@
         return defaultValue;
       }
 
+      if (field.type === 'number') {
+        if (!isNumberValueInRange(field, defaultValue)) {
+          console.warn(`[CHECKLIST] Invalid default for "${field.id}": "${defaultValue}" is outside [${field.min ?? '-∞'}, ${field.max ?? '∞'}]`);
+          return null;
+        }
+        return defaultValue;
+      }
+
       if (field.type === 'dropdown') {
         if (field.dataSource === 'condition_codes') {
           const isValid = conditionCodes.some(code => code.ConditionCodeId === defaultValue);
@@ -3098,6 +3120,10 @@
         control.value = defaultValue;
       } else if (field.type === 'freeform') {
         control.value = defaultValue;
+      } else if (field.type === 'number') {
+        const input = control.querySelector('.checklist-number-input');
+        if (input) input.value = defaultValue;
+        control.dataset.value = defaultValue;
       } else if (field.type === 'traffic_light') {
         control.querySelectorAll('.tl-btn').forEach(btn => {
           btn.classList.toggle('selected', btn.dataset.option === defaultValue);
@@ -3144,8 +3170,10 @@
       if (!checklist) return true;
       for (const field of checklist.fields) {
         if (!isFieldEnabledInForm(field)) continue;
+        const value = getChecklistFieldValue(field.id);
+        if (field.type === 'number' && !isNumberValueInRange(field, value)) return false;
         if (!field.required) continue;
-        if (!getChecklistFieldValue(field.id)) return false;
+        if (!value) return false;
       }
       return true;
     }
@@ -3288,6 +3316,31 @@
         control.dataset.checklistField = field.id;
         if (field.placeholder) control.placeholder = field.placeholder;
         control.addEventListener('input', validateCompleteInspection);
+      } else if (field.type === 'number') {
+        control = document.createElement('div');
+        control.className = 'checklist-number-wrap';
+        control.dataset.checklistField = field.id;
+        control.dataset.value = '';
+        const numInput = document.createElement('input');
+        numInput.type = 'number';
+        numInput.className = 'form-control checklist-number-input';
+        numInput.setAttribute('inputmode', 'decimal');
+        if (field.min != null) numInput.min = field.min;
+        if (field.max != null) numInput.max = field.max;
+        if (field.placeholder) numInput.placeholder = field.placeholder;
+        numInput.addEventListener('input', () => {
+          const trimmed = numInput.value.trim();
+          control.dataset.value = trimmed;
+          numInput.classList.toggle('is-invalid', trimmed !== '' && !isNumberValueInRange(field, trimmed));
+          validateCompleteInspection();
+        });
+        control.appendChild(numInput);
+        if (field.unit) {
+          const unitSpan = document.createElement('span');
+          unitSpan.className = 'checklist-number-unit';
+          unitSpan.textContent = field.unit;
+          control.appendChild(unitSpan);
+        }
       } else if (field.type === 'traffic_light') {
         control = document.createElement('div');
         control.className = 'checklist-traffic-light';

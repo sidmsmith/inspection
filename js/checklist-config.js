@@ -249,6 +249,7 @@ const CHECKLIST_FIELD_TYPES = [
   { key: 'dropdown', label: 'Dropdown', icon: 'fa-list', type: 'dropdown', options: [] },
   { key: 'multi_select', label: 'Multi-select', icon: 'fa-tags', type: 'multi_select', options: [] },
   { key: 'text', label: 'Text', icon: 'fa-font', type: 'freeform', options: [] },
+  { key: 'number', label: 'Number', icon: 'fa-hashtag', type: 'number', options: [] },
   { key: 'traffic_light', label: 'Traffic light', icon: 'fa-circle', type: 'traffic_light', options: ['Stop', 'Caution', 'Go'] },
   { key: 'slider', label: 'Slider', icon: 'fa-sliders', type: 'slider', options: ['None', 'Light', 'Moderate', 'Heavy', 'Severe'] },
   { key: 'gauge', label: 'Gauge', icon: 'fa-gauge-high', type: 'gauge', options: ['Empty', '25%', '50%', '75%', 'Full'] },
@@ -309,6 +310,7 @@ function typeKeyForChecklistField(field) {
   if (field.type === 'gauge') return 'gauge';
   if (field.type === 'color_swatch') return 'color_swatch';
   if (field.type === 'image') return 'image';
+  if (field.type === 'number') return 'number';
   if (field.type === 'segmented' && field.options?.join(',') === 'Pass,Fail') return 'pass_fail';
   if (field.type === 'segmented') return 'yes_no';
   return null;
@@ -326,6 +328,19 @@ function applyChecklistFieldType(field, typeKey) {
     field.placeholder = field.placeholder || '';
     delete field.useItemImage;
     delete field.imageUrl;
+    delete field.unit;
+    delete field.min;
+    delete field.max;
+  } else if (def.type === 'number') {
+    delete field.options;
+    delete field.description;
+    delete field.gaugeColors;
+    field.placeholder = field.placeholder || '';
+    field.unit = field.unit || '';
+    if (!('min' in field)) field.min = null;
+    if (!('max' in field)) field.max = null;
+    delete field.useItemImage;
+    delete field.imageUrl;
   } else if (def.type === 'gauge') {
     field.options = Array.isArray(field.options) && field.options.length ? [...field.options] : [...def.options];
     field.description = field.description || '';
@@ -333,12 +348,18 @@ function applyChecklistFieldType(field, typeKey) {
     delete field.placeholder;
     delete field.useItemImage;
     delete field.imageUrl;
+    delete field.unit;
+    delete field.min;
+    delete field.max;
   } else if (def.type === 'image') {
     delete field.options;
     delete field.description;
     delete field.gaugeColors;
     delete field.placeholder;
     delete field.default;
+    delete field.unit;
+    delete field.min;
+    delete field.max;
     if (typeof field.useItemImage !== 'boolean') field.useItemImage = false;
     field.imageUrl = field.imageUrl || '';
   } else if (fieldTypeUsesOptions(def.type)) {
@@ -348,6 +369,9 @@ function applyChecklistFieldType(field, typeKey) {
     delete field.placeholder;
     delete field.useItemImage;
     delete field.imageUrl;
+    delete field.unit;
+    delete field.min;
+    delete field.max;
   } else {
     field.options = [...def.options];
     delete field.description;
@@ -355,6 +379,9 @@ function applyChecklistFieldType(field, typeKey) {
     delete field.placeholder;
     delete field.useItemImage;
     delete field.imageUrl;
+    delete field.unit;
+    delete field.min;
+    delete field.max;
   }
 }
 
@@ -384,6 +411,16 @@ function isValueAllowedForField(field, value) {
   return labels.includes(String(value));
 }
 
+/** A blank value is never "out of range" here — that's the required-field check's job. */
+function isNumberValueInRange(field, rawValue) {
+  if (rawValue === '' || rawValue == null) return true;
+  const num = Number(rawValue);
+  if (Number.isNaN(num)) return false;
+  if (field?.min != null && field.min !== '' && num < Number(field.min)) return false;
+  if (field?.max != null && field.max !== '' && num > Number(field.max)) return false;
+  return true;
+}
+
 function cloneChecklistFields(config, objectType, criteriaId) {
   return loadChecklistState(config, objectType, criteriaId).fields;
 }
@@ -400,7 +437,8 @@ function isAdminEditableField(field) {
     || field.type === 'multi_select'
     || field.type === 'gauge'
     || field.type === 'color_swatch'
-    || field.type === 'image';
+    || field.type === 'image'
+    || field.type === 'number';
 }
 
 function isSystemField(field) {
