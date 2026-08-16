@@ -1109,6 +1109,7 @@ function flushPendingSectionEditor(editorHost, sections, selectedSectionKey, obj
   if (key === 'damagePad') {
     const modeEl = editorHost.querySelector('#secDamageMode');
     const defEl = editorHost.querySelector('#secDamageDefault');
+    const uploadEl = editorHost.querySelector('#secDamageUpload');
     if (modeEl) {
       working.mode = modeEl.value === 'photo' ? 'photo' : 'stock';
       if (working.mode === 'stock') {
@@ -1119,6 +1120,7 @@ function flushPendingSectionEditor(editorHost, sections, selectedSectionKey, obj
         delete working.images;
       }
     }
+    working.includeInDocumentUpload = enabledEl.checked && !!(uploadEl && uploadEl.checked);
   }
 
   sections[key] = working;
@@ -1164,6 +1166,10 @@ function createSectionEditorForm({ sectionKey, sections, objectType, onSave, onC
         <option value="container">Container</option>
         <option value="trailer">Trailer</option>
       </select>
+    </div>
+    <div class="mb-3 form-check" id="secDamageUploadWrap">
+      <input class="form-check-input" type="checkbox" id="secDamageUpload" ${working.includeInDocumentUpload ? 'checked' : ''} />
+      <label class="form-check-label" for="secDamageUpload">Include in document upload</label>
     </div>`;
   }
 
@@ -1179,11 +1185,13 @@ function createSectionEditorForm({ sectionKey, sections, objectType, onSave, onC
   const requiredWrap = wrap.querySelector('#secRequiredWrap');
   const modeWrap = wrap.querySelector('#secDamageModeWrap');
   const stockWrap = wrap.querySelector('#secDamageStockWrap');
+  const uploadWrap = wrap.querySelector('#secDamageUploadWrap');
 
   function syncSectionEditorVisibility() {
     const on = enabledEl.checked;
     if (requiredWrap) requiredWrap.style.display = on ? '' : 'none';
     if (modeWrap) modeWrap.style.display = on ? '' : 'none';
+    if (uploadWrap) uploadWrap.style.display = on ? '' : 'none';
     if (stockWrap) {
       const stock = on && wrap.querySelector('#secDamageMode')?.value === 'stock';
       stockWrap.style.display = stock ? '' : 'none';
@@ -1211,6 +1219,7 @@ function createSectionEditorForm({ sectionKey, sections, objectType, onSave, onC
         delete working.defaultImage;
         delete working.images;
       }
+      working.includeInDocumentUpload = enabledEl.checked && wrap.querySelector('#secDamageUpload').checked;
     }
     sections[sectionKey] = working;
     onSave(working);

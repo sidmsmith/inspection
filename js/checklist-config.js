@@ -104,7 +104,8 @@ function getDefaultSectionsForType(objectType) {
       label: DEFAULT_SECTION_LABELS.damagePad,
       mode: 'stock',
       defaultImage: 'container',
-      images: ['container', 'trailer']
+      images: ['container', 'trailer'],
+      includeInDocumentUpload: false
     }
   };
   if (objectType === 'ilpn' || objectType === 'olpn') {
@@ -487,6 +488,9 @@ function serializeSectionsForStorage(stateSections, objectType) {
         delete out[key].defaultImage;
         delete out[key].images;
       }
+      out[key].includeInDocumentUpload = 'includeInDocumentUpload' in src
+        ? src.includeInDocumentUpload === true
+        : base.includeInDocumentUpload === true;
     }
   }
   return out;

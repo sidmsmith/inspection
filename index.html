@@ -4222,7 +4222,8 @@
       const uploadsFailed = uploadResults.filter(r => !r.success).length;
       const uploadableTargets = uploadTargets.filter(t => t.supportsUpload);
       const mockTargets = uploadTargets.filter(t => !t.supportsUpload);
-      const expectedUploads = uploadableTargets.length * (1 + inspectionPhotos.length);
+      const includesMarkupUpload = !!currentChecklistSections?.damagePad?.includeInDocumentUpload;
+      const expectedUploads = uploadableTargets.length * (1 + inspectionPhotos.length + (includesMarkupUpload ? 1 : 0));
 
       const allUploadsOk = uploadsFailed === 0 && (
         mockTargets.length > 0
@@ -4240,6 +4241,9 @@
           message += ` (${uploadableTargets.length} Inspection Form`;
           if (photosPerTarget > 0) {
             message += ` + ${uploadableTargets.length * photosPerTarget} Inspection Photo${photosPerTarget === 1 ? '' : 's'}`;
+          }
+          if (includesMarkupUpload) {
+            message += ` + ${uploadableTargets.length} Markup Pad Photo${uploadableTargets.length === 1 ? '' : 's'}`;
           }
           message += ').';
         }
@@ -4428,6 +4432,21 @@
           resolve({ dataURL, base64Data });
         }
       });
+    }
+
+    // Composite the markup pad's background + damage-mark canvases into a single JPEG
+    function captureDamagePadImage() {
+      const w = damageBgCanvas.width;
+      const h = damageBgCanvas.height;
+      if (!w || !h) return null;
+      const flat = document.createElement('canvas');
+      flat.width = w;
+      flat.height = h;
+      const ctx = flat.getContext('2d');
+      ctx.drawImage(damageBgCanvas, 0, 0);
+      ctx.drawImage(damageDrawCanvas, 0, 0);
+      const dataURL = flat.toDataURL('image/jpeg', 0.9);
+      return dataURL.replace(/^data:image\/jpeg;base64,/, '');
     }
 
     // Capture full inspection card (header, form, signature pad) as JPEG
@@ -4643,6 +4662,34 @@
 
               if (!photoRes.success) {
                 console.warn(`[INSPECTION] Inspection Photos upload failed for ${label}, photo ${photoIndex + 1}:`, photoRes.error);
+              }
+            }
+          }
+
+          if (currentChecklistSections?.damagePad?.includeInDocumentUpload) {
+            const markupBase64 = captureDamagePadImage();
+            if (markupBase64) {
+              const markupRes = await api('upload_signature', {
+                org,
+                token,
+                objectTypeId,
+                objectId,
+                filename: `Inspection_${objectId}_markup.jpg`,
+                fileData: markupBase64,
+                notes,
+                documentName: 'Markup Pad Photo',
+                documentDescription: 'Markup pad image captured during inspection'
+              });
+
+              results.push({
+                objectId,
+                type: 'markup_pad',
+                success: !!markupRes.success,
+                error: markupRes.error || null
+              });
+
+              if (!markupRes.success) {
+                console.warn(`[INSPECTION] Markup Pad Photo upload failed for ${label}:`, markupRes.error);
               }
             }
           }
