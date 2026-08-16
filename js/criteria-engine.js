@@ -10,6 +10,7 @@ const CRITERIA_OPERATORS = [
   { key: 'contains', label: 'CONTAINS' },
   { key: 'starts_with', label: 'STARTS WITH' },
   { key: 'ends_with', label: 'ENDS WITH' },
+  { key: 'in', label: 'IN' },
   { key: 'is_empty', label: 'IS EMPTY' },
   { key: 'is_not_empty', label: 'IS NOT EMPTY' }
 ];
@@ -20,6 +21,18 @@ function criteriaOperatorLabel(key) {
 
 function criteriaOperatorTakesValue(key) {
   return key !== 'is_empty' && key !== 'is_not_empty';
+}
+
+function criteriaOperatorIsMultiValue(key) {
+  return key === 'in';
+}
+
+/** Split a Value field into entries on any mix of commas, semicolons, and whitespace. */
+function parseCriteriaMultiValue(raw) {
+  return String(raw ?? '')
+    .split(/[,;\s]+/)
+    .map(s => s.trim())
+    .filter(Boolean);
 }
 
 const criteriaFieldCatalogCache = new Map();
@@ -79,6 +92,14 @@ function evaluateCriteriaCondition(context, condition) {
     case 'contains': return String(actual).toLowerCase().includes(String(expected).toLowerCase());
     case 'starts_with': return String(actual).toLowerCase().startsWith(String(expected).toLowerCase());
     case 'ends_with': return String(actual).toLowerCase().endsWith(String(expected).toLowerCase());
+    case 'in': {
+      const list = parseCriteriaMultiValue(expected);
+      return list.some(v => {
+        const vNum = Number(v);
+        if (!Number.isNaN(actualNum) && !Number.isNaN(vNum) && v !== '') return actualNum === vNum;
+        return String(actual).toLowerCase() === v.toLowerCase();
+      });
+    }
     default: return false;
   }
 }
@@ -121,6 +142,10 @@ function conditionToMawmSyntax(condition) {
   if (op === 'is_not_empty') return `NOT (${field} ='')`;
   if (op === 'contains' || op === 'starts_with' || op === 'ends_with') {
     return `(${field} _ ${mawmValuePattern(op, condition.value)})`;
+  }
+  if (op === 'in') {
+    const quoted = parseCriteriaMultiValue(condition.value).map(v => `'${v}'`).join(',');
+    return `${field} in (${quoted})`;
   }
   if (op === 'ne') return `NOT (${field} ='${condition.value ?? ''}')`;
   if (op === 'eq') return `${field} ='${condition.value ?? ''}'`;

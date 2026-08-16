@@ -1814,15 +1814,6 @@ function adjustIndexAfterReorder(index, from, to) {
   return index;
 }
 
-function adminSaveStub(statusEl) {
-  statusEl.textContent = 'Save & Deploy — coming in Checklist Config v0.1 (changes are local for now)';
-  statusEl.className = 'app-status text-success';
-  setTimeout(() => {
-    statusEl.textContent = 'Ready — edits are local until Save & Deploy is enabled';
-    statusEl.className = 'app-status';
-  }, 4000);
-}
-
 async function adminSaveDeploy({
   org, token, orgDraft, defaultConfig, objectType, fields, sections, layout, criteriaId, checklistsConfig, api, setStatus, saveBtn
 }) {
@@ -1841,14 +1832,14 @@ async function adminSaveDeploy({
   );
 
   saveBtn.disabled = true;
-  setStatus('Saving to GitHub...');
+  setStatus('Saving to the cloud...');
   try {
     const res = await api('save_checklist_config', { org, token, config: payload });
     if (!res.success) {
       setStatus(res.error || 'Save failed', 'danger');
       return res;
     }
-    setStatus(res.message || `Saved ${org} checklist config — Please wait 1 minute to use checklist`, 'success', 60000);
+    setStatus(res.message || `Saved ${org} checklist config — please wait ~1 minute for deploy`, 'success', 60000);
     return res;
   } catch (err) {
     setStatus(err.message || 'Save failed', 'danger');

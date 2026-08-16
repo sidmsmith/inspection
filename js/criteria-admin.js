@@ -242,12 +242,13 @@ function ccRenderRuleBuilder() {
           <option value="OR"${cond.conjunction === 'OR' ? ' selected' : ''}>OR</option>
         </select>`;
     const takesValue = criteriaOperatorTakesValue(cond.operator);
+    const valuePlaceholder = criteriaOperatorIsMultiValue(cond.operator) ? 'Value1, Value2, Value3' : 'Value';
     return `
       <div class="criteria-condition-row" data-idx="${idx}">
         ${conjunctionHtml}
         <select class="criteria-field-select" data-idx="${idx}" data-role="field">${ccFieldOptionsHtml(cond.source, cond.field)}</select>
         <select class="criteria-operator-select" data-idx="${idx}" data-role="operator">${ccOperatorOptionsHtml(cond.operator)}</select>
-        <input type="text" class="criteria-value-input" data-idx="${idx}" data-role="value" value="${escapeHtml(cond.value ?? '')}" placeholder="Value" ${takesValue ? '' : 'disabled'} />
+        <input type="text" class="criteria-value-input" data-idx="${idx}" data-role="value" value="${escapeHtml(cond.value ?? '')}" placeholder="${escapeHtml(valuePlaceholder)}" title="${criteriaOperatorIsMultiValue(cond.operator) ? 'Separate multiple values with a comma, semicolon, or space' : ''}" ${takesValue ? '' : 'disabled'} />
         <button type="button" class="criteria-row-action-btn" data-idx="${idx}" data-role="add" title="Add condition below" aria-label="Add condition below"><i class="fa-solid fa-plus"></i></button>
         <button type="button" class="criteria-row-action-btn criteria-remove-condition" data-idx="${idx}" data-role="remove" title="Remove condition" aria-label="Remove condition"><i class="fa-solid fa-xmark"></i></button>
       </div>`;

@@ -1350,7 +1350,7 @@ def save_checklist_config():
         commit_sha = pr.json().get("commit", {}).get("sha")
         return jsonify({
             "success": True,
-            "message": f"Saved {org} checklist config — Please wait 1 minute to use checklist",
+            "message": f"Saved {org} checklist config — please wait ~1 minute for deploy",
             "commit": commit_sha,
             "path": file_path,
         })
