@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-08-16T21:19:16.931Z",
+  "updatedAt": "2026-08-17T03:44:18.971Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -117,7 +117,8 @@
           "images": [
             "container",
             "trailer"
-          ]
+          ],
+          "includeInDocumentUpload": false
         }
       },
       "layout": [
@@ -275,7 +276,8 @@
           "images": [
             "container",
             "trailer"
-          ]
+          ],
+          "includeInDocumentUpload": false
         }
       },
       "layout": [
@@ -413,7 +415,8 @@
           "images": [
             "container",
             "trailer"
-          ]
+          ],
+          "includeInDocumentUpload": false
         }
       },
       "layout": [
@@ -461,86 +464,6 @@
     },
     "ilpn": {
       "criteria": [
-        {
-          "id": "c-msw3ka9d-lj17n",
-          "name": "Test LPN Rule",
-          "isDefault": false,
-          "rule": {
-            "conditions": [
-              {
-                "id": "cond-msw3km3q-3jqd0",
-                "source": "item",
-                "field": "Description",
-                "label": "Description",
-                "operator": "contains",
-                "value": "olo",
-                "conjunction": "AND"
-              }
-            ]
-          },
-          "fields": [
-            {
-              "label": "Choose color",
-              "type": "color_swatch",
-              "options": [
-                "#8BC34A",
-                "#CDDC39",
-                "#FFEB3B",
-                "#FF9800"
-              ],
-              "id": "choose_color",
-              "required": true
-            },
-            {
-              "label": "Image",
-              "type": "image",
-              "useItemImage": true,
-              "imageUrl": "",
-              "id": "image",
-              "required": false
-            }
-          ],
-          "sections": {
-            "signature": {
-              "enabled": true,
-              "required": true,
-              "label": "Inspector's Signature"
-            },
-            "photos": {
-              "enabled": true,
-              "required": false,
-              "label": "Inspection Photos"
-            },
-            "damagePad": {
-              "enabled": true,
-              "required": true,
-              "label": "LPN Photo for Markup",
-              "mode": "photo"
-            }
-          },
-          "layout": [
-            {
-              "type": "field",
-              "id": "choose_color"
-            },
-            {
-              "type": "field",
-              "id": "image"
-            },
-            {
-              "type": "section",
-              "key": "signature"
-            },
-            {
-              "type": "section",
-              "key": "photos"
-            },
-            {
-              "type": "section",
-              "key": "damagePad"
-            }
-          ]
-        },
         {
           "id": "c-msw69t4x-ef2yq",
           "name": "Banana",
@@ -898,7 +821,8 @@
               "enabled": true,
               "required": false,
               "label": "LPN Photo for Markup",
-              "mode": "photo"
+              "mode": "photo",
+              "includeInDocumentUpload": false
             }
           },
           "layout": [
@@ -1047,7 +971,8 @@
           "enabled": true,
           "required": false,
           "label": "LPN Photo for Markup",
-          "mode": "photo"
+          "mode": "photo",
+          "includeInDocumentUpload": false
         }
       },
       "layout": [
@@ -1206,7 +1131,8 @@
           "images": [
             "container",
             "trailer"
-          ]
+          ],
+          "includeInDocumentUpload": false
         }
       },
       "layout": [
@@ -1406,7 +1332,8 @@
           "enabled": true,
           "required": false,
           "label": "Location Photo for Markup",
-          "mode": "photo"
+          "mode": "photo",
+          "includeInDocumentUpload": false
         }
       },
       "layout": [
