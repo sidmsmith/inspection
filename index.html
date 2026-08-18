@@ -607,19 +607,35 @@
     .checklist-slider-input {
       width: 100%;
       accent-color: var(--primary);
+      height: 1.5rem;
+    }
+    .checklist-slider-input::-webkit-slider-runnable-track {
+      height: 10px;
+      border-radius: 5px;
+    }
+    .checklist-slider-input::-webkit-slider-thumb {
+      margin-top: -5px;
+    }
+    .checklist-slider-input::-moz-range-track {
+      height: 10px;
+      border-radius: 5px;
     }
     .checklist-slider-ends {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: baseline;
       font-size: 0.72rem;
       color: var(--text-muted);
-      margin-top: 0.2rem;
+      margin-top: 0.15rem;
+    }
+    .checklist-slider-end-label:last-child {
+      justify-self: end;
     }
     .checklist-slider-value {
-      text-align: center;
+      justify-self: center;
       font-size: 0.85rem;
-      color: var(--text-secondary);
-      margin-top: 0.35rem;
+      font-weight: 700;
+      color: var(--text);
     }
     .checklist-chips {
       display: flex;
@@ -3424,11 +3440,21 @@
         range.value = '0';
         const ends = document.createElement('div');
         ends.className = 'checklist-slider-ends';
-        if (opts.length) {
-          ends.innerHTML = `<span>${escapeHtml(opts[0])}</span><span>${escapeHtml(opts[opts.length - 1])}</span>`;
-        }
-        const valueLabel = document.createElement('div');
+        const valueLabel = document.createElement('span');
         valueLabel.className = 'checklist-slider-value';
+        if (opts.length) {
+          const startLabel = document.createElement('span');
+          startLabel.className = 'checklist-slider-end-label';
+          startLabel.textContent = opts[0];
+          const endLabel = document.createElement('span');
+          endLabel.className = 'checklist-slider-end-label';
+          endLabel.textContent = opts[opts.length - 1];
+          ends.appendChild(startLabel);
+          ends.appendChild(valueLabel);
+          ends.appendChild(endLabel);
+        } else {
+          ends.appendChild(valueLabel);
+        }
         const syncSlider = () => {
           const idx = Number(range.value);
           const text = opts[idx] || '';
@@ -3439,7 +3465,6 @@
         range.addEventListener('input', syncSlider);
         control.appendChild(range);
         control.appendChild(ends);
-        control.appendChild(valueLabel);
         applyChecklistFieldDefault(field, control);
       } else if (field.type === 'multi_select') {
         control = document.createElement('div');
