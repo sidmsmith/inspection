@@ -784,7 +784,7 @@ function appendPreviewControl(group, field, apiData) {
     range.max = String(Math.max(opts.length - 1, 0));
     range.step = '1';
     range.value = String(Math.max(0, opts.indexOf(current)));
-    const label = document.createElement('div');
+    const label = document.createElement('span');
     label.className = 'checklist-slider-value';
     const update = () => {
       const idx = Number(range.value);
@@ -797,10 +797,17 @@ function appendPreviewControl(group, field, apiData) {
     if (opts.length) {
       const ends = document.createElement('div');
       ends.className = 'checklist-slider-ends';
-      ends.innerHTML = `<span>${escapeHtml(opts[0])}</span><span>${escapeHtml(opts[opts.length - 1])}</span>`;
+      const startLabel = document.createElement('span');
+      startLabel.className = 'checklist-slider-end-label';
+      startLabel.textContent = opts[0];
+      const endLabel = document.createElement('span');
+      endLabel.className = 'checklist-slider-end-label';
+      endLabel.textContent = opts[opts.length - 1];
+      ends.appendChild(startLabel);
+      ends.appendChild(label);
+      ends.appendChild(endLabel);
       wrap.appendChild(range);
       wrap.appendChild(ends);
-      wrap.appendChild(label);
     }
     group.appendChild(wrap);
     return;
