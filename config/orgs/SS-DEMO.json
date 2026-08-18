@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-08-17T03:44:18.971Z",
+  "updatedAt": "2026-08-18T21:36:16.453Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -531,10 +531,11 @@
             },
             {
               "label": "Visible Damage / Mold Present",
-              "type": "segmented",
+              "type": "traffic_light",
               "options": [
-                "Yes",
-                "No"
+                "Visible Mold",
+                "Further Inspection Required",
+                "All Clear"
               ],
               "id": "visible_damage_mold_present",
               "required": true
