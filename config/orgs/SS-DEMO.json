@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-08-28T13:29:29.814Z",
+  "updatedAt": "2026-08-28T13:36:37.466Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -549,6 +549,16 @@
               ],
               "id": "visible_damage_mold_present",
               "required": true
+            },
+            {
+              "label": "Pass / Fail",
+              "type": "segmented",
+              "options": [
+                "Pass",
+                "Fail"
+              ],
+              "id": "pass_fail",
+              "required": true
             }
           ],
           "sections": {
@@ -590,6 +600,10 @@
             {
               "type": "field",
               "id": "visible_damage_mold_present"
+            },
+            {
+              "type": "field",
+              "id": "pass_fail"
             },
             {
               "type": "section",
