@@ -56,15 +56,19 @@ function ccRenderRuleList() {
 
   host.querySelectorAll('.criteria-rule-row').forEach(row => {
     const id = row.dataset.id;
+    // The whole row selects the rule — including a plain click on the drag grip or
+    // the name. Only the trash button and the live rename input are carved out.
     row.onclick = e => {
-      if (e.target.closest('.grip') || e.target.closest('.del-btn') || e.target.closest('.criteria-rule-name-input')) return;
+      if (e.target.closest('.del-btn') || e.target.closest('.criteria-rule-name-input')) return;
+      if (id === ccState.selectedId) return;
       ccState.selectedId = id;
       ccRenderRuleList();
       ccRenderRuleBuilder();
     };
     const nameEl = row.querySelector('.criteria-rule-name');
     if (nameEl && !row.classList.contains('default-row')) {
-      nameEl.onclick = e => {
+      nameEl.title = 'Double-click to rename';
+      nameEl.ondblclick = e => {
         e.stopPropagation();
         ccStartRenameRule(row, id);
       };

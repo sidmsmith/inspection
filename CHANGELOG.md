@@ -5,7 +5,7 @@
 | Component | Version |
 |-----------|---------|
 | Inspection app | **v0.1.3** |
-| Checklist admin | **v0.3.6** |
+| Checklist admin | **v0.3.7** |
 | API / package | **v0.1.2** |
 
 ### Inspection app
@@ -28,6 +28,10 @@
   the standard eye / required / default controls.
 - **"On Fail, lock Condition Code"** picker on Pass/Fail questions (iLPN only);
   the question list shows a `Fail → <code>` tag when set.
+- **Manage Criteria modal** — the whole rule row now selects the rule, including
+  a single click on the drag grip (drag-to-reorder still works). Renaming a rule
+  moved to a double-click on its name. Selectable area per row went from ~13% to
+  ~90% (everything but the trash button).
 - Preview matches the app's fixed green/red Pass/Fail styling.
 
 ---
