@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-08-28T13:36:37.466Z",
+  "updatedAt": "2026-08-28T15:48:37.627Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -478,15 +478,6 @@
                 "operator": "contains",
                 "value": "anana",
                 "conjunction": "AND"
-              },
-              {
-                "id": "cond-mt1o4zuo-tfatn",
-                "source": "header",
-                "field": "IlpnId",
-                "label": "IlpnId",
-                "operator": "eq",
-                "value": "",
-                "conjunction": "AND"
               }
             ]
           },
@@ -513,7 +504,7 @@
                 "#ffe135"
               ],
               "id": "banana_ripeness_color",
-              "required": true
+              "required": false
             },
             {
               "label": "Banana Firmness",
@@ -526,7 +517,7 @@
                 "Very Soft"
               ],
               "id": "banana_firmness",
-              "required": true,
+              "required": false,
               "default": "Slightly Soft"
             },
             {
@@ -551,6 +542,14 @@
               "required": true
             },
             {
+              "id": "condition_code",
+              "label": "Condition Code",
+              "type": "dropdown",
+              "dataSource": "ilpn_condition_codes",
+              "enabled": true,
+              "required": false
+            },
+            {
               "label": "Pass / Fail",
               "type": "segmented",
               "options": [
@@ -558,7 +557,8 @@
                 "Fail"
               ],
               "id": "pass_fail",
-              "required": true
+              "required": true,
+              "failConditionCode": "QH"
             }
           ],
           "sections": {
@@ -568,7 +568,7 @@
               "label": "Inspector's Signature"
             },
             "photos": {
-              "enabled": true,
+              "enabled": false,
               "required": false,
               "label": "Inspection Photos"
             },
@@ -600,6 +600,10 @@
             {
               "type": "field",
               "id": "visible_damage_mold_present"
+            },
+            {
+              "type": "field",
+              "id": "condition_code"
             },
             {
               "type": "field",
@@ -693,6 +697,24 @@
               "max": 100,
               "id": "temperature",
               "required": true
+            },
+            {
+              "label": "Mold Present",
+              "type": "traffic_light",
+              "options": [
+                "Visible Mold",
+                "Further Inspection Required",
+                "All Clear"
+              ],
+              "id": "mold_present",
+              "required": true
+            },
+            {
+              "id": "condition_code",
+              "label": "Condition Code",
+              "type": "dropdown",
+              "dataSource": "ilpn_condition_codes",
+              "enabled": true
             }
           ],
           "sections": {
@@ -730,6 +752,14 @@
             {
               "type": "field",
               "id": "temperature"
+            },
+            {
+              "type": "field",
+              "id": "mold_present"
+            },
+            {
+              "type": "field",
+              "id": "condition_code"
             },
             {
               "type": "section",
