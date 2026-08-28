@@ -152,6 +152,17 @@
   font-weight: 600;
 }
 
+/* Pass / Fail always reads green / red, independent of the org theme accent. */
+.device-screen .checklist-segmented .segment-btn.selected[data-option="Pass"] {
+  background: #1e7e34;
+  border-color: #1e7e34;
+}
+
+.device-screen .checklist-segmented .segment-btn.selected[data-option="Fail"] {
+  background: #c82333;
+  border-color: #c82333;
+}
+
 .device-form-actions {
   flex-shrink: 0;
   padding: 0.5rem 0.65rem 0.55rem;

@@ -1,5 +1,30 @@
 # Inspection — Changelog
 
+## Unreleased
+
+| Component | Version |
+|-----------|---------|
+| Inspection app | **v0.1.2** |
+| Checklist admin | **v0.3.5** |
+| API / package | **v0.1.1** |
+
+### Inspection app
+
+- **iLPN Condition Code on every criteria** — the system Condition Code question
+  (previously only on the Default iLPN criteria) is now available on all
+  criteria-based iLPN checklists. It is auto-added **hidden**; toggle the eye
+  icon in the checklist admin to show it on a given criteria.
+- **Pass / Fail buttons** always render green (Pass) / red (Fail) regardless of
+  the org theme accent color.
+
+### Checklist admin
+
+- Condition Code shows as a hidden system question on custom iLPN criteria, with
+  the standard eye / required / default controls.
+- Preview matches the app's fixed green/red Pass/Fail styling.
+
+---
+
 ## v0.1.0 — Location & graphical answer types (2026-07-09)
 
 Milestone release: **Location** as a seventh inspection object type, configurable graphical answer types, and admin/UX polish across the app and checklist configurator.

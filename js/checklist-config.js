@@ -183,10 +183,49 @@ function sanitizeLayout(layout, fields, sections) {
   return result;
 }
 
+/**
+ * Object types that always carry a system Condition Code question, even on
+ * criteria-based checklists. If a config omits it (e.g. a custom iLPN criteria),
+ * it is auto-added hidden (`enabled: false`) so an admin opts in per criteria
+ * with the eye toggle — matching how the Default iLPN criteria has always had it.
+ */
+const SYSTEM_CHECKLIST_FIELDS = {
+  ilpn: [
+    { id: 'condition_code', label: 'Condition Code', type: 'dropdown', dataSource: 'ilpn_condition_codes' }
+  ]
+};
+
+/**
+ * Ensure this object type's system fields exist on `fields` (mutated in place).
+ * A match on `dataSource` or `id` counts as already-present, so an org that
+ * renamed the field keeps its version untouched. Returns the ids that were added.
+ */
+function ensureSystemChecklistFields(fields, objectType) {
+  const specs = SYSTEM_CHECKLIST_FIELDS[objectType];
+  if (!specs) return [];
+  const added = [];
+  for (const spec of specs) {
+    if (fields.some(f => f && (f.dataSource === spec.dataSource || f.id === spec.id))) continue;
+    fields.push({ ...spec, enabled: false });
+    added.push(spec.id);
+  }
+  return added;
+}
+
 function normalizeChecklistEntry(raw, objectType) {
   const fields = Array.isArray(raw?.fields) ? JSON.parse(JSON.stringify(raw.fields)) : [];
+  const addedSystemIds = ensureSystemChecklistFields(fields, objectType);
   const sections = buildSectionsFromRaw(raw || {}, objectType);
-  const layout = sanitizeLayout(raw?.layout, fields, sections);
+  // Seed layout slots for auto-added system fields ahead of the section rows so
+  // sanitizeLayout doesn't park them after signature/photos/damage pad.
+  let rawLayout = Array.isArray(raw?.layout) ? JSON.parse(JSON.stringify(raw.layout)) : raw?.layout;
+  if (addedSystemIds.length && Array.isArray(rawLayout)) {
+    const tokens = addedSystemIds.map(id => ({ type: 'field', id }));
+    const firstSectionIdx = rawLayout.findIndex(it => it && it.type === 'section');
+    if (firstSectionIdx < 0) rawLayout.push(...tokens);
+    else rawLayout.splice(firstSectionIdx, 0, ...tokens);
+  }
+  const layout = sanitizeLayout(rawLayout, fields, sections);
   return { fields, sections, layout };
 }
 

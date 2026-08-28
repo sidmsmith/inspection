@@ -352,7 +352,7 @@ def usage_track():
             **metadata,
             "event_name": event_name,
             "app_name": "inspection",
-            "app_version": "0.1.0",
+            "app_version": "0.1.1",
             "timestamp": datetime.now().isoformat()
         }
         
