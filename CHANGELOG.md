@@ -4,9 +4,9 @@
 
 | Component | Version |
 |-----------|---------|
-| Inspection app | **v0.1.3** |
+| Inspection app | **v0.1.4** |
 | Checklist admin | **v0.3.8** |
-| API / package | **v0.1.2** |
+| API / package | **v0.1.3** |
 
 ### Inspection app
 
@@ -21,6 +21,9 @@
   is reported in the completion message.
 - **Pass / Fail buttons** always render green (Pass) / red (Fail) regardless of
   the org theme accent color.
+- **Markup Pad** — a blank markup pad is no longer uploaded. When the section
+  isn't required and the inspector took no photo / drew no marks, the Markup Pad
+  Photo is skipped (and no longer counted in the completion message).
 
 ### Checklist admin
 
