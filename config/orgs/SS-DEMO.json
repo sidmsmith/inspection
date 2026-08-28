@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-08-18T21:36:16.453Z",
+  "updatedAt": "2026-08-28T13:29:29.814Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -478,6 +478,15 @@
                 "operator": "contains",
                 "value": "anana",
                 "conjunction": "AND"
+              },
+              {
+                "id": "cond-mt1o4zuo-tfatn",
+                "source": "header",
+                "field": "IlpnId",
+                "label": "IlpnId",
+                "operator": "eq",
+                "value": "",
+                "conjunction": "AND"
               }
             ]
           },
@@ -517,7 +526,8 @@
                 "Very Soft"
               ],
               "id": "banana_firmness",
-              "required": true
+              "required": true,
+              "default": "Slightly Soft"
             },
             {
               "label": "Temperature",
@@ -597,7 +607,7 @@
         },
         {
           "id": "c-msw6a5s1-dj38t",
-          "name": "Berry",
+          "name": "Berries",
           "isDefault": false,
           "rule": {
             "conditions": [
