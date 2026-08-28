@@ -1288,7 +1288,8 @@ function renderChecklistAdminList(listHost, {
       const offClass = !editable && f.enabled === false ? ' section-row-off' : '';
       const badgeText = isSystemField(f)
         ? systemFieldSummaryLabel(f)
-        : escapeHtml(typeLabelForField(f));
+        : escapeHtml(typeLabelForField(f)) +
+          (f.failConditionCode ? ` <span class="fail-lock-tag">Fail → ${escapeHtml(f.failConditionCode)}</span>` : '');
       const swatchDotsHtml = f.type === 'color_swatch'
         ? `<span class="q-color-dots">${(f.options || []).slice(0, 5).map(o => `<span class="q-color-dot" style="background:${escapeHtml(o)}"></span>`).join('')}</span>`
         : '';
@@ -1543,7 +1544,15 @@ function createSystemFieldEditor({ field, onSave, onCancel }) {
   return wrap;
 }
 
-function createEditorForm({ field, isNew, onSave, onCancel }) {
+/** iLPN Condition Code list for the Pass/Fail "on Fail, lock" picker. */
+function failLockConditionCodes(objectType) {
+  if (objectType !== 'ilpn') return null;
+  return [...(previewApiData.ilpn_condition_codes || [])].sort((a, b) =>
+    (a.Description || a.ConditionCodeId || '').localeCompare(b.Description || b.ConditionCodeId || '')
+  );
+}
+
+function createEditorForm({ field, isNew, objectType, onSave, onCancel }) {
   if (!isNew && field.dataSource) {
     return createSystemFieldEditor({ field, onSave, onCancel });
   }
@@ -1618,6 +1627,16 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
       <input type="checkbox" class="form-check-input" id="edRequired" ${working.required ? 'checked' : ''} />
       <label class="form-check-label" for="edRequired">Required</label>
     </div>
+    <div class="mb-3" id="edFailLockWrap" style="display:none">
+      <label class="form-label" for="edFailLock">On &ldquo;Fail&rdquo;, lock Condition Code</label>
+      <select class="form-select form-select-sm" id="edFailLock"></select>
+      <small class="text-muted d-block mt-1">
+        When the inspector selects <strong>Fail</strong>, this condition code is also
+        applied when the iLPN is locked on submit &mdash; in addition to any code the
+        inspector picks in the Condition Code question. Leave as <em>None</em> for no
+        automatic lock. Codes load after you authenticate.
+      </small>
+    </div>
     <div class="d-flex gap-2 flex-wrap">
       <button type="button" class="btn btn-primary" id="edSave" disabled>${creating ? 'Add' : 'Save'}</button>
       <button type="button" class="btn btn-secondary" id="edCancel">Cancel</button>
@@ -1642,9 +1661,29 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
   const numberMinInput = wrap.querySelector('#edNumberMin');
   const numberMaxInput = wrap.querySelector('#edNumberMax');
   const requiredWrap = wrap.querySelector('#edRequiredWrap');
+  const failLockWrap = wrap.querySelector('#edFailLockWrap');
+  const failLockSelect = wrap.querySelector('#edFailLock');
   const defaultHost = wrap.querySelector('#edDefaultHost');
   const saveBtn = wrap.querySelector('#edSave');
   const labelInput = wrap.querySelector('#edLabel');
+
+  const failLockCodes = failLockConditionCodes(objectType);
+  function mountFailLock() {
+    if (!failLockCodes) return;
+    const current = working.failConditionCode || '';
+    const known = failLockCodes.some(c => c.ConditionCodeId === current);
+    const opts = ['<option value="">— None (no automatic lock) —</option>'];
+    if (current && !known) {
+      opts.push(`<option value="${escapeHtml(current)}" selected>${escapeHtml(current)} (not in loaded list)</option>`);
+    }
+    failLockCodes.forEach(c => {
+      const id = escapeHtml(c.ConditionCodeId);
+      const label = escapeHtml(c.Description && c.Description !== c.ConditionCodeId ? `${c.ConditionCodeId} — ${c.Description}` : c.ConditionCodeId);
+      opts.push(`<option value="${id}"${current === c.ConditionCodeId ? ' selected' : ''}>${label}</option>`);
+    });
+    failLockSelect.innerHTML = opts.join('');
+  }
+  mountFailLock();
 
   function usesOptionEditor(key) {
     return key && (fieldTypeUsesOptions(fieldTypeConfigForKey(key)?.type || '') || key === 'dropdown' || key === 'multi_select');
@@ -1658,6 +1697,9 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
     imageWrap.style.display = isImage ? 'block' : 'none';
     numberWrap.style.display = selectedTypeKey === 'number' ? 'block' : 'none';
     requiredWrap.style.display = isImage ? 'none' : 'block';
+    if (failLockWrap) {
+      failLockWrap.style.display = (failLockCodes && selectedTypeKey === 'pass_fail') ? 'block' : 'none';
+    }
     if (show && selectedTypeKey) {
       optionsHint.textContent = optionsHintForFieldType(selectedTypeKey);
     }
@@ -1873,6 +1915,9 @@ function createEditorForm({ field, isNew, onSave, onCancel }) {
     } else {
       delete working.default;
     }
+    const failLockValue = failLockCodes && selectedTypeKey === 'pass_fail' ? (failLockSelect.value || '') : '';
+    if (failLockValue) working.failConditionCode = failLockValue;
+    else delete working.failConditionCode;
     onSave(working);
   };
   wrap.querySelector('#edCancel').onclick = onCancel;

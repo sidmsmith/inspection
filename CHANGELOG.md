@@ -4,9 +4,9 @@
 
 | Component | Version |
 |-----------|---------|
-| Inspection app | **v0.1.2** |
-| Checklist admin | **v0.3.5** |
-| API / package | **v0.1.1** |
+| Inspection app | **v0.1.3** |
+| Checklist admin | **v0.3.6** |
+| API / package | **v0.1.2** |
 
 ### Inspection app
 
@@ -14,6 +14,11 @@
   (previously only on the Default iLPN criteria) is now available on all
   criteria-based iLPN checklists. It is auto-added **hidden**; toggle the eye
   icon in the checklist admin to show it on a given criteria.
+- **Pass / Fail → Condition Code lock (iLPN)** — a Pass/Fail question can be
+  configured to lock a condition code when answered "Fail". On submit the iLPN
+  is locked with the inspector-selected condition code **and** every configured
+  fail code, de-duplicated (one `lock_ilpn` call per distinct code). Each lock
+  is reported in the completion message.
 - **Pass / Fail buttons** always render green (Pass) / red (Fail) regardless of
   the org theme accent color.
 
@@ -21,6 +26,8 @@
 
 - Condition Code shows as a hidden system question on custom iLPN criteria, with
   the standard eye / required / default controls.
+- **"On Fail, lock Condition Code"** picker on Pass/Fail questions (iLPN only);
+  the question list shows a `Fail → <code>` tag when set.
 - Preview matches the app's fixed green/red Pass/Fail styling.
 
 ---

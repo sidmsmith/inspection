@@ -362,6 +362,8 @@ function applyChecklistFieldType(field, typeKey) {
   field.type = def.type;
   delete field.dataSource;
   delete field.default;
+  // Pass/Fail-only setting — drop it whenever the answer type changes.
+  if (typeKey !== 'pass_fail') delete field.failConditionCode;
   if (def.type === 'freeform') {
     delete field.options;
     delete field.description;

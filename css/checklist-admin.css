@@ -953,6 +953,16 @@
   text-transform: uppercase;
 }
 
+.fail-lock-tag {
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(200, 35, 51, 0.16);
+  color: #c82333;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
 .line-nav-panel {
   background: var(--card-bg);
   border: 1px solid var(--border);

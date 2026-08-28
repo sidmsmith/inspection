@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Inspection v0.1.2</title>
+  <title>Inspection v0.1.3</title>
   <!-- v0.1.1: Inspect object button label -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -4172,6 +4172,29 @@
       return responses;
     }
 
+    /**
+     * iLPN condition codes to lock on submit: the code the inspector picked in the
+     * Condition Code question, plus the `failConditionCode` of any Pass/Fail question
+     * currently answered "Fail". De-duplicated, so one shared code = one lock call.
+     */
+    function collectIlpnLockCodes(appt) {
+      const responses = appt._checklistResponses || {};
+      const seen = new Set();
+      const codes = [];
+      const add = raw => {
+        const v = String(raw || '').trim();
+        if (v && !seen.has(v)) { seen.add(v); codes.push(v); }
+      };
+      add(responses.condition_code || getChecklistFieldValue('condition_code'));
+      const checklist = getNormalizedChecklist('ilpn');
+      (checklist?.fields || []).forEach(field => {
+        if (field.type !== 'segmented' || !field.failConditionCode) return;
+        const answer = responses[field.id] ?? getChecklistFieldValue(field.id);
+        if (answer === 'Fail') add(field.failConditionCode);
+      });
+      return codes;
+    }
+
     async function performCompleteInspection(appt) {
       const org = orgInput.value.trim() || 'unknown';
       const uploadTargets = getInspectionUploadTargets(appt);
@@ -4287,34 +4310,36 @@
         let lockResult = null;
         let ilpnLockFailed = false;
         let locationLockFailed = false;
-        const selectedConditionCode = appt._searchType === 'ilpn'
-          ? (appt._checklistResponses?.condition_code || getChecklistFieldValue('condition_code'))
-          : '';
-        if (selectedConditionCode) {
+        const ilpnLockCodes = appt._searchType === 'ilpn' ? collectIlpnLockCodes(appt) : [];
+        if (ilpnLockCodes.length) {
           const ilpnConfig = INSPECTION_SEARCH_TYPES.ilpn;
           const ilpnId = extractRecordId(appt, ilpnConfig.idFields);
           if (ilpnId) {
-            showBusyOverlay('Locking iLPN...');
-            await yieldToUi();
-            const lockStartTime = Date.now();
-            lockResult = await api('lock_ilpn', {
-              org,
-              token,
-              ilpn_id: ilpnId,
-              condition_code: selectedConditionCode
-            });
-            trackEvent('ilpn_lock_completed', {
-              org,
-              ilpn_id: ilpnId,
-              condition_code: selectedConditionCode,
-              success: !!lockResult.success,
-              error: lockResult.error || null,
-              lock_duration_ms: Date.now() - lockStartTime
-            });
-            if (lockResult.success) {
-              message += ` iLPN ${ilpnId} locked with condition code ${selectedConditionCode}.`;
-            } else {
-              ilpnLockFailed = true;
+            for (const code of ilpnLockCodes) {
+              showBusyOverlay(ilpnLockCodes.length > 1 ? `Locking iLPN (${code})...` : 'Locking iLPN...');
+              await yieldToUi();
+              const lockStartTime = Date.now();
+              const res = await api('lock_ilpn', {
+                org,
+                token,
+                ilpn_id: ilpnId,
+                condition_code: code
+              });
+              lockResult = res;
+              trackEvent('ilpn_lock_completed', {
+                org,
+                ilpn_id: ilpnId,
+                condition_code: code,
+                success: !!res.success,
+                error: res.error || null,
+                lock_duration_ms: Date.now() - lockStartTime
+              });
+              if (res.success) {
+                message += ` iLPN ${ilpnId} locked with condition code ${code}.`;
+              } else {
+                ilpnLockFailed = true;
+                message += ` iLPN lock failed for ${code}: ${res.error || 'Unknown error'}.`;
+              }
             }
           }
         }
@@ -4373,8 +4398,8 @@
           uploads_failed: uploadsFailed,
           inspection_duration_ms: inspectionDuration,
           upload_duration_ms: uploadDuration,
-          ilpn_lock_attempted: !!selectedConditionCode,
-          ilpn_lock_success: lockResult?.success ?? null
+          ilpn_lock_attempted: ilpnLockCodes.length > 0,
+          ilpn_lock_success: ilpnLockFailed ? false : (lockResult?.success ?? null)
         });
 
         criteriaInput.value = '';
