@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-08-28T15:48:37.627Z",
+  "updatedAt": "2026-08-28T15:53:38.505Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -625,7 +625,7 @@
         },
         {
           "id": "c-msw6a5s1-dj38t",
-          "name": "Berries",
+          "name": "Strawberries",
           "isDefault": false,
           "rule": {
             "conditions": [
@@ -635,11 +635,159 @@
                 "field": "Description",
                 "label": "Description",
                 "operator": "contains",
-                "value": "erry",
+                "value": "rawberry",
                 "conjunction": "AND"
               },
               {
                 "id": "cond-msw6aa39-9fqcr",
+                "source": "item",
+                "field": "Description",
+                "label": "Description",
+                "operator": "contains",
+                "value": "rawberries",
+                "conjunction": "OR"
+              }
+            ]
+          },
+          "fields": [
+            {
+              "label": "Item Image",
+              "type": "image",
+              "useItemImage": true,
+              "imageUrl": "",
+              "id": "item_image",
+              "required": false
+            },
+            {
+              "label": "Berry Color",
+              "type": "color_swatch",
+              "options": [
+                "#850505",
+                "#b71c1c",
+                "#c9454b",
+                "#db6e7a",
+                "#ed98aa",
+                "#ffc1d9"
+              ],
+              "id": "berry_color",
+              "required": true
+            },
+            {
+              "label": "Berry Firmness",
+              "type": "slider",
+              "options": [
+                "Firm",
+                "Slightly Soft",
+                "Soft",
+                "Very Soft"
+              ],
+              "id": "berry_firmness",
+              "required": true
+            },
+            {
+              "label": "Temperature",
+              "type": "number",
+              "placeholder": "",
+              "unit": "°F",
+              "min": 0,
+              "max": 100,
+              "id": "temperature",
+              "required": true
+            },
+            {
+              "label": "Mold Present",
+              "type": "traffic_light",
+              "options": [
+                "Visible Mold",
+                "Further Inspection Required",
+                "All Clear"
+              ],
+              "id": "mold_present",
+              "required": true
+            },
+            {
+              "id": "condition_code",
+              "label": "Condition Code",
+              "type": "dropdown",
+              "dataSource": "ilpn_condition_codes",
+              "enabled": true
+            }
+          ],
+          "sections": {
+            "signature": {
+              "enabled": true,
+              "required": true,
+              "label": "Inspector's Signature"
+            },
+            "photos": {
+              "enabled": false,
+              "required": false,
+              "label": "Inspection Photos"
+            },
+            "damagePad": {
+              "enabled": true,
+              "required": false,
+              "label": "LPN Photo for Markup",
+              "mode": "photo",
+              "includeInDocumentUpload": true
+            }
+          },
+          "layout": [
+            {
+              "type": "field",
+              "id": "item_image"
+            },
+            {
+              "type": "field",
+              "id": "berry_color"
+            },
+            {
+              "type": "field",
+              "id": "berry_firmness"
+            },
+            {
+              "type": "field",
+              "id": "temperature"
+            },
+            {
+              "type": "field",
+              "id": "mold_present"
+            },
+            {
+              "type": "field",
+              "id": "condition_code"
+            },
+            {
+              "type": "section",
+              "key": "damagePad"
+            },
+            {
+              "type": "section",
+              "key": "signature"
+            },
+            {
+              "type": "section",
+              "key": "photos"
+            }
+          ]
+        },
+        {
+          "id": "c-mtd4oda1-iac6q",
+          "name": "Berries",
+          "isDefault": false,
+          "rule": {
+            "conditions": [
+              {
+                "id": "cond-mtd4pqjn-yyzxt",
+                "source": "item",
+                "field": "Description",
+                "label": "Description",
+                "operator": "contains",
+                "value": "erry",
+                "conjunction": "AND"
+              },
+              {
+                "id": "cond-mtd4q1u9-iul1m",
                 "source": "item",
                 "field": "Description",
                 "label": "Description",
@@ -662,16 +810,12 @@
               "label": "Berry Color",
               "type": "color_swatch",
               "options": [
-                "#b71c1c",
-                "#c9454b",
-                "#db6e7a",
-                "#ed98aa",
-                "#ffc1d9",
                 "#8b3fd1",
                 "#6e39b8",
                 "#50339e",
                 "#332d84",
-                "#16276b"
+                "#16276b",
+                "#000000"
               ],
               "id": "berry_color",
               "required": true
