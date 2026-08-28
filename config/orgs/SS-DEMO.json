@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-08-28T15:53:38.505Z",
+  "updatedAt": "2026-08-28T16:02:44.779Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -531,17 +531,6 @@
               "required": true
             },
             {
-              "label": "Visible Damage / Mold Present",
-              "type": "traffic_light",
-              "options": [
-                "Visible Mold",
-                "Further Inspection Required",
-                "All Clear"
-              ],
-              "id": "visible_damage_mold_present",
-              "required": true
-            },
-            {
               "id": "condition_code",
               "label": "Condition Code",
               "type": "dropdown",
@@ -596,10 +585,6 @@
             {
               "type": "field",
               "id": "temperature"
-            },
-            {
-              "type": "field",
-              "id": "visible_damage_mold_present"
             },
             {
               "type": "field",
