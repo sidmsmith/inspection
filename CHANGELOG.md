@@ -5,7 +5,7 @@
 | Component | Version |
 |-----------|---------|
 | Inspection app | **v0.1.3** |
-| Checklist admin | **v0.3.7** |
+| Checklist admin | **v0.3.8** |
 | API / package | **v0.1.2** |
 
 ### Inspection app
@@ -32,6 +32,8 @@
   a single click on the drag grip (drag-to-reorder still works). Renaming a rule
   moved to a double-click on its name. Selectable area per row went from ~13% to
   ~90% (everything but the trash button).
+- Removed the on-page version label under the "Checklist Config" heading — the
+  version still shows in the browser tab title.
 - Preview matches the app's fixed green/red Pass/Fail styling.
 
 ---
