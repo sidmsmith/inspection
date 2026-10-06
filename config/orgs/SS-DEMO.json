@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-08-28T16:14:42.970Z",
+  "updatedAt": "2026-10-06T17:20:14.910Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -464,6 +464,140 @@
     },
     "ilpn": {
       "criteria": [
+        {
+          "id": "c-dbg3800032-pharma",
+          "name": "DBG – 3800032",
+          "isDefault": false,
+          "rule": {
+            "conditions": [
+              {
+                "id": "cond-dbg3800032-item",
+                "source": "item",
+                "field": "ItemId",
+                "label": "ItemId",
+                "operator": "eq",
+                "value": "3800032",
+                "conjunction": "AND"
+              }
+            ]
+          },
+          "fields": [
+            {
+              "label": "Item Image",
+              "type": "image",
+              "useItemImage": true,
+              "imageUrl": "",
+              "id": "item_image",
+              "required": false
+            },
+            {
+              "label": "Leakage / Spillage",
+              "type": "traffic_light",
+              "options": [
+                "Active leak – isolate",
+                "Residue / stained",
+                "Dry & clean"
+              ],
+              "id": "leakage",
+              "required": true
+            },
+            {
+              "label": "Tamper-evident seals intact",
+              "type": "segmented",
+              "options": [
+                "Pass",
+                "Fail"
+              ],
+              "id": "tamper_seals",
+              "required": true
+            },
+            {
+              "label": "Labels present, legible & correct",
+              "type": "segmented",
+              "options": [
+                "Pass",
+                "Fail"
+              ],
+              "id": "labels_correct",
+              "required": true
+            },
+            {
+              "label": "Product Temperature",
+              "type": "number",
+              "placeholder": "",
+              "unit": "°C",
+              "min": -10,
+              "max": 40,
+              "id": "product_temp",
+              "required": true
+            },
+            {
+              "id": "condition_code",
+              "label": "Condition Code",
+              "type": "dropdown",
+              "dataSource": "ilpn_condition_codes",
+              "enabled": true,
+              "required": false
+            }
+          ],
+          "sections": {
+            "signature": {
+              "enabled": true,
+              "required": true,
+              "label": "Inspector's Signature"
+            },
+            "photos": {
+              "enabled": true,
+              "required": false,
+              "label": "Inspection Photos"
+            },
+            "damagePad": {
+              "enabled": true,
+              "required": false,
+              "label": "LPN Photo for Markup",
+              "mode": "photo",
+              "includeInDocumentUpload": true
+            }
+          },
+          "layout": [
+            {
+              "type": "field",
+              "id": "item_image"
+            },
+            {
+              "type": "field",
+              "id": "leakage"
+            },
+            {
+              "type": "field",
+              "id": "tamper_seals"
+            },
+            {
+              "type": "field",
+              "id": "labels_correct"
+            },
+            {
+              "type": "field",
+              "id": "product_temp"
+            },
+            {
+              "type": "field",
+              "id": "condition_code"
+            },
+            {
+              "type": "section",
+              "key": "damagePad"
+            },
+            {
+              "type": "section",
+              "key": "signature"
+            },
+            {
+              "type": "section",
+              "key": "photos"
+            }
+          ]
+        },
         {
           "id": "c-msw69t4x-ef2yq",
           "name": "Banana",
