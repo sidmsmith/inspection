@@ -10,6 +10,9 @@
 
 ### Inspection app
 
+- **DBG Health theme** — navy `#131454` / cream palette taken from
+  dbghealth.com.au, with the DBG Health logo (`public/dbg_logo.png`). Also
+  available in the checklist admin's theme picker.
 - **iLPN Condition Code on every criteria** — the system Condition Code question
   (previously only on the Default iLPN criteria) is now available on all
   criteria-based iLPN checklists. It is auto-added **hidden**; toggle the eye

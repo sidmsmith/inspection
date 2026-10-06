@@ -345,6 +345,35 @@
         logo: '/pricesmart_logo.png',
         logoMaxHeight: '56px',
         logoMaxWidth: '240px'
+      },
+      'dbg': {
+        name: 'DBG Health',
+        colors: {
+          '--bg-dark': '#fdf6ef',
+          '--card-bg': '#ffffff',
+          '--input-bg': '#f4f4f9',
+          '--border': '#d7d7d7',
+          '--text': '#131454',
+          '--text-secondary': '#3a3b72',
+          '--text-muted': '#6b6c94',
+          '--red-bg': '#fff2f5',
+          '--red-text': '#d32f4f',
+          '--blue-select': '#131454',
+          '--success': '#28a745',
+          '--primary': '#131454',
+          '--primary-hover': '#313397',
+          '--success-hover': '#218838',
+          '--table-header-bg': '#131454',
+          '--table-header-text': '#ffffff',
+          '--input-border': '#c9c9d6',
+          '--input-focus-bg': '#ffffff',
+          '--input-focus-border': '#37a7d1',
+          '--input-focus-shadow': 'rgba(55, 167, 209, 0.3)',
+          '--logo-url': 'url("/dbg_logo.png")',
+          '--logo-display': 'block'
+        },
+        logo: '/dbg_logo.png',
+        logoMaxHeight: '60px'
       }
     };
 
