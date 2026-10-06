@@ -1,6 +1,6 @@
 {
   "org": "SS-DEMO",
-  "updatedAt": "2026-10-06T17:20:14.910Z",
+  "updatedAt": "2026-10-06T17:34:18.672Z",
   "checklists": {
     "trailer": {
       "fields": [
@@ -529,7 +529,7 @@
               "min": -10,
               "max": 40,
               "id": "product_temp",
-              "required": true
+              "required": false
             },
             {
               "id": "condition_code",
@@ -547,7 +547,7 @@
               "label": "Inspector's Signature"
             },
             "photos": {
-              "enabled": true,
+              "enabled": false,
               "required": false,
               "label": "Inspection Photos"
             },
