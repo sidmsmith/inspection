@@ -350,7 +350,7 @@
         name: 'DBG Health',
         colors: {
           '--bg-dark': '#fdf6ef',
-          '--card-bg': '#ffffff',
+          '--card-bg': '#fdf6ef',
           '--input-bg': '#f4f4f9',
           '--border': '#d7d7d7',
           '--text': '#131454',
